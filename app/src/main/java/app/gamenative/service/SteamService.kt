@@ -3679,6 +3679,16 @@ class SteamService : Service(), IChallengeUrlChanged {
                 // Tell steam we're online, this allows friends to update.
                 _steamFriends?.setPersonaState(PrefManager.personaState)
 
+                val activeGame = ActiveGameRegistry.get()
+                if (activeGame != null) {
+                    Timber.i("Re-sending active game session for appId=%d after Steam reconnect", activeGame.appId)
+                    scope.launch {
+                        notifyRunningProcesses(activeGame)
+                    }
+                } else {
+                    Timber.d("No active game session to re-send after Steam reconnect")
+                }
+
                 notificationHelper.notify("Connected")
 
                 _loginResult = LoginResult.Success
@@ -3896,8 +3906,6 @@ class SteamService : Service(), IChallengeUrlChanged {
             db.withTransaction {
                 // Send off an event if we change states.
                 if (callback.friendId == steamClient!!.steamID) {
-                    Timber.d("Local persona state received: ${callback.playerName}")
-
                     val avatarHash = callback.avatarHash.toHexString()
                     val playerName = callback.playerName
 
@@ -3908,6 +3916,10 @@ class SteamService : Service(), IChallengeUrlChanged {
                     } else {
                         callback.personaState
                     }
+
+                    Timber.d(
+                        "Local persona state received: ${callback.playerName}, state=$state, gameAppId=${callback.gamePlayedAppId}, gameName=${callback.gameName}",
+                    )
 
                     // Update local state flow
                     _localPersona.update {
