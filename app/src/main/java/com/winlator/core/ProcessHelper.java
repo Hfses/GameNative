@@ -447,13 +447,15 @@ public abstract class ProcessHelper {
             }
         });
 
+        String procFile = BuildConfig.MODERN_ANDROID ? "/cmdline" : "/stat";
         for (int index = 0; index < allPids.length; index++){
             String data = "";
             try (
-                FileInputStream fr = new FileInputStream(proc + "/" + allPids[index] + "/stat");
+                FileInputStream fr = new FileInputStream(proc + "/" + allPids[index] + procFile);
                 BufferedReader br = new BufferedReader(new InputStreamReader(fr));
             ) {
-                data = br.readLine();
+                String line = br.readLine();
+                if (line != null) data = line;
             }
             catch (IOException e) {}
             for (String filter : filterList) {
