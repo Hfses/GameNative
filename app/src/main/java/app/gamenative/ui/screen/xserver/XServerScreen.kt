@@ -4734,12 +4734,13 @@ private fun extractGraphicsDriverFiles(
         var cacheId = graphicsDriver
         if (graphicsDriver == "turnip") {
             cacheId += "-" + turnipVersion + "-" + zinkVersion
-            if (turnipVersion == "25.2.0" || turnipVersion == "25.3.0") {
-                if (GPUInformation.isAdreno710_720_732(context)) {
-                    envVars.put("TU_DEBUG", "gmem");
-                } else {
-                    envVars.put("TU_DEBUG", "sysmem");
-                }
+            if (GPUInformation.isAdreno710_720_732(context)) {
+                val userEnvVars = EnvVars(container.envVars)
+                val tuDebug = userEnvVars.get("TU_DEBUG")
+                if (!tuDebug.contains("gmem")) userEnvVars.put("TU_DEBUG", (if (!tuDebug.isEmpty()) "$tuDebug," else "") + "gmem")
+                container.envVars = userEnvVars.toString()
+            } else if (turnipVersion == "25.2.0" || turnipVersion == "25.3.0") {
+                envVars.put("TU_DEBUG", "sysmem");
             }
         } else if (graphicsDriver == "virgl") {
             cacheId += "-" + DefaultVersion.VIRGL
