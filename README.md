@@ -43,17 +43,17 @@ It's still early. Not every game runs yet, and some need tweaking to play well, 
 
 ## Demo
 
-TechDweeb walks through setting up GameNative on an Android handheld in a couple of minutes:
+[TechDweeb](https://www.youtube.com/@TechDweeb) walks through setting up GameNative on an Android handheld in a couple of minutes:
 
 <div align="center">
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/QqIChmAu2_A?si=EiixXAl9XawW4CBs&amp;start=53" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 
 [![Steam Games on Android with GameNative IN 2 MINUTES!](https://img.youtube.com/vi/QqIChmAu2_A/maxresdefault.jpg)](https://youtu.be/QqIChmAu2_A?t=53)
 
 [![Watch on YouTube](https://img.shields.io/badge/▶%20Watch%20on%20YouTube-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://youtu.be/QqIChmAu2_A?t=53)
 
 </div>
-
-Thanks to [TechDweeb](https://www.youtube.com/@TechDweeb) for the video. There's also a clip of [Stray running on a Poco F6](https://github.com/user-attachments/assets/1870fd14-7de9-4054-ba92-d3a5c73686b5) if you want to see it in motion.
 
 ## How to use
 
