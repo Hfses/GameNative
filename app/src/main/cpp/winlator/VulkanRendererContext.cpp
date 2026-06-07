@@ -1045,7 +1045,7 @@ void VulkanRendererContext::setTransform(float ox, float oy, float sx, float sy)
 
 void VulkanRendererContext::updatePointerPosition(short x, short y) {
     pointerX.store(x); pointerY.store(y);
-    if (cursorVisible.load()) { cursorMoved.store(true); dirtyCV.notify_one(); }
+    cursorMoved.store(true); dirtyCV.notify_one();
 }
 
 void VulkanRendererContext::setCursorVisible(bool v) {
