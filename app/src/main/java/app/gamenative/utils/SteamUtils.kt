@@ -860,10 +860,8 @@ object SteamUtils {
 
         Timber.i("Finished restoreSteamApi for appId: ${appId}")
 
-        // Restore original executable if it exists (for real Steam mode)
-        if (!container.isLaunchBionicSteam) {
-            restoreOriginalExecutable(context, steamAppId)
-        }
+        // Restore original executable if it exists (real Steam + bionic Steam)
+        restoreOriginalExecutable(context, steamAppId)
 
         // Restore original steamclient.dll files if they exist
         restoreSteamclientFiles(context, steamAppId)

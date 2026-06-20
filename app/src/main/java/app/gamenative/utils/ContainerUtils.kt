@@ -447,6 +447,8 @@ object ContainerUtils {
         val previousSteamOfflineMode: Boolean = container.isSteamOfflineMode()
 
         val previousUnpackFiles: Boolean = container.isUnpackFiles
+        val previousLaunchBionicSteam: Boolean = container.isLaunchBionicSteam
+        val previousLaunchRealSteam: Boolean = container.isLaunchRealSteam
         val userRegFile = File(container.rootDir, ".wine/user.reg")
         WineRegistryEditor(userRegFile).use { registryEditor ->
             registryEditor.setStringValue("Software\\Wine\\Direct3D", "renderer", containerData.renderer)
@@ -487,6 +489,10 @@ object ContainerUtils {
         container.isShowFPS = false
         container.isLaunchRealSteam = containerData.launchRealSteam
         container.isLaunchBionicSteam = containerData.launchBionicSteam
+        if (previousLaunchBionicSteam != containerData.launchBionicSteam ||
+            previousLaunchRealSteam != containerData.launchRealSteam) {
+            container.setNeedsUnpacking(true)
+        }
         container.isAllowSteamUpdates = containerData.allowSteamUpdates
         container.setSteamType(containerData.steamType)
         container.cpuList = containerData.cpuList

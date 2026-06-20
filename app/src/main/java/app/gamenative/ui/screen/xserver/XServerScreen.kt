@@ -4180,7 +4180,7 @@ private fun unpackExecutableFile(
 
         output = StringBuilder()
 
-        if (!container.isLaunchRealSteam) {
+        if (!container.isLaunchRealSteam && !container.isLaunchBionicSteam) {
             val exePaths = if (container.isUnpackFiles) {
                 val scanned = ContainerUtils.scanExecutablesInADrive(container.drives)
                 val filtered = ContainerUtils.filterExesForUnpacking(scanned)
@@ -5204,17 +5204,17 @@ private fun extractSteamFiles(
             }
         }
 
-        val drmArchive = File(imageFs.getFilesDir(), "experimental-drm-20260116.tzst")
-        if (drmArchive.exists()) {
-            Timber.i("Extracting experimental-drm.tzst (bionic mode)")
+        val steamclientDllsArchive = File(imageFs.getFilesDir(), "steamclient-dlls-20260619.tzst")
+        if (steamclientDllsArchive.exists()) {
+            Timber.i("Extracting steamclient-dlls.tzst (genuine Valve steamclient.dll for SteamStub)")
             TarCompressorUtils.extract(
                 TarCompressorUtils.Type.ZSTD,
-                drmArchive,
+                steamclientDllsArchive,
                 imageFs.getRootDir(),
                 onExtractFileListener,
             )
         } else {
-            Timber.e("experimental-drm-20260116.tzst missing at ${drmArchive.absolutePath}")
+            Timber.e("steamclient-dlls-20260619.tzst missing at ${steamclientDllsArchive.absolutePath}")
         }
 
         try {
