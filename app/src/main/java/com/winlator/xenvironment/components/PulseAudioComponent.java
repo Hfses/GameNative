@@ -44,6 +44,7 @@ public class PulseAudioComponent extends EnvironmentComponent {
 
     private float volume = 1.0f;
     private byte performanceMode = 1;
+    private final AtomicBoolean isPauseResumeRunning = new AtomicBoolean(false);
     private final AtomicBoolean isPaused = new AtomicBoolean(false);
     private boolean lowLatency = false;
 
@@ -84,11 +85,9 @@ public class PulseAudioComponent extends EnvironmentComponent {
     public void start() {
         singleThreadExecutor.execute(() -> {
             Timber.tag("PulseAudioComponent").d("Starting...");
-            if (!isServerRunning()) {
-                killAllPulseAudioProcesses();
-                startPulseAudio();
-                isPaused.set(false);
-            }
+            killAllPulseAudioProcesses();
+            startPulseAudio();
+            isPaused.set(false);
         });
     }
 
@@ -105,14 +104,20 @@ public class PulseAudioComponent extends EnvironmentComponent {
 
     public void pause() {
         singleThreadExecutor.execute(() -> {
-            if (!isPaused.get() && isServerRunning()) {
-                Timber.tag("PulseAudioComponent").d("Pausing...");
+            if (!isPaused.get()) {
+                if (!isPauseResumeRunning.get()) {
+                    isPauseResumeRunning.set(true);
+                    Timber.tag("PulseAudioComponent").d("Pausing...");
 
-                // Suspend sink and set isPaused together immediately
-                isPaused.set(true);
-                updateSink(true);
+                    if (updateSink(true)) {
+                        isPaused.set(true);
+                        Timber.tag("PulseAudioComponent").d("Audio paused");
+                    } else {
+                        Timber.tag("PulseAudioComponent").d("Failed to pause Audio");
+                    }
 
-                Timber.tag("PulseAudioComponent").d("Audio paused");
+                    isPauseResumeRunning.set(false);
+                }
             }
         });
     }
@@ -120,24 +125,21 @@ public class PulseAudioComponent extends EnvironmentComponent {
     public void resume() {
         singleThreadExecutor.execute(() -> {
             if (isPaused.get()) {
-                Timber.tag("PulseAudioComponent").d("Resuming...");
+                if (!isPauseResumeRunning.get()) {
+                    isPauseResumeRunning.set(true);
+                    Timber.tag("PulseAudioComponent").d("Resuming...");
 
-                if (isServerRunning()) {
-                    // Set isPaused immediately
-                    isPaused.set(false);
-                    updateSink(false);
+                    if (updateSink(false)) {
+                        isPaused.set(false);
+                        Timber.tag("PulseAudioComponent").d("Audio resumed");
+                    } else {
+                        Timber.tag("PulseAudioComponent").d("Failed to resume Audio");
+                    }
 
-                    Timber.tag("PulseAudioComponent").d("Audio resumed");
-                } else {
-                    start();
+                    isPauseResumeRunning.set(false);
                 }
             }
         });
-    }
-
-    public boolean isServerRunning() {
-        final String info = execPactlCommand("info").toLowerCase(java.util.Locale.ROOT);
-        return info.contains("server name:") && !info.contains("connection failure");
     }
 
     public void setVolume(float volume) {
@@ -219,11 +221,11 @@ public class PulseAudioComponent extends EnvironmentComponent {
         return ProcessHelper.execWithOutput(workingDir + "/pactl " + command, envVars.toStringArray(), workingDir, true);
     }
 
-    private void updateSink(boolean suspend) {
+    private boolean updateSink(boolean suspend) {
         if (!suspend) {
-            execPactlCommand("suspend-sink " + SINK_NAME + " false");
+            return !execPactlCommand("suspend-sink " + SINK_NAME + " false").toLowerCase().contains("process timeout");
         } else {
-            execPactlCommand("suspend-sink " + SINK_NAME + " true");
+            return !execPactlCommand("suspend-sink " + SINK_NAME + " true").toLowerCase().contains("process timeout");
         }
     }
 

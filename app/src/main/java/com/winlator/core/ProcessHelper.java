@@ -205,7 +205,7 @@ public abstract class ProcessHelper {
             if (BuildConfig.DEBUG) {
                 Log.d("ProcessHelper", "Executing with output: " + Arrays.toString(splitCommand(command)) + ", " + Arrays.toString(envp) + ", " + workingDir);
             }
-            
+
             ProcessBuilder pb = new ProcessBuilder(splitCommand(command));
             Map<String, String> env = pb.environment();
             env.clear();
@@ -241,11 +241,29 @@ public abstract class ProcessHelper {
             stderrDrainer.setDaemon(true);
             stderrDrainer.start();
 
-            process.waitFor();
+            boolean finished = process.waitFor(5, TimeUnit.SECONDS);
+            if (!finished) {
+                process.destroyForcibly();
+                try {
+                    process.waitFor(5, TimeUnit.SECONDS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                output.append("Error: Process timeout after 5 seconds");
+            }
+
             try { stdoutStream.close(); } catch (IOException ignored) {}
             try { stderrStream.close(); } catch (IOException ignored) {}
+
             stdoutDrainer.join(5_000);
+            if (stdoutDrainer.isAlive()) {
+                stdoutDrainer.interrupt();
+            }
+
             stderrDrainer.join(5_000);
+            if (stderrDrainer.isAlive()) {
+                stderrDrainer.interrupt();
+            }
 
             output.append(stdoutBuf);
             if (includeStderr) output.append(stderrBuf);
