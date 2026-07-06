@@ -1663,15 +1663,35 @@ fun preLaunchApp(
                 for (request in missingRequests) {
                     setLoadingMessage(context.getString(R.string.main_downloading_entry, request.entry.name))
                     try {
-                        ManifestInstaller.installManifestEntry(
+                        val result = ManifestInstaller.installManifestEntry(
                             context, request.entry, request.isDriver, request.contentType,
                         ) { progress -> setLoadingProgress(progress.coerceIn(0f, 1f)) }
+                        if (!result.success) {
+                            Timber.e("Failed to install ${request.entry.name}: ${result.message}")
+                            SnackbarManager.show(
+                                context.getString(R.string.component_download_failed, request.entry.name, result.message),
+                            )
+                        }
                     } catch (e: Exception) {
                         Timber.e(e, "Failed to install ${request.entry.name}, continuing")
+                        SnackbarManager.show(
+                            context.getString(
+                                R.string.component_download_failed,
+                                request.entry.name,
+                                e.message ?: context.getString(R.string.component_download_unknown_error),
+                            ),
+                        )
                     }
                 }
             } catch (e: Exception) {
                 Timber.e(e, "Failed to install manifest components")
+                SnackbarManager.show(
+                    context.getString(
+                        R.string.component_download_failed,
+                        context.getString(R.string.component_download_components),
+                        e.message ?: context.getString(R.string.component_download_unknown_error),
+                    ),
+                )
                 setLoadingDialogVisible(false)
                 return@launch
             }

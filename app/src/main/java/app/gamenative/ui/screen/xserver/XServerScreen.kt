@@ -110,6 +110,7 @@ import app.gamenative.ui.data.XServerState
 import app.gamenative.ui.widget.PerformanceHudView
 import app.gamenative.utils.AssetUtils
 import app.gamenative.utils.ContainerUtils
+import app.gamenative.utils.TelemetryCollector
 import app.gamenative.utils.downloader.CoreDriverDownloader
 import app.gamenative.utils.CustomGameScanner
 import app.gamenative.utils.ExecutableSelectionUtils
@@ -378,6 +379,16 @@ fun XServerScreen(
         onDispose {
             contentResolver.unregisterContentObserver(observer)
             BrightnessManager.clearDisplayBrightnessOverride(activity)
+        }
+    }
+
+    // Local, silent telemetry: samples FPS for the whole session and stores a
+    // per-game history on-device. The ".running" marker left behind by a dead
+    // session flags a suspected crash on the next launch.
+    DisposableEffect(appId) {
+        TelemetryCollector.start(context, appId) { frameRating?.currentFPS ?: 0f }
+        onDispose {
+            TelemetryCollector.stop(context)
         }
     }
 

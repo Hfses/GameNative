@@ -1639,4 +1639,13 @@
     <string name="controllers_rescan">Rescan</string>
     <string name="controllers_note">Assignments take effect the next time a game starts. Per-game on-screen layouts remain in each game\'s settings.</string>
     <string name="whats_new_title">What\'s New</string>
+
+    <!-- Download failure feedback -->
+    <string name="component_download_failed">Download failed: %1$s (%2$s)</string>
+    <string name="component_download_unknown_error">unknown error</string>
+    <string name="component_download_components">components</string>
+
+    <!-- Local telemetry suggestions -->
+    <string name="telemetry_low_fps_suggestion">This game averages %1$d FPS. Try the config dialog: lower resolution or enable DXVK async.</string>
+    <string name="telemetry_crash_suggestion">This game closed unexpectedly %1$d times. Try changing the Wine/Proton version or the translator in the game config.</string>
 </resources>

@@ -1509,4 +1509,13 @@
     <string name="controllers_rescan">Procurar de novo</string>
     <string name="controllers_note">As atribuições valem a partir da próxima vez que um jogo abrir. Os layouts de botões na tela continuam nas configurações de cada jogo.</string>
     <string name="whats_new_title">O que há de novo</string>
+
+    <!-- Aviso de falha de download -->
+    <string name="component_download_failed">Falha ao baixar: %1$s (%2$s)</string>
+    <string name="component_download_unknown_error">erro desconhecido</string>
+    <string name="component_download_components">componentes</string>
+
+    <!-- Sugestões da telemetria local -->
+    <string name="telemetry_low_fps_suggestion">Este jogo roda em média a %1$d FPS. Tente na configuração do jogo: reduzir a resolução ou ativar DXVK async.</string>
+    <string name="telemetry_crash_suggestion">Este jogo fechou sozinho %1$d vezes. Tente trocar a versão do Wine/Proton ou o tradutor na configuração do jogo.</string>
 </resources>
