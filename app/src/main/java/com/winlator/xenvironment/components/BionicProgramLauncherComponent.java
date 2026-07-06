@@ -186,10 +186,16 @@ public class BionicProgramLauncherComponent extends GuestProgramLauncherComponen
 
     private int execGuestProgram() {
 
-        final int MAX_PLAYERS = 1; // old static method
-
-        // Get the number of enabled players directly from ControllerManager.
-        final int enabledPlayerCount = MAX_PLAYERS;
+        // Count the physical controllers connected right now, so each one gets
+        // its own virtual pad inside Wine (evshim). Clamped to MAX_PLAYERS;
+        // pads must be connected before the game starts.
+        com.winlator.inputcontrols.ControllerManager controllerManager =
+                com.winlator.inputcontrols.ControllerManager.getInstance();
+        controllerManager.init(environment.getContext());
+        final int enabledPlayerCount = Math.max(1, Math.min(
+                com.winlator.winhandler.WinHandler.MAX_PLAYERS,
+                controllerManager.getDetectedDevices().size()));
+        Log.i("EVSHIM_HOST", "Launching with " + enabledPlayerCount + " player slot(s)");
         for (int i = 0; i < enabledPlayerCount; i++) {
             String memPath;
             if (i == 0) {
