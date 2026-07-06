@@ -3,6 +3,7 @@ package app.gamenative.gamefixes
 import android.content.Context
 import app.gamenative.data.GameSource
 import app.gamenative.utils.ContainerUtils
+import app.gamenative.utils.CustomGameScanner
 import app.gamenative.service.gog.GOGConstants
 import app.gamenative.service.gog.GOGService
 import app.gamenative.service.SteamService
@@ -53,8 +54,19 @@ object GameFixesRegistry {
 
     private var fixesProvider: () -> Map<Pair<GameSource, String>, GameFix> = { fixes }
 
+    // Fixes for sideloaded (Custom Game) copies, matched by the launch
+    // executable's file name (lowercase) since there is no store id.
+    private val exeNameFixes: Map<String, GameFix> = mapOf(
+        "tlou-i.exe" to TLOU_PART1_EXE_FIX,
+        "tlou-i-l.exe" to TLOU_PART1_EXE_FIX,
+    )
+
     fun applyFor(context: Context, appId: String, container: Container) {
         val source = ContainerUtils.extractGameSourceFromContainerId(appId)
+        if (source == GameSource.CUSTOM_GAME) {
+            applyForCustomGame(context, container)
+            return
+        }
         val gameId = ContainerUtils.extractGameIdFromContainerId(appId)?.toString() ?: return
         val catalogId = when (source) {
             // EPIC auto-generates the id. so we need the catalog id instead.
@@ -68,6 +80,16 @@ object GameFixesRegistry {
         val fix = fixesProvider()[source to catalogId] ?: return
         val (installPath, installPathWindows) = resolvePaths(context, source, gameId) ?: return
         fix.apply(context, catalogId, installPath, installPathWindows, container)
+    }
+
+    private fun applyForCustomGame(context: Context, container: Container) {
+        val exeRelative = CustomGameScanner.getLaunchExecutable(container)
+        if (exeRelative.isEmpty()) return
+        val exeName = exeRelative.substringAfterLast('\\').substringAfterLast('/').lowercase()
+        val fix = exeNameFixes[exeName] ?: return
+        val installPath = ContainerUtils.getADrivePath(container.drives) ?: return
+        Timber.i("GameFixesRegistry: Applying exe-name fix for custom game: $exeName")
+        fix.apply(context, exeName, installPath, "$GAME_DRIVE_LETTER:\\", container)
     }
 
     private fun resolvePaths(context: Context, source: GameSource, gameId: String): Pair<String, String>? {

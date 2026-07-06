@@ -81,6 +81,7 @@ public class WinHandler {
 
     private InputControlsView inputControlsView;
     private Thread rumblePollerThread;
+    private final Thread[] extraRumblePollerThreads = new Thread[MAX_PLAYERS - 1];
     private short lastLowFreq = 0;  // Use 'short' instead of uint16_t
     private short lastHighFreq = 0; // Use 'short' instead of uint16_t
     private boolean isRumbling = false;
@@ -441,9 +442,13 @@ public class WinHandler {
     public void stop() {
         this.running = false;
         rumbleTeardown(0);
+        for (int i = 0; i < extraRumblePollerThreads.length; i++) rumbleTeardown(i + 1);
         try {
             if (rumblePollerThread != null)
                 this.rumblePollerThread.join();
+            for (Thread extraPoller : extraRumblePollerThreads) {
+                if (extraPoller != null) extraPoller.join();
+            }
         } catch (InterruptedException ignored) {
         }
         DatagramSocket datagramSocket = this.socket;
@@ -716,6 +721,63 @@ public class WinHandler {
             }
         });
         rumblePollerThread.start();
+        startExtraRumblePollers();
+    }
+
+    private void startExtraRumblePollers() {
+        for (int i = 0; i < extraGamepadBuffers.length; i++) {
+            final int extraIndex = i;
+            final int playerIndex = i + 1;
+            extraRumblePollerThreads[i] = new Thread(() -> {
+                int lastSeq = 0;
+                short lastLow = 0;
+                short lastHigh = 0;
+                while (running) {
+                    try {
+                        int curSeq = WinHandler.waitForRumble(playerIndex, lastSeq);
+                        if (!running) break;
+                        if (curSeq == lastSeq) continue;
+                        lastSeq = curSeq;
+
+                        MappedByteBuffer buffer = extraGamepadBuffers[extraIndex];
+                        if (buffer == null) continue;
+                        short lowFreq = buffer.getShort(OFF_RUMBLE_LOW);
+                        short highFreq = buffer.getShort(OFF_RUMBLE_HIGH);
+                        if (lowFreq != lastLow || highFreq != lastHigh) {
+                            lastLow = lowFreq;
+                            lastHigh = highFreq;
+                            vibrateExtraController(extraIndex, lowFreq, highFreq);
+                        }
+                    } catch (Exception ignored) {
+                    }
+                }
+            });
+            extraRumblePollerThreads[i].start();
+        }
+    }
+
+    /**
+     * Rumble for extra players goes only to that player's physical pad —
+     * no phone fallback, since the phone belongs to Player 1.
+     */
+    private void vibrateExtraController(int extraIndex, short lowFreq, short highFreq) {
+        ExternalController controller = extraControllers[extraIndex];
+        if (controller == null) return;
+        InputDevice device = InputDevice.getDevice(controller.getDeviceId());
+        if (!ExternalController.isGameController(device)) return;
+        Vibrator vibrator = device.getVibrator();
+        if (vibrator == null || !vibrator.hasVibrator()) return;
+
+        int unsignedLow = lowFreq & 0xFFFF;
+        int unsignedHigh = highFreq & 0xFFFF;
+        int dominant = Math.max(unsignedLow, unsignedHigh);
+        int amplitude = Math.round((float) dominant / 65535.0f * 254.0f) + 1;
+        if (amplitude > 255) amplitude = 255;
+        if (amplitude <= 1) {
+            vibrator.cancel();
+            return;
+        }
+        vibrator.vibrate(VibrationEffect.createOneShot(CONTROLLER_RUMBLE_DURATION_MS, amplitude));
     }
 
     private InputDevice getCurrentPhysicalControllerDevice() {

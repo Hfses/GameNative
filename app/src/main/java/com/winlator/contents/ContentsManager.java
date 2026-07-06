@@ -105,11 +105,11 @@ public class ContentsManager {
                     remoteProfile.verCode = object.getInt("verCode");
                     remoteProfiles.add(remoteProfile);
                 } catch (JSONException e) {
-                    e.printStackTrace();
+                    Log.w("ContentsManager", "Skipping malformed remote content entry", e);
                 }
             }
         } catch (JSONException e) {
-            e.printStackTrace();
+            Log.e("ContentsManager", "Failed to parse remote contents list", e);
         }
         syncContents();
     }
@@ -302,6 +302,7 @@ public class ContentsManager {
             profile.fileList = fileList;
             return profile;
         } catch (Exception e) {
+            Log.e("ContentsManager", "Failed to read content profile", e);
             return null;
         }
     }
@@ -657,6 +658,7 @@ public class ContentsManager {
                 }
             }
         } catch (Exception e) {
+            Log.w("ContentsManager", "Failed to look up installed profile", e);
         }
 
         return null;
