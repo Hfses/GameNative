@@ -133,7 +133,9 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlin.math.roundToInt
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import timber.log.Timber
 
 // https://partner.steamgames.com/doc/store/assets/libraryassets#4
@@ -1041,17 +1043,23 @@ internal fun AppScreenContent(
                     }
 
                     // Local performance history collected by the on-device telemetry
-                    val telemetrySummary = remember(displayInfo.appId) {
-                        TelemetryCollector.summary(context, displayInfo.appId)
+                    // (read off the main thread; small JSON but no disk I/O in composition)
+                    val telemetrySummary by androidx.compose.runtime.produceState<TelemetryCollector.Summary?>(
+                        initialValue = null,
+                        displayInfo.appId,
+                    ) {
+                        value = withContext(Dispatchers.IO) {
+                            TelemetryCollector.summary(context, displayInfo.appId)
+                        }
                     }
-                    if (telemetrySummary != null && telemetrySummary.sessionCount > 0) {
+                    telemetrySummary?.takeIf { it.sessionCount > 0 }?.let { summary ->
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = stringResource(
                                 R.string.telemetry_history_line,
-                                telemetrySummary.avgFps.toInt(),
-                                telemetrySummary.sessionCount,
-                                telemetrySummary.crashCount,
+                                summary.avgFps.toInt(),
+                                summary.sessionCount,
+                                summary.crashCount,
                             ),
                             style = MaterialTheme.typography.labelSmall,
                             color = Color.White.copy(alpha = 0.8f),

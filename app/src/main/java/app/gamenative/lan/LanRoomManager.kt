@@ -69,6 +69,7 @@ object LanRoomManager {
     private var serverSocket: ServerSocket? = null
     private var discoverySocket: DatagramSocket? = null
     private val hostClients = ConcurrentHashMap<Socket, String>()
+    private val hostClientWriters = ConcurrentHashMap<Socket, PrintWriter>()
     private var hostJob: Job? = null
     private var roomName = ""
     private var roomPassword = ""
@@ -156,6 +157,7 @@ object LanRoomManager {
                     .put("hostIp", _roomInfo.value),
             )
             hostClients[socket] = playerName
+            hostClientWriters[socket] = writer
             refreshPlayers()
             broadcast(JSONObject().put("type", "chat").put("from", "").put("system", true).put("text", "$playerName entrou na sala"))
             appendSystem("$playerName entrou na sala")
@@ -178,6 +180,7 @@ object LanRoomManager {
             Timber.tag("LanRoom").d(e, "Client handler ended")
         } finally {
             hostClients.remove(socket)
+            hostClientWriters.remove(socket)
             runCatching { socket.close() }
             refreshPlayers()
             if (_status.value == Status.HOSTING) {
@@ -198,9 +201,11 @@ object LanRoomManager {
 
     private fun broadcast(message: JSONObject) {
         val line = message.toString()
-        for (socket in hostClients.keys) {
+        for ((socket, writer) in hostClientWriters) {
             runCatching {
-                PrintWriter(socket.getOutputStream().bufferedWriter(StandardCharsets.UTF_8), true).println(line)
+                synchronized(writer) { writer.println(line) }
+            }.onFailure {
+                hostClientWriters.remove(socket)
             }
         }
     }
@@ -231,8 +236,11 @@ object LanRoomManager {
         }
     }
 
-    /** Broadcasts a probe and returns rooms that answered within [timeoutMs]. */
-    suspend fun discoverRooms(context: Context, timeoutMs: Long = 1500): List<DiscoveredRoom> {
+    /**
+     * Broadcasts a probe and returns rooms that answered within [timeoutMs].
+     * Runs on the IO dispatcher — callers may invoke it from the main thread.
+     */
+    suspend fun discoverRooms(context: Context, timeoutMs: Long = 1500): List<DiscoveredRoom> = kotlinx.coroutines.withContext(Dispatchers.IO) {
         acquireMulticastLock(context)
         val found = LinkedHashMap<String, DiscoveredRoom>()
         withTimeoutOrNull(timeoutMs + 500) {
@@ -271,7 +279,7 @@ object LanRoomManager {
                 Timber.tag("LanRoom").d(e, "Discovery probe failed")
             }
         }
-        return found.values.toList()
+        found.values.toList()
     }
 
     @Synchronized
@@ -313,7 +321,9 @@ object LanRoomManager {
                                 "chat" -> {
                                     if (msg.optBoolean("system", false)) {
                                         appendSystem(msg.optString("text"))
-                                    } else {
+                                    } else if (msg.optString("from") != selfName) {
+                                        // Own messages are already appended locally by
+                                        // sendChat; skipping the host's echo avoids duplicates.
                                         appendChat(msg.optString("from"), msg.optString("text"))
                                     }
                                 }
@@ -372,6 +382,7 @@ object LanRoomManager {
         runCatching { discoverySocket?.close() }
         for (socket in hostClients.keys) runCatching { socket.close() }
         hostClients.clear()
+        hostClientWriters.clear()
         runCatching { clientSocket?.close() }
         clientSocket = null
         clientWriter = null
