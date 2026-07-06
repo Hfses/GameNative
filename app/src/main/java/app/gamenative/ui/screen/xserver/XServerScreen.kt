@@ -22,6 +22,8 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.hardware.display.DisplayManager
 import android.hardware.input.InputManager
+import android.net.wifi.WifiManager
+import android.os.PowerManager
 import android.view.InputDevice
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -376,6 +378,32 @@ fun XServerScreen(
         onDispose {
             contentResolver.unregisterContentObserver(observer)
             BrightnessManager.clearDisplayBrightnessOverride(activity)
+        }
+    }
+
+    // Session-scoped performance/network state: sustained performance keeps the
+    // SoC from clocking down under long thermal load, and the multicast lock is
+    // required for LAN game discovery (Android drops UDP broadcast/multicast
+    // packets without it, so games like CS 1.6 never see local servers).
+    DisposableEffect(activity) {
+        val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
+        val sustainedApplied = activity != null &&
+            powerManager?.isSustainedPerformanceModeSupported == true
+        if (sustainedApplied) {
+            activity!!.window.setSustainedPerformanceMode(true)
+            Timber.i("Sustained performance mode enabled for game session")
+        }
+
+        val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
+        val multicastLock = wifiManager?.createMulticastLock("gamenative-lan")?.apply {
+            setReferenceCounted(false)
+            acquire()
+            Timber.i("Multicast lock acquired for LAN gaming")
+        }
+
+        onDispose {
+            if (sustainedApplied) activity!!.window.setSustainedPerformanceMode(false)
+            multicastLock?.let { if (it.isHeld) it.release() }
         }
     }
 
