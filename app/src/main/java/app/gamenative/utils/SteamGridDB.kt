@@ -418,10 +418,6 @@ object SteamGridDB {
         gameFolderPath: String
     ): ImageFetchResult = withContext(Dispatchers.IO) {
         val apiKey = getApiKey()
-        if (apiKey == null) {
-            Timber.tag("SteamGridDB").i("Skipping image fetch for '$gameName' - API key not configured")
-            return@withContext ImageFetchResult(null, null, null, null, null)
-        }
 
         if (!PrefManager.fetchSteamGridDBImages) {
             Timber.tag("SteamGridDB").d("Image fetching is disabled in settings")
@@ -481,6 +477,14 @@ object SteamGridDB {
                 capsulePath = gridCapsuleFile?.absolutePath, // Capsule path (vertical grid)
                 releaseDate = null // Don't update release date if images already exist
             )
+        }
+
+        // No SteamGridDB key (e.g. builds without the repo secret): fall back to
+        // the public Steam storefront, which needs no key. Saves files under the
+        // same names the UI already looks for.
+        if (apiKey == null) {
+            Timber.tag("SteamGridDB").i("No SteamGridDB key - using Steam store images for '$gameName'")
+            return@withContext fetchFromSteamStore(gameName, gameFolder)
         }
 
         // Search for the game
@@ -545,6 +549,102 @@ object SteamGridDB {
             capsulePath = gridCapsulePath, // Vertical grid for capsule view
             releaseDate = searchResult.releaseDate
         )
+    }
+
+    /**
+     * Keyless fallback: match the game on the public Steam storefront search and
+     * download the store's own artwork (vertical capsule, header, hero) into the
+     * game folder using the file names the library UI already scans for.
+     */
+    private suspend fun fetchFromSteamStore(
+        gameName: String,
+        gameFolder: File,
+    ): ImageFetchResult = withContext(Dispatchers.IO) {
+        try {
+            val term = URLEncoder.encode(gameName, "UTF-8")
+            val searchUrl = "https://store.steampowered.com/api/storesearch/?term=$term&l=english&cc=US"
+            val body = httpClient.newCall(Request.Builder().url(searchUrl).build()).execute().use { resp ->
+                if (!resp.isSuccessful) {
+                    Timber.tag("SteamGridDB").w("Steam store search failed - HTTP ${resp.code}")
+                    return@withContext ImageFetchResult(null, null, null, null, null)
+                }
+                resp.body?.string()
+            } ?: return@withContext ImageFetchResult(null, null, null, null, null)
+
+            val items = JSONObject(body).optJSONArray("items")
+            if (items == null || items.length() == 0) {
+                Timber.tag("SteamGridDB").i("Steam store: no match for '$gameName'")
+                return@withContext ImageFetchResult(null, null, null, null, null)
+            }
+            val appId = items.getJSONObject(0).optInt("id", 0)
+            if (appId == 0) return@withContext ImageFetchResult(null, null, null, null, null)
+            Timber.tag("SteamGridDB").i("Steam store matched '$gameName' -> appId $appId")
+
+            val cdn = "https://cdn.cloudflare.steamstatic.com/steam/apps/$appId"
+            val capsulePath = downloadIfMissing(gameFolder, "steamgriddb_grid_capsule", "$cdn/library_600x900.jpg")
+            val gridHeroPath = downloadIfMissing(gameFolder, "steamgriddb_grid_hero", "$cdn/header.jpg")
+            val heroPath = downloadIfMissing(gameFolder, "steamgriddb_hero", "$cdn/library_hero.jpg")
+                ?: downloadIfMissing(gameFolder, "steamgriddb_hero", "$cdn/header.jpg")
+
+            if (capsulePath != null || gridHeroPath != null || heroPath != null) {
+                try {
+                    val existing = GameMetadataManager.read(gameFolder)
+                    val metaAppId = existing?.appId
+                        ?: abs(gameFolder.absolutePath.hashCode()).let { if (it == 0) 1 else it }
+                    GameMetadataManager.update(
+                        folder = gameFolder,
+                        appId = metaAppId,
+                        steamgriddbFetched = true,
+                        releaseDate = null,
+                    )
+                } catch (e: Exception) {
+                    Timber.tag("SteamGridDB").w(e, "Failed to update metadata after store fallback")
+                }
+            }
+
+            ImageFetchResult(
+                gridPath = gridHeroPath,
+                heroPath = heroPath,
+                logoPath = null,
+                capsulePath = capsulePath,
+            )
+        } catch (e: Exception) {
+            Timber.tag("SteamGridDB").e(e, "Steam store fallback failed for '$gameName'")
+            ImageFetchResult(null, null, null, null, null)
+        }
+    }
+
+    /**
+     * Downloads [url] into the game folder as "<baseName>.jpg" unless a file with
+     * that base name (any supported extension) already exists. Returns the local
+     * path, or null when the download failed or produced no bytes.
+     */
+    private fun downloadIfMissing(gameFolder: File, baseName: String, url: String): String? {
+        val existing = gameFolder.listFiles { file ->
+            file.isFile && file.name.startsWith(baseName, ignoreCase = true) &&
+                (baseName != "steamgriddb_hero" || !file.name.contains("grid_", ignoreCase = true)) &&
+                (
+                    file.name.endsWith(".png", ignoreCase = true) ||
+                        file.name.endsWith(".jpg", ignoreCase = true) ||
+                        file.name.endsWith(".webp", ignoreCase = true)
+                    )
+        }?.firstOrNull()
+        if (existing != null) return existing.absolutePath
+
+        return try {
+            httpClient.newCall(Request.Builder().url(url).build()).execute().use { resp ->
+                if (!resp.isSuccessful) return null
+                val bytes = resp.body?.bytes() ?: return null
+                if (bytes.isEmpty()) return null
+                val outputFile = File(gameFolder, "$baseName.jpg")
+                FileOutputStream(outputFile).use { it.write(bytes) }
+                Timber.tag("SteamGridDB").i("Saved store image ${outputFile.name}")
+                outputFile.absolutePath
+            }
+        } catch (e: Exception) {
+            Timber.tag("SteamGridDB").w(e, "Failed to download $url")
+            null
+        }
     }
 
     /**

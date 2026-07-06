@@ -46,8 +46,10 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.NewReleases
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -82,7 +84,9 @@ import app.gamenative.R
 import app.gamenative.data.SteamFriend
 import app.gamenative.events.SteamEvent
 import app.gamenative.service.SteamService
+import app.gamenative.ui.component.dialog.ControllersDialog
 import app.gamenative.ui.component.dialog.SupportersDialog
+import app.gamenative.ui.component.dialog.WhatsNewDialog
 import app.gamenative.ui.screen.PluviaScreen
 import app.gamenative.ui.theme.PluviaTheme
 import app.gamenative.ui.util.SteamIconImage
@@ -268,6 +272,8 @@ fun SystemMenu(
     var selectedStatus by remember(persona) { mutableStateOf(persona?.state ?: EPersonaState.Online) }
     var showSupporters by remember { mutableStateOf(false) }
     var showStatusPicker by remember { mutableStateOf(false) }
+    var showControllers by remember { mutableStateOf(false) }
+    var showWhatsNew by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         persona = SteamService.instance?.localPersona?.value
@@ -305,6 +311,8 @@ fun SystemMenu(
     }
 
     SupportersDialog(visible = showSupporters, onDismiss = { showSupporters = false })
+    ControllersDialog(visible = showControllers, onDismiss = { showControllers = false })
+    WhatsNewDialog(visible = showWhatsNew, onDismiss = { showWhatsNew = false })
 
     val colorOnline = PluviaTheme.colors.statusInstalled
     val colorAway = PluviaTheme.colors.statusAway
@@ -570,13 +578,19 @@ fun SystemMenu(
                         verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
                         SystemMenuItem(
+                            text = stringResource(R.string.controllers_title),
+                            icon = Icons.Default.SportsEsports,
+                            onClick = { showControllers = true },
+                            focusRequester = firstItemFocusRequester,
+                        )
+
+                        SystemMenuItem(
                             text = stringResource(R.string.settings_text),
                             icon = Icons.Default.Settings,
                             onClick = {
                                 onNavigateRoute(PluviaScreen.Settings.route)
                                 onDismiss()
                             },
-                            focusRequester = firstItemFocusRequester,
                         )
 
                         SystemMenuItem(
@@ -595,6 +609,12 @@ fun SystemMenu(
                             onClick = {
                                 uriHandler.openUri("https://discord.gg/2hKv4VfZfE")
                             },
+                        )
+
+                        SystemMenuItem(
+                            text = stringResource(R.string.whats_new_title),
+                            icon = Icons.Default.NewReleases,
+                            onClick = { showWhatsNew = true },
                         )
 
                         SystemMenuItem(

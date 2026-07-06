@@ -1498,4 +1498,15 @@
     <string name="option_share_diagnostics">Compartilhar diagnóstico</string>
     <string name="diagnostics_share_title">Compartilhar registro de diagnóstico</string>
     <string name="diagnostics_share_none">Ainda não há registro de diagnóstico. Use \"Execução de diagnóstico\" primeiro.</string>
+
+    <!-- Central de controles e O que há de novo -->
+    <string name="controllers_title">Controles</string>
+    <string name="controllers_none_connected">Nenhum controle conectado. Pareie seu controle via Bluetooth e toque em Procurar de novo.</string>
+    <string name="controllers_connected_count">%1$d controle(s) conectado(s)</string>
+    <string name="controllers_player_n">Jogador %1$d</string>
+    <string name="controllers_auto_assign">Automático</string>
+    <string name="controllers_change">Trocar</string>
+    <string name="controllers_rescan">Procurar de novo</string>
+    <string name="controllers_note">As atribuições valem a partir da próxima vez que um jogo abrir. Os layouts de botões na tela continuam nas configurações de cada jogo.</string>
+    <string name="whats_new_title">O que há de novo</string>
 </resources>

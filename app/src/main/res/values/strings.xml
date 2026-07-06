@@ -1628,4 +1628,15 @@
     <string name="game_launch_tip_23">Tip: If you have a Mali GPU, please use System Drivers.</string>
     <string name="game_launch_tip_24">Tip: Getting a blank screen? Try using the \"%s\" option in the menu to check if your drivers are working correctly.</string>
     <string name="game_launch_tip_25">Tip: Use Proton x86-64 if you can\'t click the mouse in games.</string>
+
+    <!-- Controllers hub & What's New -->
+    <string name="controllers_title">Controllers</string>
+    <string name="controllers_none_connected">No controllers connected. Pair your controller via Bluetooth and tap Rescan.</string>
+    <string name="controllers_connected_count">%1$d controller(s) connected</string>
+    <string name="controllers_player_n">Player %1$d</string>
+    <string name="controllers_auto_assign">Automatic</string>
+    <string name="controllers_change">Change</string>
+    <string name="controllers_rescan">Rescan</string>
+    <string name="controllers_note">Assignments take effect the next time a game starts. Per-game on-screen layouts remain in each game\'s settings.</string>
+    <string name="whats_new_title">What\'s New</string>
 </resources>

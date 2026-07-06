@@ -150,9 +150,6 @@ fun SettingsGroupInterface(
     var hideStatusBar by rememberSaveable { mutableStateOf(PrefManager.hideStatusBarWhenNotInGame) }
     var swapFaceButtons by rememberSaveable { mutableStateOf(PrefManager.swapFaceButtons) }
 
-    // Controller/gamepad hints visibility
-    var showGamepadHints by rememberSaveable { mutableStateOf(PrefManager.showGamepadHints) }
-
     // Achievements
     var showAchievementNotifications by rememberSaveable { mutableStateOf(PrefManager.achievementShowNotification) }
 
@@ -328,16 +325,8 @@ fun SettingsGroupInterface(
             },
         )
 
-        SettingsSwitch(
-            colors = settingsTileColorsAlt(),
-            title = { Text(text = stringResource(R.string.settings_interface_show_gamepad_hints_title)) },
-            subtitle = { Text(text = stringResource(R.string.settings_interface_show_gamepad_hints_subtitle)) },
-            state = showGamepadHints,
-            onCheckedChange = { newValue ->
-                showGamepadHints = newValue
-                PrefManager.showGamepadHints = newValue
-            },
-        )
+        // Gamepad hints moved to the Controllers hub (SystemMenu > Controllers),
+        // the single home for every global controller option.
 
         var showRecommendations by rememberSaveable { mutableStateOf(PrefManager.showRecommendations) }
         SettingsSwitch(
