@@ -19,6 +19,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.Iterator;
 import java.util.Locale;
 
@@ -1127,6 +1128,8 @@ public class Container {
     }
 
     public static String getFallbackCPUList() {
+        String perfList = getPerformanceCPUList();
+        if (perfList != null) return perfList;
         String cpuList = "";
         int numProcessors = Runtime.getRuntime().availableProcessors();
         for (int i = 0; i < numProcessors; i++) cpuList += (!cpuList.isEmpty() ? "," : "")+i;
@@ -1134,10 +1137,56 @@ public class Container {
     }
 
     public static String getFallbackCPUListWoW64() {
+        String perfList = getPerformanceCPUList();
+        if (perfList != null) return perfList;
         String cpuList = "";
         int numProcessors = Runtime.getRuntime().availableProcessors();
         for (int i = numProcessors / 2; i < numProcessors; i++) cpuList += (!cpuList.isEmpty() ? "," : "")+i;
         return cpuList;
+    }
+
+    // Cached result of the performance-core detection ("" = not applicable).
+    private static String performanceCPUList;
+
+    /**
+     * Detects big.LITTLE efficiency cores by cpuinfo_max_freq and returns a
+     * CPU list without the lowest-frequency tier, so game/Wine threads don't
+     * land on slow cores (frame pacing killer). Returns null when the topology
+     * can't be read, all cores share one tier, or fewer than 4 faster cores
+     * would remain — callers then fall back to the traditional lists.
+     */
+    private static synchronized String getPerformanceCPUList() {
+        if (performanceCPUList != null) return performanceCPUList.isEmpty() ? null : performanceCPUList;
+        String computed = "";
+        try {
+            int numProcessors = Runtime.getRuntime().availableProcessors();
+            long[] freqs = new long[numProcessors];
+            long minFreq = Long.MAX_VALUE;
+            long maxFreq = 0;
+            for (int i = 0; i < numProcessors; i++) {
+                String raw = FileUtils.readString(new File("/sys/devices/system/cpu/cpu"+i+"/cpufreq/cpuinfo_max_freq"));
+                if (raw == null || raw.trim().isEmpty()) throw new IOException("no freq for cpu"+i);
+                freqs[i] = Long.parseLong(raw.trim());
+                if (freqs[i] < minFreq) minFreq = freqs[i];
+                if (freqs[i] > maxFreq) maxFreq = freqs[i];
+            }
+            if (maxFreq > minFreq) {
+                StringBuilder sb = new StringBuilder();
+                int kept = 0;
+                for (int i = 0; i < numProcessors; i++) {
+                    if (freqs[i] > minFreq) {
+                        if (sb.length() > 0) sb.append(",");
+                        sb.append(i);
+                        kept++;
+                    }
+                }
+                if (kept >= 4) computed = sb.toString();
+            }
+        } catch (Exception e) {
+            computed = "";
+        }
+        performanceCPUList = computed;
+        return computed.isEmpty() ? null : computed;
     }
 
     // Disable external mouse input

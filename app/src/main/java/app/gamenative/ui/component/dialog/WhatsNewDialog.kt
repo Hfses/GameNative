@@ -67,6 +67,7 @@ private val WHATS_NEW_SECTIONS = listOf(
             "Salas LAN: segure um jogo instalado > Jogar LAN. Crie a sala (nome + senha opcional, o IP aparece pronto para passar aos amigos) ou entre (o IP vem preenchido se a sala estiver na mesma rede). Chat entre os jogadores incluído; depois cada um abre o mesmo jogo e conecta pelo menu de LAN do próprio jogo.",
             "Histórico de desempenho na tela do jogo: média de FPS, sessões e fechamentos inesperados medidos no seu aparelho.",
             "Novo build de APK automático do fork (aba Actions do GitHub).",
+            "Desempenho: novos containers agora usam só os núcleos rápidos do processador por padrão (os núcleos de eficiência causavam engasgos quando threads do jogo caíam neles). Containers antigos: apague a lista de CPUs na configuração para adotar o novo padrão.",
         ),
     ),
     WhatsNewSection(
