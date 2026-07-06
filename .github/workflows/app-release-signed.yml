@@ -13,6 +13,8 @@ on:
 
 jobs:
   build:
+    # Needs the upstream repo's signing/API secrets; forks build via build-apk.yml.
+    if: github.repository == 'utkarshdalal/GameNative'
 
     runs-on: ubuntu-latest
 
