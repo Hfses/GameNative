@@ -1223,7 +1223,26 @@ abstract class BaseAppScreen {
             }
         }
 
-        val optionsMenu = getOptionsMenu(context, libraryItem, onEditContainer, onBack, onClickPlay, onTestGraphics, onPlayWithDiagnostics, exportFrontendLauncher)
+        var showLanRoom by remember { mutableStateOf(false) }
+        val baseOptionsMenu = getOptionsMenu(context, libraryItem, onEditContainer, onBack, onClickPlay, onTestGraphics, onPlayWithDiagnostics, exportFrontendLauncher)
+        val optionsMenu = if (isInstalledState) {
+            baseOptionsMenu + AppMenuOption(
+                optionType = AppOptionMenuType.PlayLan,
+                onClick = { showLanRoom = true },
+            )
+        } else {
+            baseOptionsMenu
+        }
+
+        app.gamenative.lan.LanRoomDialog(
+            visible = showLanRoom,
+            gameName = displayInfo.name,
+            onDismiss = { showLanRoom = false },
+            onOpenGame = {
+                showLanRoom = false
+                onClickPlay(false)
+            },
+        )
 
         // Get download info based on game source for progress tracking
         val downloadInfo = when (libraryItem.gameSource) {

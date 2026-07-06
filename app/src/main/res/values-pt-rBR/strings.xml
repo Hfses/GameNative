@@ -1518,4 +1518,30 @@
     <!-- Sugestões da telemetria local -->
     <string name="telemetry_low_fps_suggestion">Este jogo roda em média a %1$d FPS. Tente na configuração do jogo: reduzir a resolução ou ativar DXVK async.</string>
     <string name="telemetry_crash_suggestion">Este jogo fechou sozinho %1$d vezes. Tente trocar a versão do Wine/Proton ou o tradutor na configuração do jogo.</string>
+
+    <!-- Histórico de telemetria na tela do jogo -->
+    <string name="telemetry_history_line">Média de %1$d FPS em %2$d sessão(ões) · %3$d fechamento(s) inesperado(s)</string>
+
+    <!-- Salas LAN -->
+    <string name="option_play_lan">Jogar LAN</string>
+    <string name="lan_play_title">LAN: %1$s</string>
+    <string name="lan_create">Criar</string>
+    <string name="lan_join">Entrar</string>
+    <string name="lan_player_name">Seu nome</string>
+    <string name="lan_room_name">Nome da sala</string>
+    <string name="lan_password_optional">Senha (opcional)</string>
+    <string name="lan_create_room">Criar sala</string>
+    <string name="lan_join_room">Entrar na sala</string>
+    <string name="lan_host_ip">IP do anfitrião</string>
+    <string name="lan_searching_rooms">Procurando salas…</string>
+    <string name="lan_denied">Senha incorreta.</string>
+    <string name="lan_error">Não foi possível conectar. Os dois aparelhos estão na mesma rede (ou na mesma VPN) e a sala está aberta?</string>
+    <string name="lan_joining">Conectando…</string>
+    <string name="lan_hint">Os dois aparelhos precisam estar no mesmo Wi-Fi. Para jogar a distância, os dois lados podem instalar uma VPN como ZeroTier ou Tailscale e entrar pelo IP da VPN.</string>
+    <string name="lan_room_ip">IP da sala: %1$s (passe para os amigos)</string>
+    <string name="lan_players">Jogadores: %1$s</string>
+    <string name="lan_chat_message">Mensagem</string>
+    <string name="lan_open_game">Abrir o jogo</string>
+    <string name="lan_in_room_hint">Quando todos entrarem, cada um toca em Abrir o jogo e conecta pelo menu de LAN do próprio jogo. A sala e o chat continuam ativos enquanto o jogo roda.</string>
+    <string name="lan_leave_room">Sair da sala</string>
 </resources>

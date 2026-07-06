@@ -125,6 +125,7 @@ import app.gamenative.ui.screen.library.appscreen.GOGAppScreen
 import app.gamenative.ui.screen.library.appscreen.SteamAppScreen
 import app.gamenative.ui.screen.library.components.GameOptionsPanel
 import app.gamenative.utils.HltbService
+import app.gamenative.utils.TelemetryCollector
 import app.gamenative.ui.theme.PluviaTheme
 import com.skydoves.landscapist.ImageOptions
 import com.skydoves.landscapist.coil.CoilImage
@@ -1036,6 +1037,24 @@ internal fun AppScreenContent(
                             text = displayInfo.compatibilityMessage,
                             style = MaterialTheme.typography.labelSmall,
                             color = Color(displayInfo.compatibilityColor),
+                        )
+                    }
+
+                    // Local performance history collected by the on-device telemetry
+                    val telemetrySummary = remember(displayInfo.appId) {
+                        TelemetryCollector.summary(context, displayInfo.appId)
+                    }
+                    if (telemetrySummary != null && telemetrySummary.sessionCount > 0) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = stringResource(
+                                R.string.telemetry_history_line,
+                                telemetrySummary.avgFps.toInt(),
+                                telemetrySummary.sessionCount,
+                                telemetrySummary.crashCount,
+                            ),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White.copy(alpha = 0.8f),
                         )
                     }
                 }

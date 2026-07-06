@@ -64,6 +64,8 @@ private val WHATS_NEW_SECTIONS = listOf(
             "Jogos em LAN: descoberta de salas por broadcast liberada (CS 1.6, NFS MW 2005).",
             "Falhas de download/instalação de componentes agora mostram aviso na tela com o motivo (antes o jogo simplesmente não abria, sem explicação).",
             "Telemetria local automática: FPS e fechamentos inesperados são medidos por jogo, só no aparelho. Com dados suficientes, o app sugere ajustes (ex.: 3 sessões abaixo de 25 FPS → dica de configuração).",
+            "Salas LAN: segure um jogo instalado > Jogar LAN. Crie a sala (nome + senha opcional, o IP aparece pronto para passar aos amigos) ou entre (o IP vem preenchido se a sala estiver na mesma rede). Chat entre os jogadores incluído; depois cada um abre o mesmo jogo e conecta pelo menu de LAN do próprio jogo.",
+            "Histórico de desempenho na tela do jogo: média de FPS, sessões e fechamentos inesperados medidos no seu aparelho.",
             "Novo build de APK automático do fork (aba Actions do GitHub).",
         ),
     ),
@@ -72,8 +74,7 @@ private val WHATS_NEW_SECTIONS = listOf(
         title = "O que vem a seguir",
         items = listOf(
             "Suporte a 4 controles depois que 2 estiverem validados.",
-            "Tela de salas LAN e guia para redes que bloqueiam jogadores entre si.",
-            "Histórico de desempenho por jogo visível na tela do jogo.",
+            "Jogar a distância: guia de VPN (ZeroTier/Tailscale) integrado às salas LAN.",
             "Limpeza interna da camada de emulação herdada do Winlator.",
         ),
     ),

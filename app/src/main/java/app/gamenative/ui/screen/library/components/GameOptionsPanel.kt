@@ -55,6 +55,7 @@ import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Update
 import androidx.compose.material.icons.filled.VerifiedUser
+import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -349,6 +350,7 @@ private fun getIconForOption(type: AppOptionMenuType): ImageVector {
         AppOptionMenuType.ManageGameContent -> Icons.Default.Apps
         AppOptionMenuType.ManageWorkshop -> Icons.Default.Build
         AppOptionMenuType.ChangeBranch -> Icons.AutoMirrored.Filled.CallSplit
+        AppOptionMenuType.PlayLan -> Icons.Default.Wifi
     }
 }
 
@@ -364,6 +366,7 @@ private fun groupOptions(options: List<AppMenuOption>): Map<OptionCategory, List
             // Quick Actions
             AppOptionMenuType.EditContainer,
             AppOptionMenuType.RunContainer,
+            AppOptionMenuType.PlayLan,
             AppOptionMenuType.CreateShortcut,
             AppOptionMenuType.ExportFrontend,
             -> quickActions.add(option)

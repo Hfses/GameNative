@@ -171,6 +171,44 @@ object TelemetryCollector {
         }
     }
 
+    data class Summary(
+        val sessionCount: Int,
+        val avgFps: Double,
+        val crashCount: Int,
+        val totalMinutes: Long,
+    )
+
+    /** Aggregated on-device stats for a game, or null when nothing was recorded yet. */
+    fun summary(context: Context, appId: String): Summary? {
+        return try {
+            val stats = readStats(context.applicationContext, appId)
+            val sessions = stats.optJSONArray("sessions") ?: JSONArray()
+            val crashCount = stats.optInt("crashCount", 0)
+            if (sessions.length() == 0 && crashCount == 0) return null
+            var fpsSum = 0.0
+            var fpsCount = 0
+            var seconds = 0L
+            for (i in 0 until sessions.length()) {
+                val s = sessions.getJSONObject(i)
+                val avg = s.optDouble("avgFps", 0.0)
+                if (avg > 0) {
+                    fpsSum += avg
+                    fpsCount++
+                }
+                seconds += s.optLong("durationSec", 0)
+            }
+            Summary(
+                sessionCount = sessions.length(),
+                avgFps = if (fpsCount > 0) fpsSum / fpsCount else 0.0,
+                crashCount = crashCount,
+                totalMinutes = seconds / 60,
+            )
+        } catch (e: Exception) {
+            Timber.tag("Telemetry").w(e, "Failed to summarize telemetry for $appId")
+            null
+        }
+    }
+
     private fun telemetryDir(context: Context): File = File(context.filesDir, "telemetry")
 
     private fun statsFile(context: Context, appId: String): File =
