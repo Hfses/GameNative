@@ -204,7 +204,7 @@ public abstract class TarCompressorUtils {
             return true;
         }
         catch (IOException e) {
-            e.printStackTrace();
+            Log.e("TarCompressorUtils", "Extraction failed", e);
             return false;
         }
     }

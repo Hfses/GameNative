@@ -83,7 +83,7 @@ public abstract class FileUtils {
             return true;
         }
         catch (IOException e) {
-            e.printStackTrace();
+            Log.w("FileUtils", "I/O operation failed", e);
         }
         return false;
     }
@@ -106,7 +106,7 @@ public abstract class FileUtils {
             success = true;
         }
         catch (IOException e) {
-            e.printStackTrace();
+            Log.w("FileUtils", "I/O operation failed", e);
             // Clean up temp file on failure
             tempFile.delete();
             return false;
@@ -262,7 +262,7 @@ public abstract class FileUtils {
             return new BufferedReader(new InputStreamReader(fis, StandardCharsets.UTF_8)).readLine();
         }
         catch (IOException e) {
-            e.printStackTrace();
+            Log.w("FileUtils", "I/O operation failed", e);
             return null;
         }
     }
@@ -275,7 +275,7 @@ public abstract class FileUtils {
             while ((line = reader.readLine()) != null) lines.add(line);
         }
         catch (IOException e) {
-            e.printStackTrace();
+            Log.w("FileUtils", "I/O operation failed", e);
         }
         return lines;
     }

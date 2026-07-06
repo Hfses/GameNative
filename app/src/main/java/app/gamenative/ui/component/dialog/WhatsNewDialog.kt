@@ -62,7 +62,8 @@ private val WHATS_NEW_SECTIONS = listOf(
             "Nova tela Controles no menu: escolha qual controle é o Jogador 1 e qual é o Jogador 2.",
             "Modo de performance sustentada durante o jogo (menos queda de FPS por aquecimento em sessões longas).",
             "Jogos em LAN: descoberta de salas por broadcast liberada (CS 1.6, NFS MW 2005).",
-            "Falhas de download/instalação agora geram registro com o motivo.",
+            "Falhas de download/instalação de componentes agora mostram aviso na tela com o motivo (antes o jogo simplesmente não abria, sem explicação).",
+            "Telemetria local automática: FPS e fechamentos inesperados são medidos por jogo, só no aparelho. Com dados suficientes, o app sugere ajustes (ex.: 3 sessões abaixo de 25 FPS → dica de configuração).",
             "Novo build de APK automático do fork (aba Actions do GitHub).",
         ),
     ),
@@ -70,10 +71,10 @@ private val WHATS_NEW_SECTIONS = listOf(
         icon = Icons.Default.Upcoming,
         title = "O que vem a seguir",
         items = listOf(
-            "Aviso na tela (toast) com o motivo quando um download falhar.",
-            "Telemetria local automática: medir FPS e crashes por jogo e sugerir ajustes — tudo no aparelho, nada enviado.",
             "Suporte a 4 controles depois que 2 estiverem validados.",
-            "Melhorias na tela de salas LAN e guia para redes que bloqueiam jogadores entre si.",
+            "Tela de salas LAN e guia para redes que bloqueiam jogadores entre si.",
+            "Histórico de desempenho por jogo visível na tela do jogo.",
+            "Limpeza interna da camada de emulação herdada do Winlator.",
         ),
     ),
 )

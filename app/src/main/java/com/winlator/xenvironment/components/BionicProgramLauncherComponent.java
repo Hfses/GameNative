@@ -223,25 +223,27 @@ public class BionicProgramLauncherComponent extends GuestProgramLauncherComponen
         boolean shareAndroidClipboard = PrefManager.getBoolean("share_android_clipboard", false);
         boolean enablePebLogs = PrefManager.getBoolean("enable_peb_logs", false);
 
+        // These writes target the FIELD (this.envVars, merged into the guest env
+        // further down); a local with the same name is declared below, so keep
+        // the this. prefix explicit — and guard against a null field.
+        if (this.envVars == null) this.envVars = new EnvVars();
         // Always set this to defer handling to WineRequestComponent
-        envVars.put("WINE_OPEN_WITH_ANDROID_BROwSER", "1"); // Pipetto wine has a typo, so we need 2 envvar for it to work
-        envVars.put("WINE_OPEN_WITH_ANDROID_BROWSER", "1");
+        this.envVars.put("WINE_OPEN_WITH_ANDROID_BROwSER", "1"); // Pipetto wine has a typo, so we need 2 envvar for it to work
+        this.envVars.put("WINE_OPEN_WITH_ANDROID_BROWSER", "1");
 
         if (shareAndroidClipboard) {
-            envVars.put("WINE_FROM_ANDROID_CLIPBOARD", "1");
-            envVars.put("WINE_TO_ANDROID_CLIPBOARD", "1");
+            this.envVars.put("WINE_FROM_ANDROID_CLIPBOARD", "1");
+            this.envVars.put("WINE_TO_ANDROID_CLIPBOARD", "1");
         }
         if (enablePebLogs) {
-            envVars.put("WINE_LOG_PEB_DATA", "1");
+            this.envVars.put("WINE_LOG_PEB_DATA", "1");
         }
 
         EnvVars envVars = new EnvVars();
 
         // Use the ControllerManager's dynamic count for the environment variable
         envVars.put("EVSHIM_MAX_PLAYERS", String.valueOf(enabledPlayerCount));
-        if (true) {
-            envVars.put("EVSHIM_SHM_ID", 1);
-        }
+        envVars.put("EVSHIM_SHM_ID", 1);
         addBox64EnvVars(envVars, enableBox86_64Logs);
         envVars.putAll(FEXCorePresetManager.getEnvVars(context, fexcorePreset));
 

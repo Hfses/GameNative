@@ -77,12 +77,16 @@ fun ContentsManagerDialog(open: Boolean, onDismiss: () -> Unit) {
     val refreshInstalled: () -> Unit = {
         try {
             mgr.syncContents()
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            timber.log.Timber.w(e, "ContentsManagerDialog: syncContents failed")
+        }
         installedProfiles.clear()
         try {
             val list = mgr.getProfiles(currentType)
             if (list != null) installedProfiles.addAll(list.filter { it.remoteUrl == null })
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            timber.log.Timber.w(e, "ContentsManagerDialog: listing installed profiles failed")
+        }
     }
 
     LaunchedEffect(currentType) {

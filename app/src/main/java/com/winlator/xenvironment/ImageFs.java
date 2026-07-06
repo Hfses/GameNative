@@ -1,6 +1,7 @@
 package com.winlator.xenvironment;
 
 import android.content.Context;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
 
@@ -95,7 +96,7 @@ public class ImageFs {
             FileUtils.writeString(file, String.valueOf(version));
         }
         catch (IOException e) {
-            e.printStackTrace();
+            Log.e("ImageFs", "Failed to write image metadata", e);
         }
     }
 
@@ -119,7 +120,7 @@ public class ImageFs {
             FileUtils.writeString(file, variant);
         }
         catch (IOException e) {
-            e.printStackTrace();
+            Log.e("ImageFs", "Failed to write image metadata", e);
         }
     }
 
