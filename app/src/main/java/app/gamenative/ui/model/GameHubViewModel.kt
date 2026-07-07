@@ -8,6 +8,8 @@ import app.gamenative.gamehub.GameLibraryRepository
 import app.gamenative.gamehub.GameModel
 import app.gamenative.gamehub.StoreConnectionState
 import app.gamenative.gamehub.StoreManager
+import app.gamenative.gamehub.custom.CustomStoreConfig
+import app.gamenative.gamehub.custom.CustomStoreRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,6 +32,7 @@ class GameHubViewModel @Inject constructor(
     private val storeManager: StoreManager,
     private val registrar: GameHubRegistrar,
     private val repository: GameLibraryRepository,
+    private val customStoreRepository: CustomStoreRepository,
 ) : ViewModel() {
 
     enum class InstallFilter { ALL, INSTALLED, NOT_INSTALLED }
@@ -88,6 +91,18 @@ class GameHubViewModel @Inject constructor(
         }
         s.copy(games = sorted, sortBy = sort, favoritesOnly = favOnly)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), GameHubUiState())
+
+    /** User-defined API stores added via the config form. */
+    val customStores: StateFlow<List<CustomStoreConfig>> = customStoreRepository.configs
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    fun saveCustomStore(config: CustomStoreConfig) {
+        viewModelScope.launch { customStoreRepository.upsert(config) }
+    }
+
+    fun removeCustomStore(id: String) {
+        viewModelScope.launch { customStoreRepository.remove(id) }
+    }
 
     fun setSort(value: SortBy) { sortBy.value = value }
     fun setFavoritesOnly(value: Boolean) { favoritesOnly.value = value }

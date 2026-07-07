@@ -122,6 +122,9 @@
     <string name="game_hub_favorites">Favorites</string>
     <string name="game_hub_favorite_add">Add to favorites</string>
     <string name="game_hub_favorite_remove">Remove from favorites</string>
+    <string name="game_hub_custom_stores">Lojas personalizadas</string>
+    <string name="game_hub_add_store">Adicionar loja</string>
+    <string name="game_hub_remove_store">Remover loja</string>
     <string name="downloads_section_title">Downloads</string>
     <string name="downloads_empty">No active downloads</string>
     <string name="downloads_overview_subtitle">Track active, paused, and resumable downloads</string>

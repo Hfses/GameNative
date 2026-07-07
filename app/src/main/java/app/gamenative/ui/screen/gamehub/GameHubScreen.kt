@@ -18,6 +18,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Star
@@ -29,6 +31,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
@@ -57,6 +60,7 @@ import app.gamenative.gamehub.GameModel
 import app.gamenative.gamehub.GameModelMapper
 import app.gamenative.gamehub.InstallState
 import app.gamenative.gamehub.StoreConnectionState
+import app.gamenative.gamehub.custom.CustomStoreConfig
 import app.gamenative.ui.model.GameHubViewModel
 import app.gamenative.ui.model.GameHubViewModel.InstallFilter
 import app.gamenative.ui.model.GameHubViewModel.SortBy
@@ -79,7 +83,22 @@ fun GameHubScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val stores by viewModel.stores.collectAsStateWithLifecycle()
+    val customStores by viewModel.customStores.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableIntStateOf(0) }
+
+    // "Add / edit custom store" form state.
+    var showStoreForm by remember { mutableStateOf(false) }
+    var editingStore by remember { mutableStateOf<CustomStoreConfig?>(null) }
+    if (showStoreForm) {
+        CustomStoreDialog(
+            initial = editingStore,
+            onSave = { config ->
+                viewModel.saveCustomStore(config)
+                showStoreForm = false
+            },
+            onDismiss = { showStoreForm = false },
+        )
+    }
 
     // Tapping a game opens the app's existing, proven detail screen (install / play / configure),
     // reusing the whole per-store install flow instead of reimplementing downloads in the hub.
@@ -137,7 +156,13 @@ fun GameHubScreen(
             if (tab == 0) {
                 LibraryTab(state = state, viewModel = viewModel, onOpenGame = { selectedGame = it })
             } else {
-                StoresTab(stores = stores)
+                StoresTab(
+                    stores = stores,
+                    customStores = customStores,
+                    onAddStore = { editingStore = null; showStoreForm = true },
+                    onEditStore = { editingStore = it; showStoreForm = true },
+                    onRemoveStore = { viewModel.removeCustomStore(it.id) },
+                )
             }
         }
     }
@@ -265,28 +290,82 @@ private fun LibraryTab(
 }
 
 @Composable
-private fun StoresTab(stores: List<GameHubViewModel.StoreInfo>) {
-    if (stores.isEmpty()) {
-        Box(
-            Modifier
-                .fillMaxSize()
-                .padding(24.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = stringResource(R.string.game_hub_empty),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        return
-    }
+private fun StoresTab(
+    stores: List<GameHubViewModel.StoreInfo>,
+    customStores: List<CustomStoreConfig>,
+    onAddStore: () -> Unit,
+    onEditStore: (CustomStoreConfig) -> Unit,
+    onRemoveStore: (CustomStoreConfig) -> Unit,
+) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        items(stores, key = { it.source.name }) { store -> StoreRow(store) }
+        items(stores, key = { "builtin:${it.source.name}" }) { store -> StoreRow(store) }
+
+        if (customStores.isNotEmpty()) {
+            item {
+                Text(
+                    text = stringResource(R.string.game_hub_custom_stores),
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
+            items(customStores, key = { "custom:${it.id}" }) { config ->
+                CustomStoreRow(
+                    config = config,
+                    onEdit = { onEditStore(config) },
+                    onRemove = { onRemoveStore(config) },
+                )
+            }
+        }
+
+        item {
+            OutlinedButton(
+                onClick = onAddStore,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+            ) {
+                Icon(Icons.Filled.Add, contentDescription = null)
+                Spacer(Modifier.size(8.dp))
+                Text(stringResource(R.string.game_hub_add_store))
+            }
+        }
+    }
+}
+
+@Composable
+private fun CustomStoreRow(
+    config: CustomStoreConfig,
+    onEdit: () -> Unit,
+    onRemove: () -> Unit,
+) {
+    Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onEdit)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = config.name, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    text = config.libraryEndpoint.ifBlank { config.id },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            IconButton(onClick = onRemove) {
+                Icon(
+                    imageVector = Icons.Filled.Delete,
+                    contentDescription = stringResource(R.string.game_hub_remove_store),
+                )
+            }
+        }
     }
 }
 

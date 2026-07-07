@@ -4,6 +4,7 @@ import android.content.Context
 import app.gamenative.gamehub.DataStoreGameLibraryRepository
 import app.gamenative.gamehub.GameLibraryRepository
 import app.gamenative.gamehub.StoreManager
+import app.gamenative.gamehub.custom.CustomStoreRepository
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -29,4 +30,10 @@ object GameHubModule {
     fun provideGameLibraryRepository(
         @ApplicationContext context: Context,
     ): GameLibraryRepository = DataStoreGameLibraryRepository(context)
+
+    @Provides
+    @Singleton
+    fun provideCustomStoreRepository(
+        @ApplicationContext context: Context,
+    ): CustomStoreRepository = CustomStoreRepository(context)
 }
