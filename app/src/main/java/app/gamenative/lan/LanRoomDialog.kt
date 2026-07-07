@@ -44,6 +44,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import app.gamenative.R
 import app.gamenative.service.SteamService
+import app.gamenative.ui.util.SnackbarManager
 import kotlinx.coroutines.launch
 
 /**
@@ -249,15 +250,14 @@ fun LanRoomDialog(
                                     style = MaterialTheme.typography.titleSmall,
                                     color = MaterialTheme.colorScheme.primary,
                                 )
+                                val linkCopiedMsg = stringResource(R.string.lan_link_copied)
                                 Button(
                                     onClick = {
                                         val link = LanRoomManager.buildJoinLink(roomInfo, password)
                                         clipboard.setText(AnnotatedString(link))
-                                        android.widget.Toast.makeText(
-                                            context,
-                                            context.getString(R.string.lan_link_copied),
-                                            android.widget.Toast.LENGTH_SHORT,
-                                        ).show()
+                                        // This project bans android.widget.Toast at compile time
+                                        // (deprecation rule); use the app's SnackbarManager.
+                                        SnackbarManager.show(linkCopiedMsg)
                                     },
                                     modifier = Modifier.fillMaxWidth(),
                                 ) { Text(stringResource(R.string.lan_copy_link)) }
