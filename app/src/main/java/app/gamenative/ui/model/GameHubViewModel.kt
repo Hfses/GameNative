@@ -95,6 +95,11 @@ class GameHubViewModel @Inject constructor(
         viewModelScope.launch { repository.setFavorite(game.id, !game.isFavorite) }
     }
 
+    /** Stamp a game as just-played so the Recent sort reflects it. Call when launching from the hub. */
+    fun recordPlayed(gameId: String) {
+        viewModelScope.launch { repository.setLastPlayed(gameId, System.currentTimeMillis()) }
+    }
+
     /** One row per registered store for the Stores tab. */
     data class StoreInfo(
         val source: GameSource,

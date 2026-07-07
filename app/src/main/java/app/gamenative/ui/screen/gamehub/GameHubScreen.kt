@@ -230,7 +230,10 @@ private fun LibraryTab(
                 items(state.games, key = { it.id }) { game ->
                     GameRow(
                         game = game,
-                        onPlay = { onClickPlay(game.id) },
+                        onPlay = {
+                            viewModel.recordPlayed(game.id)
+                            onClickPlay(game.id)
+                        },
                         onToggleFavorite = { viewModel.toggleFavorite(game) },
                     )
                 }
