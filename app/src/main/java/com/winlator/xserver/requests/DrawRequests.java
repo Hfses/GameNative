@@ -34,6 +34,16 @@ public abstract class DrawRequests {
         int length = client.getRemainingRequestLength();
         ByteBuffer data = inputStream.readByteBuffer(length);
 
+        // The pixel payload feeds native copyArea, which reads width*height*4 bytes from `data`
+        // using width as the stride and performs no bounds check of its own. A client sending a
+        // large width/height with a short payload would otherwise trigger a heap out-of-bounds
+        // read. Reject negative dimensions and any payload smaller than the pixels it claims.
+        if (width < 0 || height < 0) throw new BadMatch();
+        if (format == Format.Z_PIXMAP && (depth == 24 || depth == 32)) {
+            long requiredBytes = (long) width * (long) height * 4L;
+            if (length < requiredBytes) throw new BadMatch();
+        }
+
         Drawable drawable =  client.xServer.drawableManager.getDrawable(drawableId);
         if (drawable == null) throw new BadDrawable(drawableId);
 

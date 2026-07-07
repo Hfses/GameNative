@@ -1,12 +1,19 @@
 package app.gamenative.events
 
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.reflect.KClass
 
 // written with the help of Claude 3.5
 sealed interface Event<T>
 
 class EventDispatcher {
-    val listeners = mutableMapOf<KClass<out Event<*>>, MutableList<Pair<String, EventListener<Event<*>, *>>>>()
+    // Listeners are registered/removed (on/off) and fired (emit) from several threads — Steam
+    // callback threads, Dispatchers.IO coroutines and the UI. A plain LinkedHashMap/ArrayList
+    // raced there: emit()'s snapshot could collide with a concurrent add/removeIf and throw
+    // ConcurrentModificationException, or silently drop a listener. ConcurrentHashMap +
+    // CopyOnWriteArrayList give lock-free snapshot iteration and atomic mutation instead.
+    val listeners = ConcurrentHashMap<KClass<out Event<*>>, CopyOnWriteArrayList<Pair<String, EventListener<Event<*>, *>>>>()
 
     open class EventListener<E : Event<T>, T>(
         val listener: (E) -> T,
@@ -35,7 +42,9 @@ class EventDispatcher {
             }, once),
         )
         // Log.d("EventDispatcher", "Putting $typedListener in $eventClass")
-        listeners.getOrPut(eventClass) { mutableListOf() }.add(typedListener as Pair<String, EventListener<Event<*>, *>>)
+        // computeIfAbsent (atomic on ConcurrentHashMap) so two threads registering the first
+        // listener for an event type can't each create a list and lose one another's add().
+        listeners.computeIfAbsent(eventClass) { CopyOnWriteArrayList() }.add(typedListener as Pair<String, EventListener<Event<*>, *>>)
     }
 
     inline fun <reified E : Event<T>, T> off(noinline listener: (E) -> T) {

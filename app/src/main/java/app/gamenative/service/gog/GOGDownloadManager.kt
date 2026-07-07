@@ -992,7 +992,7 @@ class GOGDownloadManager @Inject constructor(
                     Timber.tag("GOG").v("Pre-allocating ${file.path}")
 
                     // Allocating file before download
-                    val outputFile = File(installDir, file.path)
+                    val outputFile = resolveInsideInstallDir(installDir, file.path) ?: return@forEach
                     outputFile.parentFile?.mkdirs()
 
                     val totalSize = file.chunks.sumOf { it.size }
@@ -1501,7 +1501,10 @@ class GOGDownloadManager @Inject constructor(
         installDir: File,
     ): Result<File> = withContext(Dispatchers.IO) {
         try {
-            val outputFile = File(installDir, file.path)
+            val outputFile = resolveInsideInstallDir(installDir, file.path)
+                ?: return@withContext Result.failure(
+                    SecurityException("Manifest path escapes install dir: ${file.path}"),
+                )
             outputFile.parentFile?.mkdirs()
 
             // Get compressed chunk file
@@ -1637,6 +1640,23 @@ class GOGDownloadManager @Inject constructor(
 
     private fun getSupportInstallPath(path: String): String {
         return if (path.startsWith("app/")) path.removePrefix("app/") else path
+    }
+
+    /**
+     * Resolve [relativePath] (which comes from the untrusted GOG manifest) against [installDir]
+     * and verify the result stays inside [installDir]. A manifest entry like "../../../foo" would
+     * otherwise let a compromised/malicious depot write arbitrary files outside the game directory
+     * (path traversal / "zip slip"). Returns null if the path escapes, so callers can skip it.
+     */
+    private fun resolveInsideInstallDir(installDir: File, relativePath: String): File? {
+        val installRoot = installDir.canonicalPath
+        val resolved = File(installDir, relativePath).canonicalFile
+        return if (resolved.path == installRoot || resolved.path.startsWith(installRoot + File.separator)) {
+            resolved
+        } else {
+            Timber.tag("GOG").e("Refusing manifest path outside install dir: %s", relativePath)
+            null
+        }
     }
 
     /**

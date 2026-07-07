@@ -1035,7 +1035,7 @@ class EpicDownloadManager @Inject constructor(
                     Timber.tag("EPIC").v("Pre-allocating ${file.filename}")
 
                     // Allocating file before download
-                    val outputFile = File(installDir, file.filename)
+                    val outputFile = resolveInsideInstallDir(installDir, file.filename) ?: return@forEach
                     outputFile.parentFile?.mkdirs()
 
                     val totalSize = file.fileSize
@@ -1130,7 +1130,10 @@ class EpicDownloadManager @Inject constructor(
         installDir: File,
     ): Result<File> = withContext(Dispatchers.IO) {
         try {
-            val outputFile = File(installDir, fileManifest.filename)
+            val outputFile = resolveInsideInstallDir(installDir, fileManifest.filename)
+                ?: return@withContext Result.failure(
+                    SecurityException("Manifest path escapes install dir: ${fileManifest.filename}"),
+                )
             outputFile.parentFile?.mkdirs()
 
             outputFile.outputStream().use { output ->
@@ -1178,7 +1181,10 @@ class EpicDownloadManager @Inject constructor(
         installDir: File,
     ): Result<File> = withContext(Dispatchers.IO) {
         try {
-            val outputFile = File(installDir, fileManifest.filename)
+            val outputFile = resolveInsideInstallDir(installDir, fileManifest.filename)
+                ?: return@withContext Result.failure(
+                    SecurityException("Manifest path escapes install dir: ${fileManifest.filename}"),
+                )
             outputFile.parentFile?.mkdirs()
 
             // Get compressed chunk file
@@ -1273,6 +1279,23 @@ class EpicDownloadManager @Inject constructor(
             bytes < 1024 * 1024 -> "%.2f KB".format(bytes / 1024.0)
             bytes < 1024 * 1024 * 1024 -> "%.2f MB".format(bytes / (1024.0 * 1024.0))
             else -> "%.2f GB".format(bytes / (1024.0 * 1024.0 * 1024.0))
+        }
+    }
+
+    /**
+     * Resolve [relativePath] (which comes from the untrusted Epic manifest) against [installDir]
+     * and verify the result stays inside [installDir]. A manifest filename like "../../../foo"
+     * would otherwise let a malicious/compromised manifest write arbitrary files outside the game
+     * directory (path traversal / "zip slip"). Returns null if the path escapes.
+     */
+    private fun resolveInsideInstallDir(installDir: File, relativePath: String): File? {
+        val installRoot = installDir.canonicalPath
+        val resolved = File(installDir, relativePath).canonicalFile
+        return if (resolved.path == installRoot || resolved.path.startsWith(installRoot + File.separator)) {
+            resolved
+        } else {
+            Timber.tag("EPIC").e("Refusing manifest path outside install dir: %s", relativePath)
+            null
         }
     }
 
