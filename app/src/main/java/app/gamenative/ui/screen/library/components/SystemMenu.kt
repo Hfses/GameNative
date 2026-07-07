@@ -41,6 +41,7 @@ import androidx.compose.material.icons.automirrored.filled.Help
 import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.StarHalf
+import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
@@ -249,6 +250,7 @@ fun SystemMenu(
     onDismiss: () -> Unit,
     onNavigateRoute: (String) -> Unit,
     onDownloadsClick: () -> Unit = {},
+    onGameHubClick: () -> Unit = {},
     onLogout: () -> Unit,
     onGoOnline: () -> Unit,
     isOffline: Boolean = false,
@@ -601,6 +603,15 @@ fun SystemMenu(
                                 onDismiss()
                             },
                             focusRequester = firstItemFocusRequester,
+                        )
+
+                        SystemMenuItem(
+                            text = stringResource(R.string.destination_game_hub),
+                            icon = Icons.Default.Apps,
+                            onClick = {
+                                onGameHubClick()
+                                onDismiss()
+                            },
                         )
 
                         SystemMenuItem(
