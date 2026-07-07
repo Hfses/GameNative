@@ -58,6 +58,21 @@ data class EnvVarInfo(
                 identifier = "BOX64_MAXCPU",
                 possibleValues = listOf("4", "8", "16", "32", "64"),
             ),
+            // DynaCache: persist translated blocks to disk (~/.cache/box64) so repeated
+            // launches skip re-translation, reducing startup time and JIT stutter.
+            // 0 = off, 1 = read/write, 2 = read-only.
+            "BOX64_DYNACACHE" to EnvVarInfo(
+                identifier = "BOX64_DYNACACHE",
+                possibleValues = listOf("0", "1", "2"),
+            ),
+            "BOX64_DYNACACHE_LIMIT" to EnvVarInfo(
+                identifier = "BOX64_DYNACACHE_LIMIT",
+                possibleValues = listOf("512", "1024", "2048", "4096"),
+            ),
+            "BOX64_DYNACACHE_COMPRESS" to EnvVarInfo(
+                identifier = "BOX64_DYNACACHE_COMPRESS",
+                possibleValues = listOf("0", "1", "2"),
+            ),
             "BOX64_UNITYPLAYER" to EnvVarInfo(
                 identifier = "BOX64_UNITYPLAYER",
                 selectionType = EnvVarSelectionType.TOGGLE,
