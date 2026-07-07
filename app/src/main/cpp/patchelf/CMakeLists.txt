@@ -10,3 +10,6 @@ add_library(patchelf SHARED
             src/patchelf.cc)
 
 target_link_libraries(patchelf)
+
+# Align ELF LOAD segments to 16 KB for Android 15+ devices with 16 KB page size.
+target_link_options(patchelf PRIVATE -Wl,-z,max-page-size=16384)
