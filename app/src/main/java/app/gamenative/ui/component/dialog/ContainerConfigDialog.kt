@@ -435,8 +435,10 @@ fun ContainerConfigDialog(
         val bionicWineOptions = remember(bionicWineEntriesBase, installedWine, installedProton, bionicWineManifest) {
             ManifestComponentHelper.buildVersionOptionList(bionicWineEntriesBase, installedWine + installedProton, bionicWineManifest)
         }
-        val glibcWineOptions = remember(glibcWineEntriesBase, glibcWineManifest) {
-            ManifestComponentHelper.buildVersionOptionList(glibcWineEntriesBase, emptyList(), glibcWineManifest)
+        val glibcWineOptions = remember(glibcWineEntriesBase, installedWine, installedProton, glibcWineManifest) {
+            // Include installed Wine/Proton content so user-imported glibc builds show up in
+            // the glibc container's Wine version dropdown, mirroring the bionic list above.
+            ManifestComponentHelper.buildVersionOptionList(glibcWineEntriesBase, installedWine + installedProton, glibcWineManifest)
         }
 
         val dxvkManifestById = remember(manifestDxvk) {
@@ -472,7 +474,7 @@ fun ContainerConfigDialog(
 
             wrapperVersions = (baseWrapperVersions + availabilityUpdated.installedDrivers).distinct()
             bionicWineEntries = (bionicWineEntriesBase + installed.proton + installed.wine).distinct()
-            glibcWineEntries = glibcWineEntriesBase
+            glibcWineEntries = (glibcWineEntriesBase + installed.wine + installed.proton).distinct()
         }
 
         LaunchedEffect(Unit) {

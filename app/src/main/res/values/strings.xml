@@ -1450,6 +1450,11 @@
     <string name="wine_proton_install_error">Installation error: %s</string>
     <string name="wine_proton_install_success">%1$s %2$s installed successfully</string>
     <string name="wine_proton_glibc_incompatible">This Wine/Proton build requires GLIBC containers and is not compatible with GameNative. Please use ARM64/bionic builds only.</string>
+    <string name="wine_proton_url_section">Download from URL:</string>
+    <string name="wine_proton_url_description">Paste a direct link to a Wine/Proton package (e.g. a GitHub release .wcp/.tzst). The filename must start with \"wine\" or \"proton\".</string>
+    <string name="wine_proton_url_hint">https://…/wine-…​.wcp</string>
+    <string name="wine_proton_url_button">Download &amp; Install from URL</string>
+    <string name="wine_proton_url_empty">Please enter a valid URL.</string>
     <string name="wine_proton_containers_in_use">Containers using this version:</string>
     <string name="wine_proton_no_containers_warning">No containers are currently using this version.</string>
     <string name="wine_proton_containers_will_break">These containers will no longer work if you proceed:</string>

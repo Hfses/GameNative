@@ -48,6 +48,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import app.gamenative.BuildConfig
 import app.gamenative.R
 import app.gamenative.service.SteamService
 import app.gamenative.utils.Net
@@ -87,6 +88,9 @@ fun WineProtonManagerDialog(open: Boolean, onDismiss: () -> Unit) {
     var isDownloading by remember { mutableStateOf(false) }
     var isInstalling by remember { mutableStateOf(false) }
     var downloadProgress by remember { mutableStateOf(0f) }
+
+    // Direct URL install (e.g. a GitHub release asset)
+    var wineUrlInput by remember { mutableStateOf("") }
 
     // Wine/Proton manifest handling
     var wineProtonManifest by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
@@ -294,8 +298,10 @@ fun WineProtonManagerDialog(open: Boolean, onDismiss: () -> Unit) {
             val tmpDir = ContentsManager.getTmpDir(ctx)
             val binaryVariant = detectBinaryVariant(tmpDir)
 
-            if (binaryVariant == "glibc") {
-                // Reject glibc builds - not supported in GameNative
+            // glibc Wine/Proton is only meaningful on legacy (non-MODERN_ANDROID) builds,
+            // which are the only builds that expose the glibc container variant. On modern
+            // builds the glibc variant is hidden, so such packages are rejected there.
+            if (binaryVariant == "glibc" && BuildConfig.MODERN_ANDROID) {
                 statusMessage = ctx.getString(R.string.wine_proton_glibc_incompatible)
                 isStatusSuccess = false
 
@@ -478,8 +484,9 @@ fun WineProtonManagerDialog(open: Boolean, onDismiss: () -> Unit) {
                 val tmpDir = ContentsManager.getTmpDir(ctx)
                 val binaryVariant = detectBinaryVariant(tmpDir)
 
-                //! We currently are not supporting GLIBC but we will in future.
-                if (binaryVariant == "glibc") {
+                // glibc builds are accepted on legacy builds (the only ones that expose the
+                // glibc container variant); modern builds still reject them.
+                if (binaryVariant == "glibc" && BuildConfig.MODERN_ANDROID) {
                     val errorMsg = ctx.getString(R.string.wine_proton_glibc_incompatible)
                     withContext(Dispatchers.Main) {
                         statusMessage = errorMsg
@@ -554,6 +561,165 @@ fun WineProtonManagerDialog(open: Boolean, onDismiss: () -> Unit) {
                 }
                 Timber.e(e, "WineProtonManagerDialog: Download/install failed")
             } finally {
+                withContext(Dispatchers.Main) {
+                    isDownloading = false
+                    isInstalling = false
+                    isBusy = false
+                    downloadProgress = 0f
+                }
+            }
+        }
+    }
+
+    // Download a Wine/Proton package from an arbitrary URL (GitHub release, etc.) and install
+    // it through the same content pipeline as the local-file importer. Self-contained so it
+    // does not perturb the manifest/file install flows above.
+    val downloadAndInstallFromUrl = { rawUrl: String ->
+        scope.launch {
+            val url = rawUrl.trim()
+            if (url.isEmpty()) {
+                SnackbarManager.show(ctx.getString(R.string.wine_proton_url_empty))
+                return@launch
+            }
+            isDownloading = true
+            isBusy = true
+            downloadProgress = 0f
+            var destFile: File? = null
+            try {
+                // Derive a filename from the URL; the wine/proton prefix drives type detection.
+                val fileName = url.substringAfterLast('/').substringBefore('?').ifBlank { "package.wcp" }
+                val outFile = File(ctx.cacheDir, fileName)
+                destFile = outFile
+
+                withContext(Dispatchers.IO) {
+                    val request = Request.Builder().url(url).build()
+                    Net.http.newCall(request).execute().use { response ->
+                        if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
+                        val body = response.body ?: throw IOException("Empty response body")
+                        val total = body.contentLength()
+                        outFile.outputStream().use { out ->
+                            body.byteStream().use { input ->
+                                val buf = ByteArray(64 * 1024)
+                                var downloaded = 0L
+                                var lastUpdate = 0L
+                                while (true) {
+                                    val read = input.read(buf)
+                                    if (read < 0) break
+                                    out.write(buf, 0, read)
+                                    downloaded += read
+                                    val now = System.currentTimeMillis()
+                                    if (total > 0 && now - lastUpdate > 300) {
+                                        lastUpdate = now
+                                        val p = (downloaded.toFloat() / total).coerceIn(0f, 1f)
+                                        scope.launch(Dispatchers.Main) { downloadProgress = p }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                withContext(Dispatchers.Main) {
+                    isDownloading = false
+                    downloadProgress = 1f
+                    isInstalling = true
+                    statusMessage = ctx.getString(R.string.wine_proton_extracting)
+                }
+
+                val filenameLower = fileName.lowercase()
+                val detectedType = when {
+                    filenameLower.startsWith("wine") -> ContentProfile.ContentType.CONTENT_TYPE_WINE
+                    filenameLower.startsWith("proton") -> ContentProfile.ContentType.CONTENT_TYPE_PROTON
+                    else -> null
+                }
+                if (detectedType == null) {
+                    val msg = ctx.getString(R.string.wine_proton_filename_error)
+                    statusMessage = msg; isStatusSuccess = false; SnackbarManager.show(msg)
+                    return@launch
+                }
+
+                val uri = Uri.fromFile(outFile)
+                val result = withContext(Dispatchers.IO) {
+                    var profile: ContentProfile? = null
+                    var failReason: ContentsManager.InstallFailedReason? = null
+                    var err: Exception? = null
+                    val latch = CountDownLatch(1)
+                    try {
+                        mgr.extraContentFile(uri, object : ContentsManager.OnInstallFinishedCallback {
+                            override fun onFailed(reason: ContentsManager.InstallFailedReason, e: Exception?) {
+                                failReason = reason; err = e; latch.countDown()
+                            }
+                            override fun onSucceed(profileArg: ContentProfile) {
+                                profile = profileArg; latch.countDown()
+                            }
+                        })
+                    } catch (e: Exception) {
+                        err = e; latch.countDown()
+                    }
+                    if (!latch.await(240, TimeUnit.SECONDS)) err = Exception("Installation timed out after 240 seconds")
+                    Triple(profile, failReason, err)
+                }
+
+                val (profile, fail, error) = result
+                if (profile == null) {
+                    val msg = when (fail) {
+                        ContentsManager.InstallFailedReason.ERROR_BADTAR -> ctx.getString(R.string.wine_proton_error_badtar)
+                        ContentsManager.InstallFailedReason.ERROR_NOPROFILE -> ctx.getString(R.string.wine_proton_error_noprofile)
+                        ContentsManager.InstallFailedReason.ERROR_BADPROFILE -> ctx.getString(R.string.wine_proton_error_badprofile)
+                        ContentsManager.InstallFailedReason.ERROR_EXIST -> ctx.getString(R.string.wine_proton_error_exist)
+                        ContentsManager.InstallFailedReason.ERROR_MISSINGFILES -> ctx.getString(R.string.wine_proton_error_missingfiles)
+                        ContentsManager.InstallFailedReason.ERROR_UNTRUSTPROFILE -> ctx.getString(R.string.wine_proton_error_untrustprofile)
+                        ContentsManager.InstallFailedReason.ERROR_NOSPACE -> ctx.getString(R.string.wine_proton_error_nospace)
+                        null -> error?.let { "Error: ${it.javaClass.simpleName} - ${it.message}" } ?: ctx.getString(R.string.wine_proton_error_unknown)
+                        else -> ctx.getString(R.string.wine_proton_error_unable_install)
+                    }
+                    statusMessage = msg; isStatusSuccess = false; SnackbarManager.show(msg)
+                    Timber.e(error, "WineProtonManagerDialog: URL install failed")
+                    return@launch
+                }
+
+                if (profile.type != ContentProfile.ContentType.CONTENT_TYPE_WINE &&
+                    profile.type != ContentProfile.ContentType.CONTENT_TYPE_PROTON) {
+                    val msg = ctx.getString(R.string.wine_proton_not_wine_or_proton, profile.type)
+                    statusMessage = msg; isStatusSuccess = false; SnackbarManager.show(msg)
+                    return@launch
+                }
+
+                val tmpDir = ContentsManager.getTmpDir(ctx)
+                val binaryVariant = detectBinaryVariant(tmpDir)
+                if (binaryVariant == "glibc" && BuildConfig.MODERN_ANDROID) {
+                    val msg = ctx.getString(R.string.wine_proton_glibc_incompatible)
+                    statusMessage = msg; isStatusSuccess = false; SnackbarManager.show(msg)
+                    try { ContentsManager.cleanTmpDir(ctx) } catch (_: Exception) {}
+                    return@launch
+                }
+
+                val files = withContext(Dispatchers.IO) { mgr.getUnTrustedContentFiles(profile) }
+                untrustedFiles.clear()
+                untrustedFiles.addAll(files)
+                if (untrustedFiles.isNotEmpty()) {
+                    pendingProfile = profile
+                    showUntrustedConfirm = true
+                    statusMessage = ctx.getString(R.string.wine_proton_untrusted_files_detected)
+                    isStatusSuccess = false
+                } else {
+                    performFinishInstall(ctx, mgr, profile) { msg, success ->
+                        scope.launch(Dispatchers.Main) {
+                            pendingProfile = null
+                            refreshInstalled()
+                            statusMessage = msg
+                            isStatusSuccess = success
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                val msg = "Error downloading/installing: ${e.message}"
+                withContext(Dispatchers.Main) {
+                    statusMessage = msg; isStatusSuccess = false; SnackbarManager.show(msg)
+                }
+                Timber.e(e, "WineProtonManagerDialog: URL download/install failed")
+            } finally {
+                withContext(Dispatchers.IO) { runCatching { destFile?.delete() } }
                 withContext(Dispatchers.Main) {
                     isDownloading = false
                     isInstalling = false
@@ -717,6 +883,31 @@ fun WineProtonManagerDialog(open: Boolean, onDismiss: () -> Unit) {
                         }
                     }
                 }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+
+                // Install-from-URL section (download any Wine/Proton package, e.g. from GitHub)
+                Text(
+                    text = stringResource(R.string.wine_proton_url_section),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                Text(
+                    text = stringResource(R.string.wine_proton_url_description),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                NoExtractOutlinedTextField(
+                    value = wineUrlInput,
+                    onValueChange = { wineUrlInput = it },
+                    label = { Text(stringResource(R.string.wine_proton_url_hint)) },
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                )
+                Button(
+                    onClick = { downloadAndInstallFromUrl(wineUrlInput) },
+                    enabled = !isBusy && !isDownloading && !isInstalling && wineUrlInput.isNotBlank(),
+                    modifier = Modifier.padding(bottom = 12.dp)
+                ) { Text(stringResource(R.string.wine_proton_url_button)) }
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
