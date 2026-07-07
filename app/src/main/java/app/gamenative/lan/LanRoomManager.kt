@@ -115,6 +115,37 @@ object LanRoomManager {
         }
     }
 
+    private const val LINK_SCHEME = "gamenative"
+    private const val LINK_HOST = "lan"
+
+    data class JoinLink(val ip: String, val password: String)
+
+    /** Builds a shareable join link, e.g. gamenative://lan/join?ip=192.168.0.5&pw=... */
+    fun buildJoinLink(ip: String, password: String): String {
+        fun enc(s: String) = java.net.URLEncoder.encode(s, "UTF-8")
+        val base = "$LINK_SCHEME://$LINK_HOST/join?ip=${enc(ip.trim())}"
+        return if (password.isNotEmpty()) "$base&pw=${enc(password)}" else base
+    }
+
+    /** Parses a pasted join link OR a bare host IP; returns null if it makes no sense. */
+    fun parseJoinLink(text: String): JoinLink? {
+        val t = text.trim()
+        if (t.isEmpty()) return null
+        if (!t.contains("://")) {
+            // A bare IP/hostname (no scheme): accept as-is, no password embedded.
+            return if (t.any { it.isWhitespace() }) null else JoinLink(t, "")
+        }
+        return try {
+            val uri = android.net.Uri.parse(t)
+            if (!LINK_SCHEME.equals(uri.scheme, ignoreCase = true)) return null
+            val ip = uri.getQueryParameter("ip")?.trim().orEmpty()
+            if (ip.isEmpty()) return null
+            JoinLink(ip, uri.getQueryParameter("pw").orEmpty())
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     @Synchronized
     fun createRoom(context: Context, name: String, password: String, gameName: String, playerName: String) {
         stop()

@@ -37,8 +37,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import app.gamenative.R
 import app.gamenative.service.SteamService
@@ -61,6 +63,7 @@ fun LanRoomDialog(
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val clipboard = LocalClipboardManager.current
 
     val status by LanRoomManager.status.collectAsState()
     val players by LanRoomManager.players.collectAsState()
@@ -165,7 +168,7 @@ fun LanRoomDialog(
                                     if (discovering) {
                                         stringResource(R.string.lan_searching_rooms)
                                     } else {
-                                        stringResource(R.string.lan_host_ip)
+                                        stringResource(R.string.lan_host_ip_or_link)
                                     },
                                 )
                             },
@@ -181,7 +184,21 @@ fun LanRoomDialog(
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Button(
-                                onClick = { LanRoomManager.joinRoom(context, joinIp, password, playerName) },
+                                onClick = {
+                                    // Accept either a bare IP or a pasted gamenative://lan link
+                                    // (the link may also carry the room password).
+                                    val parsed = LanRoomManager.parseJoinLink(joinIp)
+                                    if (parsed != null) {
+                                        LanRoomManager.joinRoom(
+                                            context,
+                                            parsed.ip,
+                                            parsed.password.ifEmpty { password },
+                                            playerName,
+                                        )
+                                    } else {
+                                        LanRoomManager.joinRoom(context, joinIp, password, playerName)
+                                    }
+                                },
                                 enabled = joinIp.isNotBlank(),
                                 modifier = Modifier.weight(1f),
                             ) { Text(stringResource(R.string.lan_join_room)) }
@@ -232,6 +249,18 @@ fun LanRoomDialog(
                                     style = MaterialTheme.typography.titleSmall,
                                     color = MaterialTheme.colorScheme.primary,
                                 )
+                                Button(
+                                    onClick = {
+                                        val link = LanRoomManager.buildJoinLink(roomInfo, password)
+                                        clipboard.setText(AnnotatedString(link))
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            context.getString(R.string.lan_link_copied),
+                                            android.widget.Toast.LENGTH_SHORT,
+                                        ).show()
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) { Text(stringResource(R.string.lan_copy_link)) }
                             }
                             Text(
                                 text = stringResource(R.string.lan_players, players.joinToString(", ")),

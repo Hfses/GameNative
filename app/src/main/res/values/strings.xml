@@ -1670,6 +1670,9 @@
     <string name="lan_create_room">Create room</string>
     <string name="lan_join_room">Join room</string>
     <string name="lan_host_ip">Host IP</string>
+    <string name="lan_host_ip_or_link">Host IP or invite link</string>
+    <string name="lan_copy_link">Copy invite link</string>
+    <string name="lan_link_copied">Invite link copied</string>
     <string name="lan_searching_rooms">Searching for rooms…</string>
     <string name="lan_denied">Wrong password.</string>
     <string name="lan_error">Could not connect. Are both devices on the same network (or same VPN), with the room open?</string>
