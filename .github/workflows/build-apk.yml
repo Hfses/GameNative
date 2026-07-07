@@ -85,17 +85,31 @@ jobs:
         run: |
           set -euo pipefail
           TAG="debug-$(printf '%s' "$GITHUB_REF_NAME" | tr '/' '-')"
-          # Replace any previous rolling release+tag so the assets are always the latest build.
-          gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
-          gh release create "$TAG" \
-            --target "$GITHUB_SHA" \
-            --prerelease \
-            --title "Debug build — $GITHUB_REF_NAME" \
-            --notes "Automated debug APKs for branch \`$GITHUB_REF_NAME\` at commit \`${GITHUB_SHA:0:8}\`.
+          NOTES="Automated debug APKs for branch \`$GITHUB_REF_NAME\` at commit \`${GITHUB_SHA:0:8}\`.
 
           - **gamenative-modern-debug** — most modern phones.
           - **gamenative-legacy-debug** — legacy / glibc path (larger).
 
-          Debug-signed; install may require enabling \"install from unknown sources\"." \
-            apks/gamenative-modern-debug-apk/*.apk \
-            apks/gamenative-legacy-debug-apk/*.apk
+          Debug-signed; install may require enabling \"install from unknown sources\"."
+
+          # IMPORTANT: never delete the release/tag. Deleting them leaves a multi-minute window
+          # (while the ~800 MB of APKs re-upload) where the download URLs 404 — that was the
+          # "the link keeps disappearing" problem. Instead keep the rolling release alive and
+          # overwrite the assets in place, so the download URLs stay valid across every build.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" \
+              --prerelease \
+              --title "Debug build — $GITHUB_REF_NAME" \
+              --notes "$NOTES"
+          else
+            gh release create "$TAG" \
+              --target "$GITHUB_SHA" \
+              --prerelease \
+              --title "Debug build — $GITHUB_REF_NAME" \
+              --notes "$NOTES"
+          fi
+
+          # --clobber replaces each asset in place (stable names → stable, always-live URLs).
+          # Upload the smaller modern APK first so the most-used download refreshes soonest.
+          gh release upload "$TAG" apks/gamenative-modern-debug-apk/*.apk --clobber
+          gh release upload "$TAG" apks/gamenative-legacy-debug-apk/*.apk --clobber
