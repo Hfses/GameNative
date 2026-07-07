@@ -14,6 +14,11 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # contents: write lets the job publish the built APKs as a GitHub Release (see the last step),
+    # which is far easier to download than an Actions artifact (Release assets don't require the
+    # artifact UI, and on a public repo they download without any login at all).
+    permissions:
+      contents: write
 
     steps:
       - name: Checking out GameNative
@@ -52,3 +57,29 @@ jobs:
         with:
           name: gamenative-modern-debug-apk
           path: app/build/outputs/apk/modern/debug/*.apk
+
+      # Publish the same APKs as a GitHub Release so they can be downloaded straight from the
+      # Releases page (no login on a public repo; far more reliable than the Actions artifact zip,
+      # especially on mobile). Scoped to claude/** branches and manual runs so it never touches
+      # main's releases. A single rolling prerelease per branch is replaced on every push.
+      - name: Publish debug APKs as a rolling prerelease
+        if: startsWith(github.ref_name, 'claude/') || github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="debug-$(printf '%s' "$GITHUB_REF_NAME" | tr '/' '-')"
+          # Replace any previous rolling release+tag so the assets are always the latest build.
+          gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
+          gh release create "$TAG" \
+            --target "$GITHUB_SHA" \
+            --prerelease \
+            --title "Debug build — $GITHUB_REF_NAME" \
+            --notes "Automated debug APKs for branch \`$GITHUB_REF_NAME\` at commit \`${GITHUB_SHA:0:8}\`.
+
+          - **gamenative-modern-debug** — most modern phones.
+          - **gamenative-legacy-debug** — legacy / glibc path (larger).
+
+          Debug-signed; install may require enabling \"install from unknown sources\"." \
+            app/build/outputs/apk/modern/debug/*.apk \
+            app/build/outputs/apk/legacy/debug/*.apk
