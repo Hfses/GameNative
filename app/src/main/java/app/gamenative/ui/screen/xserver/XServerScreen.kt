@@ -116,6 +116,7 @@ import app.gamenative.utils.CustomGameScanner
 import app.gamenative.utils.ExecutableSelectionUtils
 import app.gamenative.utils.LsfgQuickMenuHelper
 import app.gamenative.utils.ManifestComponentHelper
+import app.gamenative.utils.PerformanceGovernor
 import app.gamenative.utils.downloader.DXWrapperDownloader
 import app.gamenative.utils.downloader.GraphicsDriverDownloader
 import app.gamenative.utils.PreInstallSteps
@@ -683,6 +684,32 @@ fun XServerScreen(
             fpsLimiterTarget = clampedTarget
         }
         applyFpsLimiterToEngines(effectiveFpsLimit())
+    }
+
+    // Thermal governor: while an FPS cap is active, sample the SoC's thermal headroom and
+    // transiently lower the applied cap as it approaches throttling, then restore it as the
+    // device cools. This only ever tightens an already-enabled cap, never raises it above the
+    // user's target, and is a no-op on devices without a thermal-headroom implementation.
+    LaunchedEffect(fpsLimiterEnabled, isLsfgAvailable, lsfgMultiplier) {
+        if (!fpsLimiterEnabled) return@LaunchedEffect
+        var lastApplied = -1
+        try {
+            while (true) {
+                val base = effectiveFpsLimit()
+                if (base > 0) {
+                    val headroom = PerformanceGovernor.thermalHeadroom(context, forecastSeconds = 10)
+                    val governed = PerformanceGovernor.suggestedCap(base, headroom)
+                    if (governed != lastApplied) {
+                        applyFpsLimiterToEngines(governed)
+                        lastApplied = governed
+                    }
+                }
+                kotlinx.coroutines.delay(4000)
+            }
+        } finally {
+            // On teardown/disable, hand control back to the user's configured cap.
+            applyFpsLimiterToEngines(effectiveFpsLimit())
+        }
     }
 
     fun restorePerformanceHudPosition() {
