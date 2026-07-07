@@ -3304,6 +3304,17 @@ private fun setupXEnvironment(
         envVars.remove("DXVK_FRAME_RATE")
         envVars.remove("VKD3D_FRAME_RATE")
         if (!envVars.has("WINEESYNC")) envVars.put("WINEESYNC", "1")
+        // Large Address Aware: let 32-bit games use up to 4GB of address space instead of 2GB,
+        // preventing "out of memory" crashes in heavier 32-bit titles. Proton forces this by
+        // default; mirror that here unless the user overrode it.
+        if (!envVars.has("WINE_LARGE_ADDRESS_AWARE")) envVars.put("WINE_LARGE_ADDRESS_AWARE", "1")
+        if (!envVars.has("PROTON_FORCE_LARGE_ADDRESS_AWARE")) envVars.put("PROTON_FORCE_LARGE_ADDRESS_AWARE", "1")
+        // ntsync: if the kernel exposes /dev/ntsync (custom GKI 6.14+), hint Wine 11+ to use it
+        // for NT synchronization primitives. esync stays set as a fallback for older Wine, which
+        // simply ignores this variable.
+        if (!envVars.has("WINENTSYNC") && File("/dev/ntsync").exists()) {
+            envVars.put("WINENTSYNC", "1")
+        }
         // The PulseAudio "low latency" toggle must also lower the latency requested by
         // Wine's Pulse client, otherwise it only affects the AAudio sink and the effective
         // latency stays at the 144 ms default. A manually customized value is respected.
