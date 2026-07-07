@@ -626,18 +626,9 @@ fun WineProtonManagerDialog(open: Boolean, onDismiss: () -> Unit) {
                     statusMessage = ctx.getString(R.string.wine_proton_extracting)
                 }
 
-                val filenameLower = fileName.lowercase()
-                val detectedType = when {
-                    filenameLower.startsWith("wine") -> ContentProfile.ContentType.CONTENT_TYPE_WINE
-                    filenameLower.startsWith("proton") -> ContentProfile.ContentType.CONTENT_TYPE_PROTON
-                    else -> null
-                }
-                if (detectedType == null) {
-                    val msg = ctx.getString(R.string.wine_proton_filename_error)
-                    statusMessage = msg; isStatusSuccess = false; SnackbarManager.show(msg)
-                    return@launch
-                }
-
+                // Don't gate on the URL filename (GE-Proton/wine-tkg releases aren't named
+                // "wine*"/"proton*"): the package's own profile type is validated after
+                // extraction below (must be Wine or Proton), which is the authoritative check.
                 val uri = Uri.fromFile(outFile)
                 val result = withContext(Dispatchers.IO) {
                     var profile: ContentProfile? = null

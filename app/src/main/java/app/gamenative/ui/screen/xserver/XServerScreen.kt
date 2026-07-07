@@ -4422,6 +4422,10 @@ private fun unpackExecutableFile(
                             } catch (e: Exception) {
                                 Files.copy(unpackedExe.toPath(), exe.toPath(), REPLACE_EXISTING)
                             }
+                            // The unpacked build is now consumed into exe (a hard link shares
+                            // its inode, or the fallback copied the bytes); drop .unpacked.exe so
+                            // the swap isn't re-applied on every launch and doesn't linger on disk.
+                            Files.deleteIfExists(unpackedExe.toPath())
                             Timber.i("Successfully moved files for $windowsPathForLog")
                         } else {
                             val errorMsg =
@@ -4720,7 +4724,7 @@ private suspend fun extractGraphicsDriverComponent(
         Timber.d("Downloading graphics driver $componentId: ${(progress * 100).toInt()}%")
     }
 
-    if (componentFile == null) {
+    val ok = if (componentFile == null) {
         // Legacy variant: use bundled asset
         Timber.d("Extracting graphics driver $componentId from bundled assets")
         TarCompressorUtils.extract(
@@ -4740,6 +4744,10 @@ private suspend fun extractGraphicsDriverComponent(
             rootDir, onExtractFileListener,
         )
     }
+    // Fail loudly: TarCompressorUtils.extract swallows IO/mid-copy errors and returns false.
+    // The caller only records the "driver installed" marker when this returns without throwing,
+    // so a silent extraction failure must not look like success.
+    if (!ok) throw IllegalStateException("Failed to extract graphics driver component '$componentId'")
 }
 
 /**

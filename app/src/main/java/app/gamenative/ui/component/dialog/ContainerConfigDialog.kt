@@ -432,13 +432,21 @@ fun ContainerConfigDialog(
             ManifestComponentHelper.filterManifestByVariant(manifestWine, "glibc") +
                 ManifestComponentHelper.filterManifestByVariant(manifestProton, "glibc")
         }
-        val bionicWineOptions = remember(bionicWineEntriesBase, installedWine, installedProton, bionicWineManifest) {
-            ManifestComponentHelper.buildVersionOptionList(bionicWineEntriesBase, installedWine + installedProton, bionicWineManifest)
+        // An installed Wine/Proton build whose id appears in the *other* variant's manifest
+        // clearly belongs to that variant and must not leak into this one's dropdown. Builds in
+        // neither manifest are user-imported with unknown variant, so we keep showing them in both.
+        val bionicWineOptions = remember(bionicWineEntriesBase, installedWine, installedProton, bionicWineManifest, glibcWineManifest) {
+            val glibcIds = glibcWineManifest.map { it.id }.toSet()
+            val installed = (installedWine + installedProton).filter { it !in glibcIds }
+            ManifestComponentHelper.buildVersionOptionList(bionicWineEntriesBase, installed, bionicWineManifest)
         }
-        val glibcWineOptions = remember(glibcWineEntriesBase, installedWine, installedProton, glibcWineManifest) {
+        val glibcWineOptions = remember(glibcWineEntriesBase, installedWine, installedProton, glibcWineManifest, bionicWineManifest) {
             // Include installed Wine/Proton content so user-imported glibc builds show up in
-            // the glibc container's Wine version dropdown, mirroring the bionic list above.
-            ManifestComponentHelper.buildVersionOptionList(glibcWineEntriesBase, installedWine + installedProton, glibcWineManifest)
+            // the glibc container's Wine version dropdown, mirroring the bionic list above, but
+            // drop builds the bionic manifest identifies as bionic-only.
+            val bionicIds = bionicWineManifest.map { it.id }.toSet()
+            val installed = (installedWine + installedProton).filter { it !in bionicIds }
+            ManifestComponentHelper.buildVersionOptionList(glibcWineEntriesBase, installed, glibcWineManifest)
         }
 
         val dxvkManifestById = remember(manifestDxvk) {

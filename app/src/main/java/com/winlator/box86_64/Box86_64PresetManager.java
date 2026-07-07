@@ -188,9 +188,13 @@ public abstract class Box86_64PresetManager {
             }
         } else {
             for (String entry : customPresetsStr.split(",")) {
-                String[] preset = entry.split("\\|");
-                // Skip malformed entries (corrupted by the legacy separator format)
-                if (preset.length >= 3 && preset[0].startsWith(Box86_64Preset.CUSTOM)) presets.add(preset);
+                // Use limit -1 so a preset saved with empty envVars ("id|name|") keeps its
+                // trailing field instead of being truncated to length 2 and dropped.
+                String[] parts = entry.split("\\|", -1);
+                if (parts.length >= 2 && parts[0].startsWith(Box86_64Preset.CUSTOM)) {
+                    String env = parts.length >= 3 ? parts[2] : "";
+                    presets.add(new String[]{parts[0], parts[1], env});
+                }
             }
         }
         return presets;
