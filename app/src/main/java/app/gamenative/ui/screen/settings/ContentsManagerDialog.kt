@@ -50,6 +50,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -121,7 +122,7 @@ fun ContentsManagerDialog(open: Boolean, onDismiss: () -> Unit) {
                     err = e
                     latch.countDown()
                 }
-                latch.await()
+                if (!latch.await(240, TimeUnit.SECONDS)) err = Exception("Installation timed out after 240 seconds")
                 Triple(profile, failReason, err)
             }
 
@@ -429,7 +430,7 @@ private suspend fun performFinishInstall(
             message = "Installation error: ${e.message}"
             latch.countDown()
         }
-        latch.await()
+        if (!latch.await(240, TimeUnit.SECONDS)) message = "Installation timed out after 240 seconds"
         message
     }
     onDone(msg)

@@ -322,6 +322,7 @@ class SteamService : Service(), IChallengeUrlChanged {
 
         private val PROTOCOL_TYPES = EnumSet.of(ProtocolTypes.WEB_SOCKET)
 
+        @Volatile
         internal var instance: SteamService? = null
 
         var cachedAchievements: List<app.gamenative.statsgen.Achievement>? = null
@@ -419,10 +420,15 @@ class SteamService : Service(), IChallengeUrlChanged {
         @Volatile
         var isImporting: Boolean = false
 
+        // Written from the CallbackManager thread (onConnected/onDisconnected) and read from
+        // many IO coroutines; @Volatile guarantees cross-thread visibility on ARM.
+        @Volatile
         var isStopping: Boolean = false
             private set
+        @Volatile
         var isConnected: Boolean = false
             private set
+        @Volatile
         var isRunning: Boolean = false
             private set
         var isLoggingOut: Boolean = false
@@ -1456,7 +1462,9 @@ class SteamService : Service(), IChallengeUrlChanged {
                     val total = body.contentLength()
                     tmp.outputStream().use { out ->
                         body.byteStream().copyTo(out, 8 * 1024) { read ->
-                            onProgress(read.toFloat() / total)
+                            // total is -1 for chunked responses with no Content-Length;
+                            // emit -1 (indeterminate) instead of a NaN/negative fraction.
+                            onProgress(if (total > 0) read.toFloat() / total else -1f)
                         }
                     }
                     if (total > 0 && tmp.length() != total) {

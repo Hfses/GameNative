@@ -311,7 +311,15 @@ class AmazonDownloadManager @Inject constructor(
             }
 
             if (destFile.exists()) destFile.delete()
-            tmpFile.renameTo(destFile)
+            // renameTo fails across filesystems (e.g. internal tmp -> SD/OTG game dir);
+            // fall back to copy so we never report success without the file in place.
+            val moved = tmpFile.renameTo(destFile) || runCatching {
+                tmpFile.copyTo(destFile, overwrite = true); tmpFile.delete(); true
+            }.getOrDefault(false)
+            if (!moved) {
+                tmpFile.delete()
+                return@withContext Result.failure(Exception("Failed to move ${file.unixPath} into place"))
+            }
 
             Result.success(Unit)
         } catch (e: CancellationException) {
