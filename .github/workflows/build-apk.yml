@@ -11,14 +11,15 @@ on:
       - '.github/ISSUE_TEMPLATE/**'
   workflow_dispatch:
 
+# On rapid successive pushes, cancel the superseded build so only the latest APK is produced
+# (and the rolling Release isn't fought over by overlapping runs).
+concurrency:
+  group: build-apk-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
-    # contents: write lets the job publish the built APKs as a GitHub Release (see the last step),
-    # which is far easier to download than an Actions artifact (Release assets don't require the
-    # artifact UI, and on a public repo they download without any login at all).
-    permissions:
-      contents: write
 
     steps:
       - name: Checking out GameNative
@@ -58,14 +59,27 @@ jobs:
           name: gamenative-modern-debug-apk
           path: app/build/outputs/apk/modern/debug/*.apk
 
-      # Publish the same APKs as a GitHub Release so they can be downloaded straight from the
-      # Releases page (no login on a public repo; far more reliable than the Actions artifact zip,
-      # especially on mobile). Scoped to claude/** branches and manual runs so it never touches
-      # main's releases. A single rolling prerelease per branch is replaced on every push.
+  # Publishing the ~800 MB of APKs to a Release is slow, so it runs in its own job AFTER build.
+  # This keeps the build job (and therefore the downloadable Actions artifacts) available quickly,
+  # while still offering the easier-to-download Release. Scoped to claude/** branches and manual
+  # runs so it never touches main's releases.
+  release:
+    needs: build
+    if: startsWith(github.ref_name, 'claude/') || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+
+    steps:
+      - name: Download built APKs
+        uses: actions/download-artifact@v4
+        with:
+          path: apks
+
       - name: Publish debug APKs as a rolling prerelease
-        if: startsWith(github.ref_name, 'claude/') || github.event_name == 'workflow_dispatch'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           TAG="debug-$(printf '%s' "$GITHUB_REF_NAME" | tr '/' '-')"
@@ -81,5 +95,5 @@ jobs:
           - **gamenative-legacy-debug** — legacy / glibc path (larger).
 
           Debug-signed; install may require enabling \"install from unknown sources\"." \
-            app/build/outputs/apk/modern/debug/*.apk \
-            app/build/outputs/apk/legacy/debug/*.apk
+            apks/gamenative-modern-debug-apk/*.apk \
+            apks/gamenative-legacy-debug-apk/*.apk
