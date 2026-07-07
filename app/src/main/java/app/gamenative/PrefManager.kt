@@ -1018,6 +1018,31 @@ object PrefManager {
             setPref(SWAP_FACE_BUTTONS, value)
         }
 
+    // --- Animated login background (opt-in) ---
+    // When enabled and a valid video is chosen, the login screen plays it as a looping background.
+    private val LOGIN_BG_VIDEO_ENABLED = booleanPreferencesKey("login_bg_video_enabled")
+    var loginBackgroundVideoEnabled: Boolean
+        get() = getPref(LOGIN_BG_VIDEO_ENABLED, false)
+        set(value) {
+            setPref(LOGIN_BG_VIDEO_ENABLED, value)
+        }
+
+    // content:// (or file) URI of the user-picked background video; empty = none.
+    private val LOGIN_BG_VIDEO_URI = stringPreferencesKey("login_bg_video_uri")
+    var loginBackgroundVideoUri: String
+        get() = getPref(LOGIN_BG_VIDEO_URI, "")
+        set(value) {
+            setPref(LOGIN_BG_VIDEO_URI, value)
+        }
+
+    // Whether the login background video plays with sound (auto-muted once a game launches).
+    private val LOGIN_BG_VIDEO_SOUND = booleanPreferencesKey("login_bg_video_sound")
+    var loginBackgroundVideoSound: Boolean
+        get() = getPref(LOGIN_BG_VIDEO_SOUND, true)
+        set(value) {
+            setPref(LOGIN_BG_VIDEO_SOUND, value)
+        }
+
     // Whether to show the on-screen gamepad hints/action bar in the UI
     private val SHOW_GAMEPAD_HINTS = booleanPreferencesKey("show_gamepad_hints")
     var showGamepadHints: Boolean

@@ -75,6 +75,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalUriHandler
@@ -96,6 +97,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import app.gamenative.Constants
+import app.gamenative.PrefManager
 import app.gamenative.ui.screen.auth.AmazonOAuthActivity
 import app.gamenative.ui.screen.auth.EpicOAuthActivity
 import app.gamenative.ui.screen.auth.GOGOAuthActivity
@@ -334,12 +336,39 @@ private fun UserLoginScreenContent(
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
+    // Opt-in animated login background: a user-picked looping video behind the form.
+    // Skip in @Preview (LocalInspectionMode) where PrefManager/DataStore isn't initialized.
+    val inPreview = LocalInspectionMode.current
+    val bgVideoUri = remember { if (inPreview) "" else PrefManager.loginBackgroundVideoUri }
+    val bgVideoSound = remember { if (inPreview) true else PrefManager.loginBackgroundVideoSound }
+    val showVideoBackground = remember {
+        !inPreview && PrefManager.loginBackgroundVideoEnabled && bgVideoUri.isNotBlank()
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            // Keep the solid background when the video is off; when on, the video paints behind and a
+            // scrim over it keeps the form readable, so the opaque colour would just hide the video.
+            .then(
+                if (showVideoBackground) Modifier
+                else Modifier.background(MaterialTheme.colorScheme.background),
+            )
             .imePadding(),
     ) {
+        if (showVideoBackground) {
+            LoginBackgroundVideo(
+                videoUri = bgVideoUri,
+                soundOn = bgVideoSound,
+                modifier = Modifier.fillMaxSize(),
+            )
+            // Darkening scrim so the login controls stay legible over any video.
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.45f)),
+            )
+        }
         Column(
             modifier = Modifier
                 .fillMaxSize()

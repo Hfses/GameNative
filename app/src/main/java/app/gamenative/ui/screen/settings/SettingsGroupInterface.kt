@@ -21,6 +21,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Login
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Map
@@ -85,6 +86,7 @@ import app.gamenative.utils.LocaleHelper
 import app.gamenative.service.epic.EpicAuthManager
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import kotlinx.coroutines.CoroutineScope
@@ -202,6 +204,30 @@ fun SettingsGroupInterface(
     var epicLogoutLoading by rememberSaveable { mutableStateOf(false) }
 
     var showFrontendSyncDialog by rememberSaveable { mutableStateOf(false) }
+
+    // Animated login background (opt-in): user picks a local video, played behind the login screen.
+    var loginBgVideoEnabled by rememberSaveable { mutableStateOf(PrefManager.loginBackgroundVideoEnabled) }
+    var loginBgVideoUri by rememberSaveable { mutableStateOf(PrefManager.loginBackgroundVideoUri) }
+    var loginBgVideoSound by rememberSaveable { mutableStateOf(PrefManager.loginBackgroundVideoSound) }
+    val loginBgVideoPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+    ) { uri: Uri? ->
+        if (uri != null) {
+            // Persist read access so the URI is still usable after the app restarts.
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                )
+            }.onFailure { Timber.w(it, "Failed to persist login bg video permission") }
+            loginBgVideoUri = uri.toString()
+            PrefManager.loginBackgroundVideoUri = uri.toString()
+            // Picking a video is an implicit "enable".
+            loginBgVideoEnabled = true
+            PrefManager.loginBackgroundVideoEnabled = true
+            SnackbarManager.show(context.getString(R.string.settings_login_bg_video_selected))
+        }
+    }
 
     val coroutineScope = rememberCoroutineScope()
     // Use Activity lifecycle scope for the OAuth result callback so it stays valid after
@@ -406,6 +432,73 @@ fun SettingsGroupInterface(
                 )
             }
         }
+    }
+
+    // Animated login background
+    SettingsGroup(
+        modifier = Modifier.background(Color.Transparent),
+        title = { Text(text = stringResource(R.string.settings_login_bg_video_group)) },
+    ) {
+        SettingsSwitch(
+            colors = settingsTileColorsAlt(),
+            title = { Text(text = stringResource(R.string.settings_login_bg_video_enable_title)) },
+            subtitle = { Text(text = stringResource(R.string.settings_login_bg_video_enable_subtitle)) },
+            state = loginBgVideoEnabled,
+            onCheckedChange = {
+                loginBgVideoEnabled = it
+                PrefManager.loginBackgroundVideoEnabled = it
+            },
+        )
+        SettingsMenuLink(
+            colors = settingsTileColorsAlt(),
+            title = { Text(text = stringResource(R.string.settings_login_bg_video_choose_title)) },
+            subtitle = {
+                Text(
+                    text = if (loginBgVideoUri.isBlank()) {
+                        stringResource(R.string.settings_login_bg_video_none)
+                    } else {
+                        stringResource(R.string.settings_login_bg_video_chosen)
+                    },
+                )
+            },
+            action = if (loginBgVideoUri.isNotBlank()) {
+                {
+                    IconButton(
+                        onClick = {
+                            // Release the persisted permission and clear the selection.
+                            runCatching {
+                                context.contentResolver.releasePersistableUriPermission(
+                                    Uri.parse(loginBgVideoUri),
+                                    Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                                )
+                            }
+                            loginBgVideoUri = ""
+                            PrefManager.loginBackgroundVideoUri = ""
+                        },
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = stringResource(R.string.settings_login_bg_video_remove),
+                        )
+                    }
+                }
+            } else null,
+            onClick = {
+                // Common video MIME types; "video/*" filter keeps the picker to videos.
+                loginBgVideoPicker.launch(arrayOf("video/*"))
+            },
+        )
+        SettingsSwitch(
+            colors = settingsTileColorsAlt(),
+            enabled = loginBgVideoEnabled,
+            title = { Text(text = stringResource(R.string.settings_login_bg_video_sound_title)) },
+            subtitle = { Text(text = stringResource(R.string.settings_login_bg_video_sound_subtitle)) },
+            state = loginBgVideoSound,
+            onCheckedChange = {
+                loginBgVideoSound = it
+                PrefManager.loginBackgroundVideoSound = it
+            },
+        )
     }
 
     // Custom Game Settings
