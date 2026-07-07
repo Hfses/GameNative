@@ -30,8 +30,8 @@ class DelegatingStoreProvider(
     override val source: GameSource,
     override val displayName: String,
     override val capabilities: StoreCapabilities,
-    /** Live per-source library as the app already models it; mapped to [GameModel] internally. */
-    private val libraryItems: Flow<List<LibraryItem>>,
+    /** Live per-source library, already mapped to the unified [GameModel]. */
+    private val games: Flow<List<GameModel>>,
     private val onRefresh: suspend () -> Int = { 0 },
     private val onLaunchExecutable: suspend (gameId: String, installPath: String) -> String? = { _, _ -> null },
     private val onSearch: suspend (query: String) -> List<GameModel> = { emptyList() },
@@ -51,8 +51,7 @@ class DelegatingStoreProvider(
         state
     }.onFailure { _connection.value = StoreConnectionState.Error(it.message ?: "Authentication failed") }
 
-    override fun library(): Flow<List<GameModel>> =
-        libraryItems.map { items -> items.map(GameModelMapper::fromLibraryItem) }
+    override fun library(): Flow<List<GameModel>> = games
 
     override suspend fun refreshLibrary(): Result<Int> = runCatching { onRefresh() }
 
@@ -69,4 +68,35 @@ class DelegatingStoreProvider(
 
     override suspend fun launchExecutable(gameId: String, installPath: String): String? =
         onLaunchExecutable(gameId, installPath)
+
+    companion object {
+        /**
+         * Build a provider from a source that still emits the legacy [LibraryItem] list (e.g. the
+         * local-folder scanner). The items are mapped to [GameModel] via [GameModelMapper]; the
+         * fidelity is whatever [LibraryItem] carries (no install path / executable).
+         */
+        fun fromLibraryItems(
+            source: GameSource,
+            displayName: String,
+            capabilities: StoreCapabilities,
+            libraryItems: Flow<List<LibraryItem>>,
+            onRefresh: suspend () -> Int = { 0 },
+            onLaunchExecutable: suspend (gameId: String, installPath: String) -> String? = { _, _ -> null },
+            onSearch: suspend (query: String) -> List<GameModel> = { emptyList() },
+            onCheckUpdate: suspend (gameId: String) -> UpdateStatus = { UpdateStatus.UNKNOWN },
+            onAuthenticate: suspend () -> StoreConnectionState = { StoreConnectionState.Connected() },
+            initialState: StoreConnectionState = StoreConnectionState.Connected(),
+        ): DelegatingStoreProvider = DelegatingStoreProvider(
+            source = source,
+            displayName = displayName,
+            capabilities = capabilities,
+            games = libraryItems.map { items -> items.map(GameModelMapper::fromLibraryItem) },
+            onRefresh = onRefresh,
+            onLaunchExecutable = onLaunchExecutable,
+            onSearch = onSearch,
+            onCheckUpdate = onCheckUpdate,
+            onAuthenticate = onAuthenticate,
+            initialState = initialState,
+        )
+    }
 }

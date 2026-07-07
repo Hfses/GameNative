@@ -38,28 +38,30 @@ plugs in by implementing an adapter and registering it:
 
 Tested by `app/src/test/java/app/gamenative/gamehub/{StoreManagerTest,GameModelMapperTest}.kt`.
 
-## Wiring an existing store (example, at the composition root — NOT in the core)
+## Wiring the real stores (composition root — NOT in the core)
+
+Done in `GameHubRegistrar` (Hilt-injected). Each source becomes a `DelegatingStoreProvider` over
+its existing DAO/manager, with its entity mapped to `GameModel` by `GameHubMappers`:
 
 ```kotlin
-val hub = StoreManager()
-hub.register(
-    DelegatingStoreProvider(
-        source = GameSource.GOG,
-        displayName = "GOG",
-        capabilities = StoreCapabilities(canSearch = false, hasCloudSaves = true),
-        libraryItems = gogLibraryFlow,                                  // existing per-source flow
-        onRefresh = { gogManager.refreshLibrary(context).getOrDefault(0) },
-        onLaunchExecutable = { id, path -> gogManager.getLaunchExecutable(id, container) },
-    ),
+DelegatingStoreProvider(
+    source = GameSource.GOG,
+    displayName = "GOG",
+    capabilities = StoreCapabilities(canSearch = false, hasCloudSaves = true),
+    games = gogGameDao.getAll().map { it.map(GOGGame::toGameModel) },   // real, unified library
+    onRefresh = { gogManager.refreshLibrary(context).getOrDefault(0) },
 )
-// The whole app then reads hub.unifiedLibrary() / hub.searchAll(query) — store-agnostic.
+// registrar.registerAll() once at startup → the whole app reads hub.unifiedLibrary(), store-agnostic.
 ```
 
-## Roadmap (later phases, not in this commit)
+`StoreManager` and `GameLibraryRepository` are provided as singletons by `di/GameHubModule`.
 
-- **Phase 2 — Adapters + UI**: concrete `StoreProvider`s for Steam/GOG/Epic/Amazon/Local wired to
-  the real managers; "Stores" and unified "Library" tabs consuming `StoreManager`; filters
-  (installed / not installed / updates / favourites / by source).
+## Roadmap
+
+- **Phase 2 — Adapters + UI**: ✅ concrete adapters for Steam/GOG/Epic/Amazon/Local wired to the
+  real managers (`GameHubRegistrar` + `GameHubMappers` + `di/GameHubModule`). ⏳ still to come:
+  activate `registerAll()` at startup, and the "Stores" + unified "Library" tabs consuming
+  `StoreManager` with filters (installed / not installed / updates / favourites / by source).
 - **Phase 3 — Managers**: `InstallManager` (space check → location → download → validate → register
   → profile → library), global `DownloadManager` queue (pause/resume/cancel/limit), `StorageManager`
   (multiple locations, move games), `UpdateManager` (games + adapters), "import existing game" scan.

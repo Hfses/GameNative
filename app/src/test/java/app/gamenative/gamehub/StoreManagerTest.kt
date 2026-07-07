@@ -27,7 +27,7 @@ class StoreManagerTest {
         canSearch: Boolean = false,
         searchResults: List<GameModel> = emptyList(),
         refreshCount: Int = games.size,
-    ) = DelegatingStoreProvider(
+    ) = DelegatingStoreProvider.fromLibraryItems(
         source = source,
         displayName = source.name,
         capabilities = StoreCapabilities(canSearch = canSearch),
