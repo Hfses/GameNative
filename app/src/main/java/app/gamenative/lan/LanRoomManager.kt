@@ -22,6 +22,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONArray
@@ -84,29 +85,42 @@ object LanRoomManager {
     private var multicastLock: WifiManager.MulticastLock? = null
 
     /** Best-effort local IPv4 (site-local preferred) for showing to friends. */
-    fun localIpAddress(): String {
+    fun localIpAddress(): String = allIpAddresses().firstOrNull() ?: ""
+
+    /**
+     * All non-loopback IPv4 addresses, ordered LAN-first then VPN ranges, so a user on a VPN
+     * (ZeroTier/Tailscale) can pick the address friends should join by. Auto-discovery only
+     * works on the physical LAN broadcast; over a VPN, friends join by the VPN IP manually.
+     */
+    fun allIpAddresses(): List<String> {
         return try {
-            val interfaces = Collections.list(NetworkInterface.getNetworkInterfaces())
-            val candidates = interfaces
+            val candidates = Collections.list(NetworkInterface.getNetworkInterfaces())
                 .filter { it.isUp && !it.isLoopback }
                 .flatMap { Collections.list(it.inetAddresses) }
                 .filterIsInstance<java.net.Inet4Address>()
-                .map { it.hostAddress ?: "" }
+                .mapNotNull { it.hostAddress }
                 .filter { it.isNotEmpty() }
-            candidates.firstOrNull { it.startsWith("192.168.") || it.startsWith("10.") }
-                ?: candidates.firstOrNull()
-                ?: ""
+            fun rank(ip: String): Int = when {
+                ip.startsWith("192.168.") -> 0
+                ip.startsWith("10.") -> 1
+                // RFC1918 172.16.0.0/12
+                Regex("^172\\.(1[6-9]|2\\d|3[01])\\.").containsMatchIn(ip) -> 2
+                // Tailscale / CGNAT 100.64.0.0/10
+                Regex("^100\\.(6[4-9]|[7-9]\\d|1[01]\\d|12[0-7])\\.").containsMatchIn(ip) -> 3
+                else -> 4
+            }
+            candidates.distinct().sortedBy { rank(it) }
         } catch (e: Exception) {
-            ""
+            emptyList()
         }
     }
 
     @Synchronized
     fun createRoom(context: Context, name: String, password: String, gameName: String, playerName: String) {
         stop()
-        roomName = name.ifBlank { "Sala de $playerName" }
+        roomName = name.ifBlank { "Sala de $playerName" }.take(48)
         roomPassword = password
-        roomGameName = gameName
+        roomGameName = gameName.take(48)
         selfName = playerName
         _chat.value = emptyList()
         _players.value = listOf(playerName)
@@ -127,7 +141,12 @@ object LanRoomManager {
                     launch { handleClient(socket) }
                 }
             } catch (e: Exception) {
-                if (_status.value == Status.HOSTING) {
+                if (serverSocket == null) {
+                    // bind/setup failed before we started serving (e.g. port in use):
+                    // don't leave the UI showing a hosting room that nobody can join.
+                    _status.value = Status.ERROR
+                    appendSystem("Não foi possível abrir a sala (porta $ROOM_PORT em uso?). Tente novamente.")
+                } else if (_status.value == Status.HOSTING) {
                     Timber.tag("LanRoom").e(e, "Host loop ended")
                 }
             }
@@ -136,7 +155,9 @@ object LanRoomManager {
 
     private fun handleClient(socket: Socket) {
         var playerName = "?"
+        var joined = false
         try {
+            runCatching { socket.keepAlive = true }
             val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
             val writer = PrintWriter(socket.getOutputStream().bufferedWriter(StandardCharsets.UTF_8), true)
             val joinLine = reader.readLine() ?: return
@@ -158,13 +179,15 @@ object LanRoomManager {
             )
             hostClients[socket] = playerName
             hostClientWriters[socket] = writer
+            joined = true
             refreshPlayers()
             broadcast(JSONObject().put("type", "chat").put("from", "").put("system", true).put("text", "$playerName entrou na sala"))
             appendSystem("$playerName entrou na sala")
 
             while (!socket.isClosed) {
                 val line = reader.readLine() ?: break
-                val msg = JSONObject(line)
+                // Ignore a single malformed line instead of dropping the whole connection.
+                val msg = try { JSONObject(line) } catch (e: Exception) { continue }
                 when (msg.optString("type")) {
                     "chat" -> {
                         val entry = JSONObject()
@@ -183,7 +206,9 @@ object LanRoomManager {
             hostClientWriters.remove(socket)
             runCatching { socket.close() }
             refreshPlayers()
-            if (_status.value == Status.HOSTING) {
+            // Only announce a departure for peers that actually joined (not denied/invalid ones),
+            // avoiding a spurious "? saiu da sala".
+            if (joined && _status.value == Status.HOSTING) {
                 appendSystem("$playerName saiu da sala")
                 broadcast(JSONObject().put("type", "chat").put("from", "").put("system", true).put("text", "$playerName saiu da sala"))
             }
@@ -279,6 +304,11 @@ object LanRoomManager {
                 Timber.tag("LanRoom").d(e, "Discovery probe failed")
             }
         }
+        // Release the multicast lock if we were only browsing (not hosting/joined), so a user
+        // who opens the join tab and closes the dialog doesn't leak a held lock forever.
+        if (_status.value == Status.IDLE || _status.value == Status.ERROR || _status.value == Status.DENIED) {
+            releaseMulticastLock()
+        }
         found.values.toList()
     }
 
@@ -295,6 +325,7 @@ object LanRoomManager {
             try {
                 val socket = Socket()
                 socket.connect(InetSocketAddress(ip.trim(), ROOM_PORT), 5000)
+                runCatching { socket.keepAlive = true }
                 clientSocket = socket
                 val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
                 val writer = PrintWriter(socket.getOutputStream().bufferedWriter(StandardCharsets.UTF_8), true)
@@ -316,7 +347,8 @@ object LanRoomManager {
                         appendSystem("Você entrou na sala \"$roomName\". Jogo: $roomGameName")
                         while (!socket.isClosed) {
                             val line = reader.readLine() ?: break
-                            val msg = JSONObject(line)
+                            // Skip a single malformed line instead of dropping the session.
+                            val msg = try { JSONObject(line) } catch (e: Exception) { continue }
                             when (msg.optString("type")) {
                                 "chat" -> {
                                     if (msg.optBoolean("system", false)) {
@@ -399,11 +431,12 @@ object LanRoomManager {
     }
 
     private fun appendChat(from: String, text: String) {
-        _chat.value = (_chat.value + ChatMessage(from, text)).takeLast(200)
+        // Atomic read-modify-write: appends run concurrently from several client coroutines.
+        _chat.update { (it + ChatMessage(from, text)).takeLast(200) }
     }
 
     private fun appendSystem(text: String) {
-        _chat.value = (_chat.value + ChatMessage("", text, system = true)).takeLast(200)
+        _chat.update { (it + ChatMessage("", text, system = true)).takeLast(200) }
     }
 
     private fun acquireMulticastLock(context: Context) {
