@@ -324,14 +324,16 @@ public abstract class ProcessHelper {
         return pid;
     }
 
-    /** Returns the OS pid of a child process, using the public API where available
-     *  (API 33+) and falling back to reflection on older Android versions. */
+    /** Returns the OS pid of a child process. Process.pid() exists at runtime on
+     *  Android 13+ (Java 9 API) but is not exposed by the compile-time android.jar,
+     *  so it is invoked reflectively; older versions fall back to the private field. */
     public static int getPid(java.lang.Process process) {
         if (android.os.Build.VERSION.SDK_INT >= 33) {
             try {
-                return (int) process.pid();
-            } catch (UnsupportedOperationException ignored) {
-                // fall through to reflection
+                Object pid = java.lang.Process.class.getMethod("pid").invoke(process);
+                if (pid instanceof Long) return (int) (long) (Long) pid;
+            } catch (Exception ignored) {
+                // fall through to the field-based approach
             }
         }
         try {
