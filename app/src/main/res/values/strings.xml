@@ -100,8 +100,8 @@
     <string name="confirm_delete">Confirm Deletion</string>
     <string name="destination_library">Library</string>
     <string name="destination_downloads">Downloads &amp; Storage</string>
-    <string name="destination_game_hub">Game Hub</string>
-    <string name="game_hub_title">Game Hub</string>
+    <string name="destination_game_hub">Loja</string>
+    <string name="game_hub_title">Loja</string>
     <string name="game_hub_all_sources">All stores</string>
     <string name="game_hub_filter_all">All</string>
     <string name="game_hub_filter_installed">Installed</string>
@@ -129,6 +129,7 @@
 
     <!-- Library Tabs -->
     <string name="tab_all">All</string>
+    <string name="tab_store">Loja</string>
     <string name="tab_steam">Steam</string>
     <string name="tab_gog">GOG</string>
     <string name="tab_epic">Epic</string>

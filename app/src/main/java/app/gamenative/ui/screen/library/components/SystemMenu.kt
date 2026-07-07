@@ -41,7 +41,6 @@ import androidx.compose.material.icons.automirrored.filled.Help
 import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.StarHalf
-import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
@@ -605,14 +604,7 @@ fun SystemMenu(
                             focusRequester = firstItemFocusRequester,
                         )
 
-                        SystemMenuItem(
-                            text = stringResource(R.string.destination_game_hub),
-                            icon = Icons.Default.Apps,
-                            onClick = {
-                                onGameHubClick()
-                                onDismiss()
-                            },
-                        )
+                        // "Loja" moved out of the system menu into the library tab bar.
 
                         SystemMenuItem(
                             text = stringResource(R.string.help_and_support),

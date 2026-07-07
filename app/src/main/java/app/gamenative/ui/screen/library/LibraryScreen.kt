@@ -996,7 +996,11 @@ private fun LibraryScreenContent(
                             LibraryTab.AMAZON to state.amazonCount,
                             LibraryTab.LOCAL to state.localCount,
                         ),
-                        onTabSelected = onTabChanged,
+                        // The "Loja" tab is a navigation entry: it opens the unified store screen
+                        // instead of filtering the current list.
+                        onTabSelected = { tab ->
+                            if (tab == LibraryTab.STORE) onGameHubClick() else onTabChanged(tab)
+                        },
                         onOptionsClick = { onOptionsPanelToggle(true) },
                         onSearchClick = { onIsSearching(true) },
                         onAddGameClick = onAddCustomGameClick,
