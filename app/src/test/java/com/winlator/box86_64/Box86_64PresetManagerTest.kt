@@ -89,8 +89,13 @@ class Box86_64PresetManagerTest {
     @Test
     fun `box86 and box64 preset stores are independent`() {
         val envVars = EnvVars().apply { put("BOX86_DYNAREC_BIGBLOCK", "1") }
-        Box86_64PresetManager.editPreset("box86", context, null, "Box86 only", envVars)
+        val box86Id = Box86_64PresetManager.editPreset("box86", context, null, "Box86 only", envVars)
 
+        // The write must land in the box86 store...
+        val box86Custom = Box86_64PresetManager.getPresets("box86", context)
+            .map { it.id }.filter { it.startsWith(Box86_64Preset.CUSTOM) }
+        assertTrue(box86Custom.contains(box86Id))
+        // ...and must not leak into the box64 store.
         val box64Custom = Box86_64PresetManager.getPresets("box64", context)
             .map { it.id }.filter { it.startsWith(Box86_64Preset.CUSTOM) }
         assertTrue(box64Custom.isEmpty())

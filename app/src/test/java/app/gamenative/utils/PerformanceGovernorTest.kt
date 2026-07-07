@@ -1,6 +1,7 @@
 package app.gamenative.utils
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -49,7 +50,7 @@ class PerformanceGovernorTest {
         val base = 45
         for (h in intArrayOf(0, 50, 84, 85, 90, 95, 100, 120)) {
             val cap = PerformanceGovernor.suggestedCap(base, h / 100f)
-            assert(cap <= base) { "headroom=$h produced cap=$cap > base=$base" }
+            assertTrue("headroom=$h produced cap=$cap > base=$base", cap <= base)
         }
     }
 }
