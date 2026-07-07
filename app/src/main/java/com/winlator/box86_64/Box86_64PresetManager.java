@@ -9,6 +9,10 @@ import app.gamenative.R;
 import com.winlator.PrefManager;
 import com.winlator.core.envvars.EnvVars;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.Locale;
@@ -158,21 +162,55 @@ public abstract class Box86_64PresetManager {
     }
 
     private static Iterable<String[]> customPresetsIterator(String prefix, Context context) {
+        return loadCustomPresets(prefix, context);
+    }
+
+    // Custom presets are stored as a JSON array of {id, name, envVars} objects.
+    // Older versions stored them as "id|name|envVars" entries joined with ",",
+    // which corrupts as soon as a name or env value contains "|" or "," (e.g.
+    // ZINK_DEBUG=compact,deck_emu). Legacy strings are still read and migrated
+    // to JSON on the next write.
+    private static ArrayList<String[]> loadCustomPresets(String prefix, Context context) {
         PrefManager.init(context);
         final String customPresetsStr = PrefManager.getString(prefix + "_custom_presets", "");
-        final String[] customPresets = customPresetsStr.split(",");
-        final int[] index = {0};
-        return () -> new Iterator<String[]>() {
-            @Override
-            public boolean hasNext() {
-                return index[0] < customPresets.length && !customPresetsStr.isEmpty();
-            }
+        ArrayList<String[]> presets = new ArrayList<>();
+        if (customPresetsStr.isEmpty()) return presets;
 
-            @Override
-            public String[] next() {
-                return customPresets[index[0]++].split("\\|");
+        if (customPresetsStr.trim().startsWith("[")) {
+            try {
+                JSONArray data = new JSONArray(customPresetsStr);
+                for (int i = 0; i < data.length(); i++) {
+                    JSONObject item = data.getJSONObject(i);
+                    presets.add(new String[]{item.getString("id"), item.getString("name"), item.optString("envVars", "")});
+                }
+            } catch (JSONException e) {
+                Timber.e("Failed to parse custom presets: " + e);
             }
-        };
+        } else {
+            for (String entry : customPresetsStr.split(",")) {
+                String[] preset = entry.split("\\|");
+                // Skip malformed entries (corrupted by the legacy separator format)
+                if (preset.length >= 3 && preset[0].startsWith(Box86_64Preset.CUSTOM)) presets.add(preset);
+            }
+        }
+        return presets;
+    }
+
+    private static void saveCustomPresets(String prefix, Context context, ArrayList<String[]> presets) {
+        PrefManager.init(context);
+        JSONArray data = new JSONArray();
+        try {
+            for (String[] preset : presets) {
+                JSONObject item = new JSONObject();
+                item.put("id", preset[0]);
+                item.put("name", preset[1]);
+                item.put("envVars", preset[2]);
+                data.put(item);
+            }
+            PrefManager.putString(prefix + "_custom_presets", data.toString()).get();
+        } catch (Exception e) {
+            Timber.e("Failed to save custom presets: " + e);
+        }
     }
 
     public static int getNextPresetId(Context context, String prefix) {
@@ -184,31 +222,22 @@ public abstract class Box86_64PresetManager {
     }
 
     public static String editPreset(String prefix, Context context, String id, String name, EnvVars envVars) {
-        String key = prefix + "_custom_presets";
-        PrefManager.init(context);
-        String customPresetsStr = PrefManager.getString(key, "");
+        ArrayList<String[]> presets = loadCustomPresets(prefix, context);
         String presetId = id;
 
         if (presetId != null) {
-            String[] customPresets = customPresetsStr.split(",");
-            for (int i = 0; i < customPresets.length; i++) {
-                String[] preset = customPresets[i].split("\\|");
+            for (String[] preset : presets) {
                 if (preset[0].equals(presetId)) {
-                    customPresets[i] = presetId + "|" + name + "|" + envVars.toString();
+                    preset[1] = name;
+                    preset[2] = envVars.toString();
                     break;
                 }
             }
-            customPresetsStr = String.join(",", customPresets);
         } else {
             presetId = Box86_64Preset.CUSTOM + "-" + getNextPresetId(context, prefix);
-            String preset = presetId + "|" + name + "|" + envVars.toString();
-            customPresetsStr += (!customPresetsStr.isEmpty() ? "," : "") + preset;
+            presets.add(new String[]{presetId, name, envVars.toString()});
         }
-        try {
-            PrefManager.putString(key, customPresetsStr).get();
-        } catch (Exception e) {
-            Timber.e("Failed to edit preset: " + e);
-        }
+        saveCustomPresets(prefix, context, presets);
         return presetId;
     }
 
@@ -240,19 +269,12 @@ public abstract class Box86_64PresetManager {
     }
 
     public static void removePreset(String prefix, Context context, String id) {
-        String key = prefix + "_custom_presets";
-        PrefManager.init(context);
-        String oldCustomPresetsStr = PrefManager.getString(key, "");
-        String newCustomPresetsStr = "";
-
-        String[] customPresets = oldCustomPresetsStr.split(",");
-        for (int i = 0; i < customPresets.length; i++) {
-            String[] preset = customPresets[i].split("\\|");
-            if (!preset[0].equals(id))
-                newCustomPresetsStr += (!newCustomPresetsStr.isEmpty() ? "," : "") + customPresets[i];
+        ArrayList<String[]> presets = loadCustomPresets(prefix, context);
+        Iterator<String[]> it = presets.iterator();
+        while (it.hasNext()) {
+            if (it.next()[0].equals(id)) it.remove();
         }
-
-        PrefManager.putString(key, newCustomPresetsStr);
+        saveCustomPresets(prefix, context, presets);
     }
 
     public static void loadSpinner(String prefix, Spinner spinner, String selectedId) {
