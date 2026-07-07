@@ -1,6 +1,9 @@
 package app.gamenative.gamehub
 
 import app.gamenative.data.GameSource
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -23,6 +26,12 @@ class StoreManager {
 
     private val providers = ConcurrentHashMap<GameSource, StoreProvider>()
 
+    // Serializes the mutate-then-recompute of [_registered]. The map itself is thread-safe, but
+    // "put/remove then set _registered = keys" is a read-modify-write: without this lock two
+    // concurrent register/unregister calls could interleave and leave _registered permanently out
+    // of sync with the map (a lost update).
+    private val registryLock = Any()
+
     private val _registered = MutableStateFlow<List<GameSource>>(emptyList())
 
     /** The set of currently-registered sources, observable so the UI can rebuild its store list. */
@@ -30,14 +39,18 @@ class StoreManager {
 
     /** Register (or replace) the provider for its [StoreProvider.source]. */
     suspend fun register(provider: StoreProvider) {
-        providers[provider.source] = provider
-        _registered.value = providers.keys.sortedBy { it.ordinal }
+        synchronized(registryLock) {
+            providers[provider.source] = provider
+            _registered.value = providers.keys.sortedBy { it.ordinal }
+        }
         runCatching { provider.initialize() }
     }
 
     fun unregister(source: GameSource) {
-        providers.remove(source)
-        _registered.value = providers.keys.sortedBy { it.ordinal }
+        synchronized(registryLock) {
+            providers.remove(source)
+            _registered.value = providers.keys.sortedBy { it.ordinal }
+        }
     }
 
     fun provider(source: GameSource): StoreProvider? = providers[source]
@@ -64,12 +77,23 @@ class StoreManager {
      */
     suspend fun searchAll(query: String): List<GameModel> {
         if (query.isBlank()) return emptyList()
-        return searchableProviders().flatMap { provider ->
-            provider.search(query).getOrDefault(emptyList())
+        val searchable = searchableProviders()
+        if (searchable.isEmpty()) return emptyList()
+        // Genuine fan-out: query every store concurrently so total latency is the slowest store,
+        // not the sum of all of them.
+        return coroutineScope {
+            searchable
+                .map { provider -> async { provider.search(query).getOrDefault(emptyList()) } }
+                .awaitAll()
+                .flatten()
         }
     }
 
-    /** Refresh every store's library. Returns per-source counts (or the failure) for reporting. */
-    suspend fun refreshAll(): Map<GameSource, Result<Int>> =
-        allProviders().associate { it.source to it.refreshLibrary() }
+    /** Refresh every store's library concurrently. Returns per-source counts (or the failure). */
+    suspend fun refreshAll(): Map<GameSource, Result<Int>> = coroutineScope {
+        allProviders()
+            .map { provider -> async { provider.source to provider.refreshLibrary() } }
+            .awaitAll()
+            .toMap()
+    }
 }
