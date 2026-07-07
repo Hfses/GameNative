@@ -4399,9 +4399,22 @@ private fun unpackExecutableFile(
                             if (originalExe.exists()) {
                                 Timber.i("Original backup exists for $windowsPathForLog; skipping overwrite")
                             } else {
-                                Files.copy(exe.toPath(), originalExe.toPath(), REPLACE_EXISTING)
+                                // Hard-link the backup instead of copying the whole executable;
+                                // falls back to a copy if the filesystem doesn't support links.
+                                try {
+                                    Files.createLink(originalExe.toPath(), exe.toPath())
+                                } catch (e: Exception) {
+                                    Files.copy(exe.toPath(), originalExe.toPath(), REPLACE_EXISTING)
+                                }
                             }
-                            Files.copy(unpackedExe.toPath(), exe.toPath(), REPLACE_EXISTING)
+                            // Replace exe with the unpacked build. Delete first so the original
+                            // backup (which may share this inode) is never truncated in place.
+                            try {
+                                Files.deleteIfExists(exe.toPath())
+                                Files.createLink(exe.toPath(), unpackedExe.toPath())
+                            } catch (e: Exception) {
+                                Files.copy(unpackedExe.toPath(), exe.toPath(), REPLACE_EXISTING)
+                            }
                             Timber.i("Successfully moved files for $windowsPathForLog")
                         } else {
                             val errorMsg =

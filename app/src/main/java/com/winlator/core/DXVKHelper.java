@@ -41,6 +41,19 @@ public class DXVKHelper {
         if (!framerate.isEmpty() && !framerate.equals("0")) {
             envVars.put("DXVK_FRAME_RATE", framerate);
         }
+
+        // maxFrameLatency (0-16): trade input latency for steadier frame pacing.
+        String maxFrameLatency = config.get("maxFrameLatency");
+        if (!maxFrameLatency.isEmpty() && !maxFrameLatency.equals("0")) {
+            content += "dxvk.maxFrameLatency = " + maxFrameLatency + "\n";
+        }
+
+        // numCompilerThreads: cap pipeline-compilation threads so they don't steal the
+        // big-cores from the game and Box64, which reduces frametime spikes on shader compile.
+        String numCompilerThreads = config.get("numCompilerThreads");
+        if (!numCompilerThreads.isEmpty() && !numCompilerThreads.equals("0")) {
+            content += "dxvk.numCompilerThreads = " + numCompilerThreads + "\n";
+        }
         String customDevice = config.get("customDevice");
         if (customDevice.contains(":")) {
             String[] parts = customDevice.split(":");
