@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -86,6 +87,18 @@ class StoreManager {
                 .map { provider -> async { provider.search(query).getOrDefault(emptyList()) } }
                 .awaitAll()
                 .flatten()
+        }
+    }
+
+    /**
+     * The live connection state of every registered store, merged into one map. Emits whenever any
+     * store's connection changes, so the Stores tab stays current without knowing any concrete store.
+     */
+    fun connectionStates(): Flow<Map<GameSource, StoreConnectionState>> {
+        val current = allProviders()
+        if (current.isEmpty()) return flowOf(emptyMap())
+        return combine(current.map { provider -> provider.connectionState().map { provider.source to it } }) { pairs ->
+            pairs.toMap()
         }
     }
 

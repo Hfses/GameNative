@@ -5,12 +5,16 @@ import androidx.lifecycle.viewModelScope
 import app.gamenative.data.GameSource
 import app.gamenative.gamehub.GameHubRegistrar
 import app.gamenative.gamehub.GameModel
+import app.gamenative.gamehub.StoreConnectionState
 import app.gamenative.gamehub.StoreManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -62,6 +66,34 @@ class GameHubViewModel @Inject constructor(
             loading = isLoading,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), GameHubUiState())
+
+    /** One row per registered store for the Stores tab. */
+    data class StoreInfo(
+        val source: GameSource,
+        val displayName: String,
+        val connection: StoreConnectionState,
+        val gameCount: Int,
+    )
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val stores: StateFlow<List<StoreInfo>> = storeManager.registeredSources
+        .flatMapLatest { sources ->
+            if (sources.isEmpty()) {
+                flowOf(emptyList())
+            } else {
+                combine(storeManager.connectionStates(), allGames) { conns, games ->
+                    storeManager.allProviders().map { provider ->
+                        StoreInfo(
+                            source = provider.source,
+                            displayName = provider.displayName,
+                            connection = conns[provider.source] ?: StoreConnectionState.Disconnected,
+                            gameCount = games.count { it.source == provider.source },
+                        )
+                    }
+                }
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     init {
         viewModelScope.launch {
