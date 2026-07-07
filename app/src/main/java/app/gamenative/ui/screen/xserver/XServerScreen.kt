@@ -3342,6 +3342,13 @@ private fun setupXEnvironment(
         if (!envVars.has("WINENTSYNC") && File("/dev/ntsync").exists()) {
             envVars.put("WINENTSYNC", "1")
         }
+        // Low Graphics Mode: one switch that turns on FSR upscaling (render at a lower internal
+        // resolution and upscale) to raise FPS on demanding games. Per-game "known configs" still
+        // handle title-specific settings via the game-fix system; explicit user env wins.
+        if (container.getLowGraphicsMode()) {
+            if (!envVars.has("WINE_FULLSCREEN_FSR")) envVars.put("WINE_FULLSCREEN_FSR", "1")
+            if (!envVars.has("WINE_FULLSCREEN_FSR_STRENGTH")) envVars.put("WINE_FULLSCREEN_FSR_STRENGTH", "2")
+        }
         // The PulseAudio "low latency" toggle must also lower the latency requested by
         // Wine's Pulse client, otherwise it only affects the AAudio sink and the effective
         // latency stays at the 144 ms default. A manually customized value is respected.

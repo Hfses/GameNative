@@ -85,6 +85,7 @@ public class Container {
     private String rendererPresentMode = "fifo";
     private String displayRenderer = Container.DEFAULT_DISPLAY_RENDERER;
     private boolean sfCompatMode = true;
+    private boolean lowGraphicsMode = false;
     private String wincomponents = DEFAULT_WINCOMPONENTS;
     private String audioDriver = DEFAULT_AUDIO_DRIVER;
     private boolean pulseaudioLowLatency = false;
@@ -274,6 +275,10 @@ public class Container {
     public boolean getSfCompatMode() { return sfCompatMode; }
 
     public void setSfCompatMode(boolean v) { this.sfCompatMode = v; }
+
+    public boolean getLowGraphicsMode() { return lowGraphicsMode; }
+
+    public void setLowGraphicsMode(boolean v) { this.lowGraphicsMode = v; }
 
     public String getDXWrapperConfig() {
         return dxwrapperConfig;
@@ -686,6 +691,7 @@ public class Container {
             data.put("rendererPresentMode", rendererPresentMode);
             data.put("displayRendererMode", displayRenderer);
             data.put("sfCompatMode", sfCompatMode);
+            data.put("lowGraphicsMode", lowGraphicsMode);
             data.put("dxwrapper", dxwrapper);
             if (!dxwrapperConfig.isEmpty()) data.put("dxwrapperConfig", dxwrapperConfig);
             data.put("audioDriver", audioDriver);
@@ -807,6 +813,9 @@ public class Container {
                     break;
                 case "sfCompatMode" :
                     setSfCompatMode(data.getBoolean(key));
+                    break;
+                case "lowGraphicsMode" :
+                    setLowGraphicsMode(data.getBoolean(key));
                     break;
                 case "wincomponents" :
                     setWinComponents(data.getString(key));

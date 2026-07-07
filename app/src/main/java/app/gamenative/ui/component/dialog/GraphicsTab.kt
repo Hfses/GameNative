@@ -407,6 +407,15 @@ private fun DxWrapperSection(state: ContainerConfigState) {
             },
         )
     }
+    SettingsSwitch(
+        colors = settingsTileColorsAlt(),
+        title = { Text(text = stringResource(R.string.low_graphics_mode)) },
+        subtitle = { Text(text = stringResource(R.string.low_graphics_mode_description)) },
+        state = config.lowGraphicsMode,
+        onCheckedChange = {
+            state.config.value = config.copy(lowGraphicsMode = it)
+        },
+    )
     SettingsListDropdown(
         colors = settingsTileColors(),
         title = { Text(text = stringResource(R.string.dx_wrapper)) },

@@ -222,6 +222,13 @@ object PrefManager {
             setPref(SF_COMPAT_MODE, value)
         }
 
+    private val LOW_GRAPHICS_MODE = booleanPreferencesKey("low_graphics_mode")
+    var lowGraphicsMode: Boolean
+        get() = getPref(LOW_GRAPHICS_MODE, false)
+        set(value) {
+            setPref(LOW_GRAPHICS_MODE, value)
+        }
+
     private val USE_LEGACY_RENDERER = booleanPreferencesKey("use_legacy_renderer")
     var useLegacyRenderer: Boolean
         get() = getPref(USE_LEGACY_RENDERER, false)
