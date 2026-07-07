@@ -69,7 +69,8 @@ jobs:
     if: startsWith(github.ref_name, 'claude/') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write   # create/update the Release
+      actions: read      # download-artifact reads this run's artifacts
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GH_REPO: ${{ github.repository }}
