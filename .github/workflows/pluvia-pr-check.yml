@@ -26,8 +26,8 @@ jobs:
         if: github.event.pull_request.head.repo.full_name == github.repository
         run: |
           cat <<EOF > local.properties
-          POSTHOG_API_KEY=${{ secrets.POSTHOG_API_KEY }}
-          POSTHOG_HOST=${{ secrets.POSTHOG_HOST }}
+          POSTHOG_API_KEY=${{ secrets.POSTHOG_API_KEY || 'dummy' }}
+          POSTHOG_HOST=${{ secrets.POSTHOG_HOST || 'https://us.i.posthog.com' }}
           EOF
       - name: Inject dummy credentials
         if: github.event.pull_request.head.repo.full_name != github.repository
