@@ -2,6 +2,7 @@ package app.gamenative.gamehub
 
 import app.gamenative.data.GameSource
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 
 /**
  * Game Hub — the store adapter contract.
@@ -68,6 +69,61 @@ interface StoreProvider {
      * Returns null if it can't be determined.
      */
     suspend fun launchExecutable(gameId: String, installPath: String): String?
+
+    // --- Extended professional contract (all optional; default to "not supported") ---
+    // Every provider exposes the SAME surface; a provider that can't do something advertises it via
+    // [capabilities] and returns a NotSupported failure, so the core never branches on the store.
+
+    /** Begin an interactive login for this store. Defaults to [authenticate]. */
+    suspend fun login(): Result<StoreConnectionState> = authenticate()
+
+    /** Sign out / clear this store's credentials. */
+    suspend fun logout(): Result<Unit> = Result.success(Unit)
+
+    /** Whether the user is currently authenticated to this store. */
+    suspend fun isLogged(): Boolean = false
+
+    /** The signed-in user's profile (name/avatar/status), or null if unknown / not applicable. */
+    suspend fun getProfile(): Result<StoreProfile?> = Result.success(null)
+
+    /** The subset of [library] currently installed. Providers may override for efficiency. */
+    suspend fun getInstalledGames(): List<GameModel> = emptyList()
+
+    /** A single game by id, or null if unknown. */
+    suspend fun getGame(gameId: String): GameModel? = null
+
+    /** Force a full library sync. Defaults to [refreshLibrary]. */
+    suspend fun syncLibrary(): Result<Int> = refreshLibrary()
+
+    /** Launch an installed game directly. Defaults to unsupported (the app's launch flow handles it). */
+    suspend fun launch(gameId: String): Result<Unit> = notSupported("launch")
+
+    /** Start installing/downloading a game. Only when [StoreCapabilities.canInstall]. */
+    suspend fun install(gameId: String): Result<Unit> = notSupported("install")
+
+    /** Remove an installed game. Only when [StoreCapabilities.canUninstall]. */
+    suspend fun uninstall(gameId: String): Result<Unit> = notSupported("uninstall")
+
+    /** Pause an in-progress download. Only when [StoreCapabilities.canControlDownloads]. */
+    suspend fun pauseDownload(gameId: String): Result<Unit> = notSupported("pauseDownload")
+
+    /** Resume a paused download. Only when [StoreCapabilities.canControlDownloads]. */
+    suspend fun resumeDownload(gameId: String): Result<Unit> = notSupported("resumeDownload")
+
+    /** Cancel a download. Only when [StoreCapabilities.canControlDownloads]. */
+    suspend fun cancelDownload(gameId: String): Result<Unit> = notSupported("cancelDownload")
+
+    /** Observe a game's download progress, or a flow of null when not downloading / unsupported. */
+    fun downloadProgress(gameId: String): Flow<DownloadProgress?> = flowOf(null)
+
+    /** Verify an installed game's files. Only when [StoreCapabilities.canVerify]. */
+    suspend fun verifyInstallation(gameId: String): Result<Boolean> = notSupported("verifyInstallation")
+
+    /** Repair an installed game's files. Only when [StoreCapabilities.canRepair]. */
+    suspend fun repairInstallation(gameId: String): Result<Unit> = notSupported("repairInstallation")
+
+    private fun <T> notSupported(op: String): Result<T> =
+        Result.failure(UnsupportedOperationException("$op not supported by $displayName"))
 }
 
 /** Declares which optional operations a [StoreProvider] actually supports. */
@@ -79,7 +135,35 @@ data class StoreCapabilities(
     val canImportExisting: Boolean = false,
     val hasCloudSaves: Boolean = false,
     val requiresAuth: Boolean = true,
+    /** Supports interactive login/logout (vs. auth handled elsewhere). */
+    val canLogin: Boolean = false,
+    /** Exposes a user profile (name/avatar). */
+    val hasProfile: Boolean = false,
+    /** Supports pause/resume/cancel of downloads. */
+    val canControlDownloads: Boolean = false,
+    /** Supports verifying installed files. */
+    val canVerify: Boolean = false,
+    /** Supports repairing installed files. */
+    val canRepair: Boolean = false,
 )
+
+/** Signed-in user profile for a store (all fields optional). */
+data class StoreProfile(
+    val username: String = "",
+    val avatarUrl: String = "",
+    val status: String = "",
+)
+
+/** Live download progress for one game. */
+data class DownloadProgress(
+    val gameId: String,
+    val percent: Float = 0f,
+    val bytesDownloaded: Long = 0L,
+    val bytesTotal: Long = 0L,
+    val state: DownloadState = DownloadState.DOWNLOADING,
+)
+
+enum class DownloadState { QUEUED, DOWNLOADING, PAUSED, INSTALLING, DONE, FAILED, CANCELLED }
 
 /** Connection/authentication state of a store, surfaced on the Stores tab. */
 sealed interface StoreConnectionState {
