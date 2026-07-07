@@ -16,6 +16,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -62,6 +63,7 @@ import com.skydoves.landscapist.coil.CoilImage
 @Composable
 fun GameHubScreen(
     onBack: () -> Unit,
+    onClickPlay: (String) -> Unit = {},
     viewModel: GameHubViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -104,7 +106,7 @@ fun GameHubScreen(
             }
 
             if (tab == 0) {
-                LibraryTab(state = state, viewModel = viewModel)
+                LibraryTab(state = state, viewModel = viewModel, onClickPlay = onClickPlay)
             } else {
                 StoresTab(stores = stores)
             }
@@ -116,6 +118,7 @@ fun GameHubScreen(
 private fun LibraryTab(
     state: GameHubViewModel.GameHubUiState,
     viewModel: GameHubViewModel,
+    onClickPlay: (String) -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         OutlinedTextField(
@@ -191,7 +194,9 @@ private fun LibraryTab(
                 contentPadding = PaddingValues(12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                items(state.games, key = { it.id }) { game -> GameRow(game) }
+                items(state.games, key = { it.id }) { game ->
+                    GameRow(game = game, onPlay = { onClickPlay(game.id) })
+                }
             }
         }
     }
@@ -243,7 +248,7 @@ private fun StoreRow(store: GameHubViewModel.StoreInfo) {
 }
 
 @Composable
-private fun GameRow(game: GameModel) {
+private fun GameRow(game: GameModel, onPlay: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -255,7 +260,7 @@ private fun GameRow(game: GameModel) {
                 .clip(RoundedCornerShape(6.dp)),
             imageModel = { game.coverUrl.ifEmpty { null } },
         )
-        Column(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = game.name,
                 style = MaterialTheme.typography.bodyLarge,
@@ -267,6 +272,16 @@ private fun GameRow(game: GameModel) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+        // Only installed games can be launched; installing/downloading still goes through each
+        // store's existing flow, so we don't surface an Install action from the hub yet.
+        if (game.isInstalled) {
+            IconButton(onClick = onPlay) {
+                Icon(
+                    imageVector = Icons.Filled.PlayArrow,
+                    contentDescription = stringResource(R.string.run_app),
+                )
+            }
         }
     }
 }

@@ -55,6 +55,7 @@ fun HomeScreen(
         )
         HomeDestination.GameHub -> GameHubScreen(
             onBack = { viewModel.onDestination(HomeDestination.Library) },
+            onClickPlay = { appId -> onClickPlay(appId, false) },
         )
         HomeDestination.Downloads -> HomeDownloadsScreen(
             onBack = { viewModel.onDestination(HomeDestination.Library) },
