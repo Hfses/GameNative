@@ -31,6 +31,7 @@ class GameHubViewModel @Inject constructor(
 ) : ViewModel() {
 
     enum class InstallFilter { ALL, INSTALLED, NOT_INSTALLED }
+    enum class SortBy { NAME, STORE, RECENT }
 
     data class GameHubUiState(
         val games: List<GameModel> = emptyList(),
@@ -38,6 +39,9 @@ class GameHubViewModel @Inject constructor(
         val installFilter: InstallFilter = InstallFilter.ALL,
         val sourceFilter: GameSource? = null,
         val query: String = "",
+        val sortBy: SortBy = SortBy.NAME,
+        /** Total games across all stores before filtering (for the "N of M" header). */
+        val totalCount: Int = 0,
         val loading: Boolean = true,
     )
 
@@ -45,9 +49,10 @@ class GameHubViewModel @Inject constructor(
     private val installFilter = MutableStateFlow(InstallFilter.ALL)
     private val sourceFilter = MutableStateFlow<GameSource?>(null)
     private val query = MutableStateFlow("")
+    private val sortBy = MutableStateFlow(SortBy.NAME)
     private val loading = MutableStateFlow(true)
 
-    val state: StateFlow<GameHubUiState> = combine(
+    private val filteredState = combine(
         allGames, installFilter, sourceFilter, query, loading,
     ) { games, install, source, q, isLoading ->
         val filtered = games.filter { game ->
@@ -56,16 +61,30 @@ class GameHubViewModel @Inject constructor(
                 (install == InstallFilter.NOT_INSTALLED && !game.isInstalled)) &&
                 (source == null || game.source == source) &&
                 (q.isBlank() || game.name.contains(q.trim(), ignoreCase = true))
-        }.sortedBy { it.name.lowercase() }
+        }
         GameHubUiState(
             games = filtered,
             sources = games.map { it.source }.distinct().sortedBy { it.ordinal },
             installFilter = install,
             sourceFilter = source,
             query = q,
+            totalCount = games.size,
             loading = isLoading,
         )
+    }
+
+    val state: StateFlow<GameHubUiState> = combine(filteredState, sortBy) { s, sort ->
+        val sorted = when (sort) {
+            SortBy.NAME -> s.games.sortedBy { it.name.lowercase() }
+            SortBy.STORE -> s.games.sortedWith(compareBy({ it.source.ordinal }, { it.name.lowercase() }))
+            SortBy.RECENT -> s.games.sortedWith(
+                compareByDescending<GameModel> { it.lastPlayedAt }.thenBy { it.name.lowercase() },
+            )
+        }
+        s.copy(games = sorted, sortBy = sort)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), GameHubUiState())
+
+    fun setSort(value: SortBy) { sortBy.value = value }
 
     /** One row per registered store for the Stores tab. */
     data class StoreInfo(

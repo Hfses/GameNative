@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -52,6 +53,7 @@ import app.gamenative.gamehub.InstallState
 import app.gamenative.gamehub.StoreConnectionState
 import app.gamenative.ui.model.GameHubViewModel
 import app.gamenative.ui.model.GameHubViewModel.InstallFilter
+import app.gamenative.ui.model.GameHubViewModel.SortBy
 import com.skydoves.landscapist.coil.CoilImage
 
 /**
@@ -168,6 +170,29 @@ private fun LibraryTab(
                     )
                 }
             }
+        }
+
+        // Sort options + how many of the total are showing.
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            SortBy.entries.forEach { sort ->
+                FilterChip(
+                    selected = state.sortBy == sort,
+                    onClick = { viewModel.setSort(sort) },
+                    label = { Text(sortLabel(sort)) },
+                )
+            }
+            Spacer(Modifier.weight(1f))
+            Text(
+                text = stringResource(R.string.game_hub_count, state.games.size, state.totalCount),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
 
         when {
@@ -292,6 +317,15 @@ private fun installFilterLabel(filter: InstallFilter): String = stringResource(
         InstallFilter.ALL -> R.string.game_hub_filter_all
         InstallFilter.INSTALLED -> R.string.game_hub_filter_installed
         InstallFilter.NOT_INSTALLED -> R.string.game_hub_filter_not_installed
+    },
+)
+
+@Composable
+private fun sortLabel(sort: SortBy): String = stringResource(
+    when (sort) {
+        SortBy.NAME -> R.string.game_hub_sort_name
+        SortBy.STORE -> R.string.game_hub_sort_store
+        SortBy.RECENT -> R.string.game_hub_sort_recent
     },
 )
 
