@@ -1,5 +1,6 @@
 package app.gamenative.ui.screen.gamehub
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -37,6 +38,8 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -51,11 +54,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.gamenative.R
 import app.gamenative.data.GameSource
 import app.gamenative.gamehub.GameModel
+import app.gamenative.gamehub.GameModelMapper
 import app.gamenative.gamehub.InstallState
 import app.gamenative.gamehub.StoreConnectionState
 import app.gamenative.ui.model.GameHubViewModel
 import app.gamenative.ui.model.GameHubViewModel.InstallFilter
 import app.gamenative.ui.model.GameHubViewModel.SortBy
+import app.gamenative.ui.screen.library.AppScreen
 import com.skydoves.landscapist.coil.CoilImage
 
 /**
@@ -67,12 +72,32 @@ import com.skydoves.landscapist.coil.CoilImage
 @Composable
 fun GameHubScreen(
     onBack: () -> Unit,
-    onClickPlay: (String) -> Unit = {},
+    onClickPlay: (String, Boolean) -> Unit = { _, _ -> },
+    onTestGraphics: (String) -> Unit = {},
+    onPlayWithDiagnostics: (String) -> Unit = {},
     viewModel: GameHubViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val stores by viewModel.stores.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableIntStateOf(0) }
+
+    // Tapping a game opens the app's existing, proven detail screen (install / play / configure),
+    // reusing the whole per-store install flow instead of reimplementing downloads in the hub.
+    var selectedGame by remember { mutableStateOf<GameModel?>(null) }
+    val opened = selectedGame
+    if (opened != null) {
+        AppScreen(
+            libraryItem = GameModelMapper.toLibraryItem(opened),
+            onClickPlay = { asContainer ->
+                viewModel.recordPlayed(opened.id)
+                onClickPlay(opened.id, asContainer)
+            },
+            onTestGraphics = { onTestGraphics(opened.id) },
+            onPlayWithDiagnostics = { onPlayWithDiagnostics(opened.id) },
+            onBack = { selectedGame = null },
+        )
+        return
+    }
 
     Scaffold(
         topBar = {
@@ -110,7 +135,7 @@ fun GameHubScreen(
             }
 
             if (tab == 0) {
-                LibraryTab(state = state, viewModel = viewModel, onClickPlay = onClickPlay)
+                LibraryTab(state = state, viewModel = viewModel, onOpenGame = { selectedGame = it })
             } else {
                 StoresTab(stores = stores)
             }
@@ -122,7 +147,7 @@ fun GameHubScreen(
 private fun LibraryTab(
     state: GameHubViewModel.GameHubUiState,
     viewModel: GameHubViewModel,
-    onClickPlay: (String) -> Unit,
+    onOpenGame: (GameModel) -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         OutlinedTextField(
@@ -230,10 +255,7 @@ private fun LibraryTab(
                 items(state.games, key = { it.id }) { game ->
                     GameRow(
                         game = game,
-                        onPlay = {
-                            viewModel.recordPlayed(game.id)
-                            onClickPlay(game.id)
-                        },
+                        onOpen = { onOpenGame(game) },
                         onToggleFavorite = { viewModel.toggleFavorite(game) },
                     )
                 }
@@ -288,9 +310,11 @@ private fun StoreRow(store: GameHubViewModel.StoreInfo) {
 }
 
 @Composable
-private fun GameRow(game: GameModel, onPlay: () -> Unit, onToggleFavorite: () -> Unit) {
+private fun GameRow(game: GameModel, onOpen: () -> Unit, onToggleFavorite: () -> Unit) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onOpen),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -313,6 +337,15 @@ private fun GameRow(game: GameModel, onPlay: () -> Unit, onToggleFavorite: () ->
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        // A quick launch icon for installed games (tapping the row opens the full detail screen
+        // with Install/Play/configure, reusing each store's existing flow).
+        if (game.isInstalled) {
+            Icon(
+                imageVector = Icons.Filled.PlayArrow,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+            )
+        }
         IconButton(onClick = onToggleFavorite) {
             Icon(
                 imageVector = if (game.isFavorite) Icons.Filled.Star else Icons.Filled.StarBorder,
@@ -321,16 +354,6 @@ private fun GameRow(game: GameModel, onPlay: () -> Unit, onToggleFavorite: () ->
                 ),
                 tint = if (game.isFavorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
             )
-        }
-        // Only installed games can be launched; installing/downloading still goes through each
-        // store's existing flow, so we don't surface an Install action from the hub yet.
-        if (game.isInstalled) {
-            IconButton(onClick = onPlay) {
-                Icon(
-                    imageVector = Icons.Filled.PlayArrow,
-                    contentDescription = stringResource(R.string.run_app),
-                )
-            }
         }
     }
 }
