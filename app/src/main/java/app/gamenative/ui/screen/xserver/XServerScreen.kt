@@ -4403,29 +4403,18 @@ private fun unpackExecutableFile(
                         val windowsPathForLog = "A:\\${executablePath.replace('/', '\\')}"
                         Timber.i("Moving files for $windowsPathForLog")
                         if (exe.exists() && unpackedExe.exists()) {
+                            // Keep exe, .original.exe and .unpacked.exe as three independent copies.
+                            // SteamUtils.restoreUnpackedExecutable / restoreOriginalExecutable toggle
+                            // exe between the DRM-free (.unpacked.exe) and original (.original.exe)
+                            // builds across launches, so BOTH backups must survive and must not share
+                            // an inode with the live exe (a hard link or a deleted .unpacked.exe would
+                            // break that toggle — silently reverting DRM-free mode to the packed exe).
                             if (originalExe.exists()) {
                                 Timber.i("Original backup exists for $windowsPathForLog; skipping overwrite")
                             } else {
-                                // Hard-link the backup instead of copying the whole executable;
-                                // falls back to a copy if the filesystem doesn't support links.
-                                try {
-                                    Files.createLink(originalExe.toPath(), exe.toPath())
-                                } catch (e: Exception) {
-                                    Files.copy(exe.toPath(), originalExe.toPath(), REPLACE_EXISTING)
-                                }
+                                Files.copy(exe.toPath(), originalExe.toPath(), REPLACE_EXISTING)
                             }
-                            // Replace exe with the unpacked build. Delete first so the original
-                            // backup (which may share this inode) is never truncated in place.
-                            try {
-                                Files.deleteIfExists(exe.toPath())
-                                Files.createLink(exe.toPath(), unpackedExe.toPath())
-                            } catch (e: Exception) {
-                                Files.copy(unpackedExe.toPath(), exe.toPath(), REPLACE_EXISTING)
-                            }
-                            // The unpacked build is now consumed into exe (a hard link shares
-                            // its inode, or the fallback copied the bytes); drop .unpacked.exe so
-                            // the swap isn't re-applied on every launch and doesn't linger on disk.
-                            Files.deleteIfExists(unpackedExe.toPath())
+                            Files.copy(unpackedExe.toPath(), exe.toPath(), REPLACE_EXISTING)
                             Timber.i("Successfully moved files for $windowsPathForLog")
                         } else {
                             val errorMsg =
