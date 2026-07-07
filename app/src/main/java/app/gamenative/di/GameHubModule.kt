@@ -1,11 +1,13 @@
 package app.gamenative.di
 
+import android.content.Context
+import app.gamenative.gamehub.DataStoreGameLibraryRepository
 import app.gamenative.gamehub.GameLibraryRepository
-import app.gamenative.gamehub.InMemoryGameLibraryRepository
 import app.gamenative.gamehub.StoreManager
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
@@ -24,5 +26,7 @@ object GameHubModule {
 
     @Provides
     @Singleton
-    fun provideGameLibraryRepository(): GameLibraryRepository = InMemoryGameLibraryRepository()
+    fun provideGameLibraryRepository(
+        @ApplicationContext context: Context,
+    ): GameLibraryRepository = DataStoreGameLibraryRepository(context)
 }

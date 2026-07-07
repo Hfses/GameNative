@@ -119,6 +119,9 @@
     <string name="game_hub_sort_store">Store</string>
     <string name="game_hub_sort_recent">Recent</string>
     <string name="game_hub_count">%1$d of %2$d</string>
+    <string name="game_hub_favorites">Favorites</string>
+    <string name="game_hub_favorite_add">Add to favorites</string>
+    <string name="game_hub_favorite_remove">Remove from favorites</string>
     <string name="downloads_section_title">Downloads</string>
     <string name="downloads_empty">No active downloads</string>
     <string name="downloads_overview_subtitle">Track active, paused, and resumable downloads</string>

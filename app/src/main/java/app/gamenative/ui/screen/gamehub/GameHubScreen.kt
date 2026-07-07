@@ -19,6 +19,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -147,6 +149,12 @@ private fun LibraryTab(
                     label = { Text(installFilterLabel(filter)) },
                 )
             }
+            FilterChip(
+                selected = state.favoritesOnly,
+                onClick = { viewModel.setFavoritesOnly(!state.favoritesOnly) },
+                label = { Text(stringResource(R.string.game_hub_favorites)) },
+                leadingIcon = { Icon(Icons.Filled.Star, contentDescription = null) },
+            )
         }
 
         if (state.sources.isNotEmpty()) {
@@ -220,7 +228,11 @@ private fun LibraryTab(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 items(state.games, key = { it.id }) { game ->
-                    GameRow(game = game, onPlay = { onClickPlay(game.id) })
+                    GameRow(
+                        game = game,
+                        onPlay = { onClickPlay(game.id) },
+                        onToggleFavorite = { viewModel.toggleFavorite(game) },
+                    )
                 }
             }
         }
@@ -273,11 +285,11 @@ private fun StoreRow(store: GameHubViewModel.StoreInfo) {
 }
 
 @Composable
-private fun GameRow(game: GameModel, onPlay: () -> Unit) {
+private fun GameRow(game: GameModel, onPlay: () -> Unit, onToggleFavorite: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         CoilImage(
             modifier = Modifier
@@ -296,6 +308,15 @@ private fun GameRow(game: GameModel, onPlay: () -> Unit) {
                 text = "${sourceLabel(game.source)} · ${installStateLabel(game.installState)}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        IconButton(onClick = onToggleFavorite) {
+            Icon(
+                imageVector = if (game.isFavorite) Icons.Filled.Star else Icons.Filled.StarBorder,
+                contentDescription = stringResource(
+                    if (game.isFavorite) R.string.game_hub_favorite_remove else R.string.game_hub_favorite_add,
+                ),
+                tint = if (game.isFavorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         // Only installed games can be launched; installing/downloading still goes through each

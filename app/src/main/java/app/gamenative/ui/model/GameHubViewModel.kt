@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.gamenative.data.GameSource
 import app.gamenative.gamehub.GameHubRegistrar
+import app.gamenative.gamehub.GameLibraryRepository
 import app.gamenative.gamehub.GameModel
 import app.gamenative.gamehub.StoreConnectionState
 import app.gamenative.gamehub.StoreManager
@@ -28,6 +29,7 @@ import javax.inject.Inject
 class GameHubViewModel @Inject constructor(
     private val storeManager: StoreManager,
     private val registrar: GameHubRegistrar,
+    private val repository: GameLibraryRepository,
 ) : ViewModel() {
 
     enum class InstallFilter { ALL, INSTALLED, NOT_INSTALLED }
@@ -40,6 +42,7 @@ class GameHubViewModel @Inject constructor(
         val sourceFilter: GameSource? = null,
         val query: String = "",
         val sortBy: SortBy = SortBy.NAME,
+        val favoritesOnly: Boolean = false,
         /** Total games across all stores before filtering (for the "N of M" header). */
         val totalCount: Int = 0,
         val loading: Boolean = true,
@@ -50,6 +53,7 @@ class GameHubViewModel @Inject constructor(
     private val sourceFilter = MutableStateFlow<GameSource?>(null)
     private val query = MutableStateFlow("")
     private val sortBy = MutableStateFlow(SortBy.NAME)
+    private val favoritesOnly = MutableStateFlow(false)
     private val loading = MutableStateFlow(true)
 
     private val filteredState = combine(
@@ -73,18 +77,23 @@ class GameHubViewModel @Inject constructor(
         )
     }
 
-    val state: StateFlow<GameHubUiState> = combine(filteredState, sortBy) { s, sort ->
+    val state: StateFlow<GameHubUiState> = combine(filteredState, sortBy, favoritesOnly) { s, sort, favOnly ->
+        val base = if (favOnly) s.games.filter { it.isFavorite } else s.games
         val sorted = when (sort) {
-            SortBy.NAME -> s.games.sortedBy { it.name.lowercase() }
-            SortBy.STORE -> s.games.sortedWith(compareBy({ it.source.ordinal }, { it.name.lowercase() }))
-            SortBy.RECENT -> s.games.sortedWith(
+            SortBy.NAME -> base.sortedBy { it.name.lowercase() }
+            SortBy.STORE -> base.sortedWith(compareBy({ it.source.ordinal }, { it.name.lowercase() }))
+            SortBy.RECENT -> base.sortedWith(
                 compareByDescending<GameModel> { it.lastPlayedAt }.thenBy { it.name.lowercase() },
             )
         }
-        s.copy(games = sorted, sortBy = sort)
+        s.copy(games = sorted, sortBy = sort, favoritesOnly = favOnly)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), GameHubUiState())
 
     fun setSort(value: SortBy) { sortBy.value = value }
+    fun setFavoritesOnly(value: Boolean) { favoritesOnly.value = value }
+    fun toggleFavorite(game: GameModel) {
+        viewModelScope.launch { repository.setFavorite(game.id, !game.isFavorite) }
+    }
 
     /** One row per registered store for the Stores tab. */
     data class StoreInfo(
@@ -120,7 +129,17 @@ class GameHubViewModel @Inject constructor(
             // snapshots the provider set at call time, so it must run after registration.
             registrar.registerAll()
             loading.value = false
-            storeManager.unifiedLibrary().collect { allGames.value = it }
+            // Merge the persisted hub metadata (favourite/last-played/profile) onto each model.
+            combine(storeManager.unifiedLibrary(), repository.observeAll()) { games, meta ->
+                games.map { game ->
+                    val m = meta[game.id] ?: return@map game
+                    game.copy(
+                        isFavorite = m.favorite,
+                        lastPlayedAt = m.lastPlayedAt,
+                        configurationProfileId = m.configurationProfileId,
+                    )
+                }
+            }.collect { allGames.value = it }
         }
     }
 
