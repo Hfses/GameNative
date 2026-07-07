@@ -216,9 +216,11 @@ import kotlin.math.roundToInt
 import kotlin.text.lowercase
 import com.winlator.PrefManager as WinlatorPrefManager
 
-// Always re-extract drivers and DXVK on every launch to handle cases of container corruption
-// where games randomly stop working. Set to false once corruption issues are resolved.
-private const val ALWAYS_REEXTRACT = true
+// Re-extraction of drivers and DXVK is normally driven by change detection plus integrity
+// guards: markers/sentinels are written only after successful extraction, and missing or
+// truncated D3D DLLs in the prefix force a re-extract. Set this to true only to diagnose
+// container corruption (it re-extracts everything on every launch, slowing game startup).
+private const val ALWAYS_REEXTRACT = false
 
 // Guard to prevent duplicate game_exited events when multiple exit triggers fire simultaneously
 private val isExiting = AtomicBoolean(false)
@@ -2016,8 +2018,8 @@ fun XServerScreen(
                             // Timber.d("2 Container drives: ${container.drives}")
                             val imageFs = ImageFs.find(context)
 
-                            taskAffinityMask = ProcessHelper.getAffinityMask(container.getCPUList(true)).toShort().toInt()
-                            taskAffinityMaskWoW64 = ProcessHelper.getAffinityMask(container.getCPUListWoW64(true)).toShort().toInt()
+                            taskAffinityMask = ProcessHelper.getAffinityMask(container.getCPUList(true))
+                            taskAffinityMaskWoW64 = ProcessHelper.getAffinityMask(container.getCPUListWoW64(true))
                             win32AppWorkarounds?.setTaskAffinityMasks(taskAffinityMask, taskAffinityMaskWoW64)
                             val appliedVariantSeen = container.getExtra("appliedContainerVariant")
                             val appliedWineVersionSeen = container.getExtra("appliedWineVersion")
@@ -3302,6 +3304,12 @@ private fun setupXEnvironment(
         envVars.remove("DXVK_FRAME_RATE")
         envVars.remove("VKD3D_FRAME_RATE")
         if (!envVars.has("WINEESYNC")) envVars.put("WINEESYNC", "1")
+        // The PulseAudio "low latency" toggle must also lower the latency requested by
+        // Wine's Pulse client, otherwise it only affects the AAudio sink and the effective
+        // latency stays at the 144 ms default. A manually customized value is respected.
+        if (container.getPulseaudioLowLatency() && envVars.get("PULSE_LATENCY_MSEC") == "144") {
+            envVars.put("PULSE_LATENCY_MSEC", "60")
+        }
         val graphicsDriverConfig = KeyValueSet(container.getGraphicsDriverConfig())
         if (graphicsDriverConfig.get("version").lowercase(Locale.getDefault()).contains("gen8")) {
             var tuDebug = envVars.get("TU_DEBUG")
@@ -4478,9 +4486,17 @@ private suspend fun setupWineSystemFiles(
         )
     }
 
-    val needReextract = ALWAYS_REEXTRACT || xServerState.value.dxwrapper != container.getExtra("dxwrapper") || variantChanged || wineVersionChanged
+    // Cheap corruption guard: if any of the key D3D DLLs is missing or truncated in the
+    // prefix, force a re-extraction even when the configured wrapper did not change.
+    val system32Dir = File(imageFs.rootDir, ImageFs.WINEPREFIX + "/drive_c/windows/system32")
+    val dxDllsMissing = !system32Dir.isDirectory || arrayOf("dxgi.dll", "d3d11.dll", "d3d9.dll").any {
+        val dll = File(system32Dir, it)
+        !dll.isFile || dll.length() == 0L
+    }
+    val needReextract = ALWAYS_REEXTRACT || dxDllsMissing ||
+        xServerState.value.dxwrapper != container.getExtra("dxwrapper") || variantChanged || wineVersionChanged
 
-    Timber.i("needReextract is " + needReextract)
+    Timber.i("needReextract is " + needReextract + " (dxDllsMissing=" + dxDllsMissing + ")")
     Timber.i("xServerState.value.dxwrapper is " + xServerState.value.dxwrapper)
     Timber.i("container.getExtra(\"dxwrapper\") is " + container.getExtra("dxwrapper"))
 
@@ -5008,13 +5024,11 @@ private suspend fun extractGraphicsDriverFiles(
             val vulkanICDDir = File(rootDir, "/usr/share/vulkan/icd.d")
             FileUtils.delete(vulkanICDDir)
             vulkanICDDir.mkdirs()
-            container.putExtra("graphicsDriver", cacheId)
-            container.saveData()
-            if (!sentinel.exists()) {
-                sentinel.parentFile?.mkdirs()
-                sentinel.createNewFile()
-            }
-            sentinel.writeText(cacheId)
+            // NOTE: the "graphicsDriver" extra and the on-disk sentinel are only written
+            // AFTER the driver components are extracted (see end of this branch chain).
+            // Writing them here would mark the extraction as done before it happened:
+            // if the process died in between, the next launch would skip extraction and
+            // leave the container without a working driver (files were just deleted above).
         }
         if (dxwrapper.contains("dxvk")) {
             DXVKHelper.setEnvVars(context, dxwrapperConfig, envVars)
@@ -5126,6 +5140,18 @@ private suspend fun extractGraphicsDriverFiles(
                 extractGraphicsDriverComponent(context, "vortek-2.1", rootDir)
                 extractGraphicsDriverComponent(context, "zink-22.2.5", rootDir)
             }
+        }
+
+        if (changed) {
+            // Extraction finished without throwing: only now record the installed driver,
+            // so an interrupted extraction is retried on the next launch.
+            container.putExtra("graphicsDriver", cacheId)
+            container.saveData()
+            if (!sentinel.exists()) {
+                sentinel.parentFile?.mkdirs()
+                sentinel.createNewFile()
+            }
+            sentinel.writeText(cacheId)
         }
     } else {
         var adrenoToolsDriverId: String? = ""

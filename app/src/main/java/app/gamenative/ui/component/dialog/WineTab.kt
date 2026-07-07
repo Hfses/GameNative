@@ -17,9 +17,13 @@ fun WineTabContent(state: ContainerConfigState) {
     val config = state.config.value
     val gpuCardsValues = state.gpuCards.values.toList()
     SettingsGroup() {
+        // A single GPU selector: this tab used to render two dropdowns ("Renderer" and
+        // "GPU Name") bound to the same index and the same GPU list, fighting over the
+        // same state. The merged control keeps the superset behavior (updates both the
+        // graphics driver config's gpuName and the emulated PCI device id).
         SettingsListDropdownSearchable(
             colors = settingsTileColors(),
-            title = { Text(text = stringResource(R.string.renderer)) },
+            title = { Text(text = stringResource(R.string.gpu_name)) },
             value = state.gpuNameIndex.value,
             items = state.gpuCards.values.map { it.name },
             onItemSelected = {
@@ -30,16 +34,6 @@ fun WineTabContent(state: ContainerConfigState) {
                     videoPciDeviceID = gpuCardsValues[it].deviceId,
                     graphicsDriverConfig = cfg.toString()
                 )
-            },
-        )
-        SettingsListDropdownSearchable(
-            colors = settingsTileColors(),
-            title = { Text(text = stringResource(R.string.gpu_name)) },
-            value = state.gpuNameIndex.value,
-            items = state.gpuCards.values.map { it.name },
-            onItemSelected = {
-                state.gpuNameIndex.value = it
-                state.config.value = config.copy(videoPciDeviceID = gpuCardsValues[it].deviceId)
             },
         )
         SettingsListDropdown(
