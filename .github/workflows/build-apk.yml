@@ -11,11 +11,12 @@ on:
       - '.github/ISSUE_TEMPLATE/**'
   workflow_dispatch:
 
-# On rapid successive pushes, cancel the superseded build so only the latest APK is produced
-# (and the rolling Release isn't fought over by overlapping runs).
+# Serialize builds on the same branch so overlapping runs don't fight over the rolling Release
+# tag. cancel-in-progress:false means rapid pushes QUEUE (each commit still gets a build + release)
+# instead of cancelling each other — important during active development.
 concurrency:
   group: build-apk-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
