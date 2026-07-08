@@ -973,9 +973,10 @@ class EpicDownloadManager @Inject constructor(
 
                                 val assembleResult = assembleReady(chunk)
                                 if (assembleResult.isFailure) {
-                                    assemblyFailure = assembleResult.exceptionOrNull()
+                                    val failure = assembleResult.exceptionOrNull()
                                         ?: Exception("Failed to assemble ready files")
-                                    Timber.tag("EPIC").d("Chunk ${chunk.guidStr} assembleReady Failed: ${assemblyFailure.message}")
+                                    assemblyFailure = failure
+                                    Timber.tag("EPIC").d("Chunk ${chunk.guidStr} assembleReady Failed: ${failure.message}")
 
                                     // Requeue the chunk for retry
                                     downloadedChunkIds.remove(chunk.guidStr)
