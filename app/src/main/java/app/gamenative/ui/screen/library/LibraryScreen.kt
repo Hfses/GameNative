@@ -1128,6 +1128,10 @@ private fun LibraryScreenContent(
                 onNavigateRoute = onNavigateRoute,
                 onDownloadsClick = onDownloadsClick,
                 onGameHubClick = onGameHubClick,
+                onLayoutClick = {
+                    isSystemMenuOpen = false
+                    onOptionsPanelToggle(true)
+                },
                 onLogout = onLogout,
                 onGoOnline = onGoOnline,
                 isOffline = isOffline,

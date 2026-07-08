@@ -619,6 +619,7 @@
     <string name="status_away">Away</string>
     <string name="status_invisible">Invisible</string>
     <string name="system_menu_title">System</string>
+    <string name="system_menu_layout">Layout</string>
     <string name="size">Size</string>
     <string name="location">Location</string>
     <string name="developer">Developer</string>

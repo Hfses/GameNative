@@ -44,6 +44,7 @@ import androidx.compose.material.icons.automirrored.filled.StarHalf
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.NewReleases
@@ -250,6 +251,7 @@ fun SystemMenu(
     onNavigateRoute: (String) -> Unit,
     onDownloadsClick: () -> Unit = {},
     onGameHubClick: () -> Unit = {},
+    onLayoutClick: () -> Unit = {},
     onLogout: () -> Unit,
     onGoOnline: () -> Unit,
     isOffline: Boolean = false,
@@ -583,6 +585,16 @@ fun SystemMenu(
                             icon = Icons.Default.SportsEsports,
                             onClick = { showControllers = true },
                             focusRequester = firstItemFocusRequester,
+                        )
+
+                        // Opens the library options panel (sort by, app type, app status, layout).
+                        SystemMenuItem(
+                            text = stringResource(R.string.system_menu_layout),
+                            icon = Icons.Default.GridView,
+                            onClick = {
+                                onLayoutClick()
+                                onDismiss()
+                            },
                         )
 
                         SystemMenuItem(
