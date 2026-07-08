@@ -45,6 +45,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
@@ -528,6 +529,11 @@ fun XServerScreen(
     var keyboardRequestedFromOverlay by remember { mutableStateOf(false) }
     var shouldForceResumeOnMenuClose by remember { mutableStateOf(false) }
     var showQuickMenu by remember { mutableStateOf(false) }
+    // In-game LAN chat overlay (non-pausing). Only meaningful while in a LAN room.
+    var showLanChat by remember { mutableStateOf(false) }
+    val lanStatus by app.gamenative.lan.LanRoomManager.status.collectAsState()
+    val lanInRoom = lanStatus == app.gamenative.lan.LanRoomManager.Status.HOSTING ||
+        lanStatus == app.gamenative.lan.LanRoomManager.Status.JOINED
     var quickMenuToolsVisible by remember { mutableStateOf(false) }
     var quickMenuWineProcesses by remember { mutableStateOf<List<ProcessInfo>>(emptyList()) }
     var quickMenuWineProcessesLoading by remember { mutableStateOf(false) }
@@ -1099,6 +1105,14 @@ fun XServerScreen(
             QuickMenuAction.KEYBOARD -> {
                 keyboardRequestedFromOverlay = true
                 showSoftKeyboard(view, "onscreen_keyboard_enabled")
+                true
+            }
+
+            QuickMenuAction.LAN_CHAT -> {
+                // Toggle the non-pausing chat overlay. Release pointer capture so the chat text
+                // field can receive touches/focus; re-capture when it closes (handled below).
+                showLanChat = !showLanChat
+                if (showLanChat) runCatching { view.releasePointerCapture() }
                 true
             }
 
@@ -2606,6 +2620,7 @@ fun XServerScreen(
             onFpsLimiterEnabledChanged = ::applyFpsLimiterEnabled,
             onFpsLimiterChanged = ::applyFpsLimiterTarget,
             hasPhysicalController = hasPhysicalController,
+            showLanChatToggle = lanInRoom,
             isTouchscreenModeActive = isTouchscreenModeActive,
             onTouchGestureSettingsClick = { showTouchGestureDialog = true },
             activeToggleIds = buildSet {
@@ -2634,6 +2649,21 @@ fun XServerScreen(
                 }
             },
         )
+
+        // In-game LAN chat overlay — non-pausing, auto-hides when the room ends.
+        app.gamenative.lan.InGameLanChatOverlay(
+            visible = showLanChat && lanInRoom,
+            onClose = {
+                showLanChat = false
+                // Re-capture the pointer for the game if the current mode wants it.
+                tryCapturePointer()
+            },
+        )
+        // Back closes the chat first (before falling through to the game/exit back handler).
+        BackHandler(enabled = showLanChat) {
+            showLanChat = false
+            tryCapturePointer()
+        }
 
         if (manualResumeMode && PluviaApp.isOverlayPaused && !showQuickMenu && !keepPausedForEditor) {
             Box(

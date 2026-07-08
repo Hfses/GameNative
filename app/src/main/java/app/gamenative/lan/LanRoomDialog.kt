@@ -10,6 +10,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material3.AlertDialog
@@ -41,6 +43,7 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import app.gamenative.R
 import app.gamenative.service.SteamService
@@ -80,13 +83,22 @@ fun LanRoomDialog(
     var roomName by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     var joinIp by rememberSaveable { mutableStateOf("") }
-    var chatInput by remember { mutableStateOf("") }
+    var chatInput by rememberSaveable { mutableStateOf("") }
     var discovering by remember { mutableStateOf(false) }
 
     val inRoom = status == LanRoomManager.Status.HOSTING || status == LanRoomManager.Status.JOINED
     val chatListState = rememberLazyListState()
-    LaunchedEffect(chat.size) {
+    // Key on the last message, not size: the chat is capped at 200, so size stops changing and a
+    // size-keyed effect would stop auto-scrolling once the cap is hit.
+    LaunchedEffect(chat.lastOrNull()) {
         if (chat.isNotEmpty()) chatListState.animateScrollToItem(chat.size - 1)
+    }
+
+    // Clear a leftover error/denied/joining status when leaving the dialog without being in a room,
+    // so reopening doesn't greet the user with a stale "wrong password"/"could not connect".
+    val handleDismiss: () -> Unit = {
+        if (!inRoom) LanRoomManager.resetTransient()
+        onDismiss()
     }
 
     // Pre-fill the IP field with the first room found on this network.
@@ -100,9 +112,9 @@ fun LanRoomDialog(
     }
 
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = handleDismiss,
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) }
+            TextButton(onClick = handleDismiss) { Text(stringResource(R.string.close)) }
         },
         dismissButton = {
             if (inRoom) {
@@ -158,6 +170,9 @@ fun LanRoomDialog(
                             onClick = {
                                 LanRoomManager.createRoom(context, roomName, password, gameName, playerName)
                             },
+                            enabled = status != LanRoomManager.Status.HOSTING &&
+                                status != LanRoomManager.Status.JOINING &&
+                                playerName.isNotBlank(),
                             modifier = Modifier.fillMaxWidth(),
                         ) { Text(stringResource(R.string.lan_create_room)) }
                     } else {
@@ -200,7 +215,9 @@ fun LanRoomDialog(
                                         LanRoomManager.joinRoom(context, joinIp, password, playerName)
                                     }
                                 },
-                                enabled = joinIp.isNotBlank(),
+                                enabled = joinIp.isNotBlank() &&
+                                    playerName.isNotBlank() &&
+                                    status != LanRoomManager.Status.JOINING,
                                 modifier = Modifier.weight(1f),
                             ) { Text(stringResource(R.string.lan_join_room)) }
                             TextButton(onClick = {
@@ -297,17 +314,22 @@ fun LanRoomDialog(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
+                        val sendChat: () -> Unit = {
+                            if (chatInput.isNotBlank()) {
+                                LanRoomManager.sendChat(chatInput)
+                                chatInput = ""
+                            }
+                        }
                         OutlinedTextField(
                             value = chatInput,
                             onValueChange = { chatInput = it },
                             label = { Text(stringResource(R.string.lan_chat_message)) },
                             singleLine = true,
                             modifier = Modifier.weight(1f),
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                            keyboardActions = KeyboardActions(onSend = { sendChat() }),
                         )
-                        IconButton(onClick = {
-                            LanRoomManager.sendChat(chatInput)
-                            chatInput = ""
-                        }) {
+                        IconButton(onClick = sendChat, enabled = chatInput.isNotBlank()) {
                             Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null)
                         }
                     }

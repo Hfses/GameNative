@@ -46,6 +46,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.AutoFixHigh
 import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Fingerprint
@@ -109,6 +110,7 @@ object QuickMenuAction {
     const val PERFORMANCE_HUD = 6
     const val TOUCHSCREEN_MODE = 7
     const val DISABLE_MOUSE = 8
+    const val LAN_CHAT = 9
 }
 
 private object QuickMenuTab {
@@ -254,6 +256,7 @@ fun QuickMenu(
     onFpsLimiterEnabledChanged: (Boolean) -> Unit = {},
     onFpsLimiterChanged: (Int) -> Unit = {},
     hasPhysicalController: Boolean = false,
+    showLanChatToggle: Boolean = false,
     isTouchscreenModeActive: Boolean = false,
     onTouchGestureSettingsClick: () -> Unit = {},
     activeToggleIds: Set<Int> = emptySet(),
@@ -326,6 +329,17 @@ fun QuickMenu(
                 accentColor = PluviaTheme.colors.accentPurple,
             )
         )
+        // Only when the user is actually in a LAN room — toggles the in-game chat overlay.
+        if (showLanChatToggle) {
+            add(
+                QuickMenuItem(
+                    id = QuickMenuAction.LAN_CHAT,
+                    icon = Icons.AutoMirrored.Filled.Chat,
+                    labelResId = R.string.lan_chat_title,
+                    accentColor = PluviaTheme.colors.accentPurple,
+                )
+            )
+        }
     }
 
     var selectedTab by rememberSaveable {

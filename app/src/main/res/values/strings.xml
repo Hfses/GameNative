@@ -1718,6 +1718,7 @@
     <string name="lan_room_ip">Room IP: %1$s (share with your friends)</string>
     <string name="lan_players">Players: %1$s</string>
     <string name="lan_chat_message">Message</string>
+    <string name="lan_chat_title">LAN Chat</string>
     <string name="lan_open_game">Open the game</string>
     <string name="lan_in_room_hint">When everyone is in, each player taps Open the game and connects through the game\'s own LAN menu. The room and chat stay active while the game runs.</string>
     <string name="lan_leave_room">Leave room</string>
