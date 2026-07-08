@@ -113,7 +113,10 @@ public class ContainerManager {
         // Boolean wow64Mode = false;
         Byte startupSelection = Container.STARTUP_SELECTION_ESSENTIAL;
         String box86Preset = Box86_64Preset.COMPATIBILITY;
-        String box64Preset = Box86_64Preset.COMPATIBILITY;
+        // INTERMEDIATE ~= box64 upstream defaults (BIGBLOCK=1, CALLRET=1, FASTNAN/FASTROUND=1,
+        // X87DOUBLE=0) without the riskier STRONGMEM/AVX levers — a large CPU-throughput win over the
+        // heavily de-tuned COMPATIBILITY default. Per-game problem titles can drop back via the picker.
+        String box64Preset = Box86_64Preset.INTERMEDIATE;
         String desktopTheme = WineThemeManager.DEFAULT_DESKTOP_THEME;
 
         JSONObject data = new JSONObject();
@@ -204,27 +207,22 @@ public class ContainerManager {
 
         Container dstContainer = new Container(newId);
         dstContainer.setRootDir(dstDir);
+
+        // The source root dir (including its .container config file) was copied above.
+        // Load the full copied config so every setting is preserved, instead of
+        // copying a hand-picked subset of fields.
+        try {
+            String configContent = FileUtils.readString(dstContainer.getConfigFile());
+            if (configContent != null && !configContent.trim().isEmpty()) {
+                JSONObject data = new JSONObject(configContent);
+                data.put("id", newId);
+                dstContainer.loadData(data);
+            }
+        } catch (Exception e) {
+            Log.w("ContainerManager", "Could not load config of duplicated container " + newId + ": " + e.getMessage());
+        }
+
         dstContainer.setName(srcContainer.getName()+" ("+context.getString(R.string.copy)+")");
-        dstContainer.setScreenSize(srcContainer.getScreenSize());
-        dstContainer.setEnvVars(srcContainer.getEnvVars());
-        dstContainer.setCPUList(srcContainer.getCPUList());
-        dstContainer.setCPUListWoW64(srcContainer.getCPUListWoW64());
-        dstContainer.setGraphicsDriver(srcContainer.getGraphicsDriver());
-        dstContainer.setDXWrapper(srcContainer.getDXWrapper());
-        dstContainer.setDXWrapperConfig(srcContainer.getDXWrapperConfig());
-        dstContainer.setAudioDriver(srcContainer.getAudioDriver());
-        dstContainer.setWinComponents(srcContainer.getWinComponents());
-        dstContainer.setDrives(srcContainer.getDrives());
-        dstContainer.setShowFPS(srcContainer.isShowFPS());
-        dstContainer.setWoW64Mode(srcContainer.isWoW64Mode());
-        dstContainer.setStartupSelection(srcContainer.getStartupSelection());
-        dstContainer.setBox86Preset(srcContainer.getBox86Preset());
-        dstContainer.setBox64Preset(srcContainer.getBox64Preset());
-        dstContainer.setBox64Version(srcContainer.getBox64Version());
-        dstContainer.setBox86Version(srcContainer.getBox86Version());
-        dstContainer.setDesktopTheme(srcContainer.getDesktopTheme());
-        dstContainer.setRcfileId(srcContainer.getRCFileId());
-        dstContainer.setWineVersion(srcContainer.getWineVersion());
         dstContainer.saveData();
 
         containers.add(dstContainer);

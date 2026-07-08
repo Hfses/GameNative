@@ -25,5 +25,8 @@ public abstract class DefaultVersion {
     public static String DEFAULT_GRAPHICS_DRIVER = "vortek";
     public static String WINE_VERSION = com.winlator.core.WineInfo.MAIN_WINE_VERSION.identifier();
     public static String ASYNC = "1";
-    public static String ASYNC_CACHE = "0";
+    // gplasync's on-disk pipeline cache: replays async-compiled pipelines from disk on later runs,
+    // so shader-comp stutter mostly disappears after the first session. The shipped DXVK build is
+    // "2.6.1-gplasync", whose whole point is this cache; leaving it off wasted that.
+    public static String ASYNC_CACHE = "1";
 }

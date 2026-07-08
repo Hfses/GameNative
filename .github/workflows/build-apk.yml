@@ -11,6 +11,13 @@ on:
       - '.github/ISSUE_TEMPLATE/**'
   workflow_dispatch:
 
+# Serialize builds on the same branch so overlapping runs don't fight over the rolling Release
+# tag. cancel-in-progress:false means rapid pushes QUEUE (each commit still gets a build + release)
+# instead of cancelling each other — important during active development.
+concurrency:
+  group: build-apk-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -52,3 +59,57 @@ jobs:
         with:
           name: gamenative-modern-debug-apk
           path: app/build/outputs/apk/modern/debug/*.apk
+
+  # Publishing the ~800 MB of APKs to a Release is slow, so it runs in its own job AFTER build.
+  # This keeps the build job (and therefore the downloadable Actions artifacts) available quickly,
+  # while still offering the easier-to-download Release. Scoped to claude/** branches and manual
+  # runs so it never touches main's releases.
+  release:
+    needs: build
+    if: startsWith(github.ref_name, 'claude/') || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # create/update the Release
+      actions: read      # download-artifact reads this run's artifacts
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+
+    steps:
+      - name: Download built APKs
+        uses: actions/download-artifact@v4
+        with:
+          path: apks
+
+      - name: Publish debug APKs as a rolling prerelease
+        run: |
+          set -euo pipefail
+          TAG="debug-$(printf '%s' "$GITHUB_REF_NAME" | tr '/' '-')"
+          NOTES="Automated debug APKs for branch \`$GITHUB_REF_NAME\` at commit \`${GITHUB_SHA:0:8}\`.
+
+          - **gamenative-modern-debug** — most modern phones.
+          - **gamenative-legacy-debug** — legacy / glibc path (larger).
+
+          Debug-signed; install may require enabling \"install from unknown sources\"."
+
+          # IMPORTANT: never delete the release/tag. Deleting them leaves a multi-minute window
+          # (while the ~800 MB of APKs re-upload) where the download URLs 404 — that was the
+          # "the link keeps disappearing" problem. Instead keep the rolling release alive and
+          # overwrite the assets in place, so the download URLs stay valid across every build.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" \
+              --prerelease \
+              --title "Debug build — $GITHUB_REF_NAME" \
+              --notes "$NOTES"
+          else
+            gh release create "$TAG" \
+              --target "$GITHUB_SHA" \
+              --prerelease \
+              --title "Debug build — $GITHUB_REF_NAME" \
+              --notes "$NOTES"
+          fi
+
+          # --clobber replaces each asset in place (stable names → stable, always-live URLs).
+          # Upload the smaller modern APK first so the most-used download refreshes soonest.
+          gh release upload "$TAG" apks/gamenative-modern-debug-apk/*.apk --clobber
+          gh release upload "$TAG" apks/gamenative-legacy-debug-apk/*.apk --clobber

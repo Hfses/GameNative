@@ -117,6 +117,7 @@ object ContainerUtils {
             rendererPresentMode = PrefManager.rendererPresentMode,
             displayRenderer = PrefManager.displayRendererMode,
             sfCompatMode = PrefManager.sfCompatMode,
+            lowGraphicsMode = PrefManager.lowGraphicsMode,
             dxwrapper = PrefManager.dxWrapper,
             dxwrapperConfig = PrefManager.dxWrapperConfig,
             audioDriver = PrefManager.audioDriver,
@@ -183,6 +184,7 @@ object ContainerUtils {
         PrefManager.rendererPresentMode = containerData.rendererPresentMode
         PrefManager.displayRendererMode = containerData.displayRenderer
         PrefManager.sfCompatMode = containerData.sfCompatMode
+        PrefManager.lowGraphicsMode = containerData.lowGraphicsMode
         PrefManager.dxWrapper = containerData.dxwrapper
         PrefManager.dxWrapperConfig = containerData.dxwrapperConfig
         PrefManager.audioDriver = containerData.audioDriver
@@ -300,6 +302,7 @@ object ContainerUtils {
             rendererPresentMode = container.rendererPresentMode,
             displayRenderer = container.displayRenderer,
             sfCompatMode = container.sfCompatMode,
+            lowGraphicsMode = container.lowGraphicsMode,
             dxwrapper = container.dxWrapper,
             dxwrapperConfig = container.dxWrapperConfig,
             audioDriver = container.audioDriver,
@@ -482,6 +485,7 @@ object ContainerUtils {
         container.rendererPresentMode = containerData.rendererPresentMode
         container.displayRenderer = containerData.displayRenderer
         container.sfCompatMode = containerData.sfCompatMode
+        container.lowGraphicsMode = containerData.lowGraphicsMode
         container.dxWrapper = containerData.dxwrapper
         container.dxWrapperConfig = containerData.dxwrapperConfig
         container.audioDriver = containerData.audioDriver
@@ -870,6 +874,7 @@ object ContainerUtils {
                 rendererPresentMode = PrefManager.rendererPresentMode,
                 displayRenderer = PrefManager.displayRendererMode,
                 sfCompatMode = PrefManager.sfCompatMode,
+                lowGraphicsMode = PrefManager.lowGraphicsMode,
                 dxwrapper = initialDxWrapper,
                 dxwrapperConfig = PrefManager.dxWrapperConfig,
                 audioDriver = PrefManager.audioDriver,

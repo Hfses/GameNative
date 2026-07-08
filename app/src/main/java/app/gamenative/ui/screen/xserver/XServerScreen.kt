@@ -45,6 +45,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
@@ -116,6 +117,7 @@ import app.gamenative.utils.CustomGameScanner
 import app.gamenative.utils.ExecutableSelectionUtils
 import app.gamenative.utils.LsfgQuickMenuHelper
 import app.gamenative.utils.ManifestComponentHelper
+import app.gamenative.utils.PerformanceGovernor
 import app.gamenative.utils.downloader.DXWrapperDownloader
 import app.gamenative.utils.downloader.GraphicsDriverDownloader
 import app.gamenative.utils.PreInstallSteps
@@ -216,9 +218,11 @@ import kotlin.math.roundToInt
 import kotlin.text.lowercase
 import com.winlator.PrefManager as WinlatorPrefManager
 
-// Always re-extract drivers and DXVK on every launch to handle cases of container corruption
-// where games randomly stop working. Set to false once corruption issues are resolved.
-private const val ALWAYS_REEXTRACT = true
+// Re-extraction of drivers and DXVK is normally driven by change detection plus integrity
+// guards: markers/sentinels are written only after successful extraction, and missing or
+// truncated D3D DLLs in the prefix force a re-extract. Set this to true only to diagnose
+// container corruption (it re-extracts everything on every launch, slowing game startup).
+private const val ALWAYS_REEXTRACT = false
 
 // Guard to prevent duplicate game_exited events when multiple exit triggers fire simultaneously
 private val isExiting = AtomicBoolean(false)
@@ -525,6 +529,11 @@ fun XServerScreen(
     var keyboardRequestedFromOverlay by remember { mutableStateOf(false) }
     var shouldForceResumeOnMenuClose by remember { mutableStateOf(false) }
     var showQuickMenu by remember { mutableStateOf(false) }
+    // In-game LAN chat overlay (non-pausing). Only meaningful while in a LAN room.
+    var showLanChat by remember { mutableStateOf(false) }
+    val lanStatus by app.gamenative.lan.LanRoomManager.status.collectAsState()
+    val lanInRoom = lanStatus == app.gamenative.lan.LanRoomManager.Status.HOSTING ||
+        lanStatus == app.gamenative.lan.LanRoomManager.Status.JOINED
     var quickMenuToolsVisible by remember { mutableStateOf(false) }
     var quickMenuWineProcesses by remember { mutableStateOf<List<ProcessInfo>>(emptyList()) }
     var quickMenuWineProcessesLoading by remember { mutableStateOf(false) }
@@ -681,6 +690,32 @@ fun XServerScreen(
             fpsLimiterTarget = clampedTarget
         }
         applyFpsLimiterToEngines(effectiveFpsLimit())
+    }
+
+    // Thermal governor: while an FPS cap is active, sample the SoC's thermal headroom and
+    // transiently lower the applied cap as it approaches throttling, then restore it as the
+    // device cools. This only ever tightens an already-enabled cap, never raises it above the
+    // user's target, and is a no-op on devices without a thermal-headroom implementation.
+    LaunchedEffect(fpsLimiterEnabled, isLsfgAvailable, lsfgMultiplier) {
+        if (!fpsLimiterEnabled) return@LaunchedEffect
+        var lastApplied = -1
+        try {
+            while (true) {
+                val base = effectiveFpsLimit()
+                if (base > 0) {
+                    val headroom = PerformanceGovernor.thermalHeadroom(context, forecastSeconds = 10)
+                    val governed = PerformanceGovernor.suggestedCap(base, headroom)
+                    if (governed != lastApplied) {
+                        applyFpsLimiterToEngines(governed)
+                        lastApplied = governed
+                    }
+                }
+                kotlinx.coroutines.delay(4000)
+            }
+        } finally {
+            // On teardown/disable, hand control back to the user's configured cap.
+            applyFpsLimiterToEngines(effectiveFpsLimit())
+        }
     }
 
     fun restorePerformanceHudPosition() {
@@ -1070,6 +1105,14 @@ fun XServerScreen(
             QuickMenuAction.KEYBOARD -> {
                 keyboardRequestedFromOverlay = true
                 showSoftKeyboard(view, "onscreen_keyboard_enabled")
+                true
+            }
+
+            QuickMenuAction.LAN_CHAT -> {
+                // Toggle the non-pausing chat overlay. Release pointer capture so the chat text
+                // field can receive touches/focus; re-capture when it closes (handled below).
+                showLanChat = !showLanChat
+                if (showLanChat) runCatching { view.releasePointerCapture() }
                 true
             }
 
@@ -2016,8 +2059,8 @@ fun XServerScreen(
                             // Timber.d("2 Container drives: ${container.drives}")
                             val imageFs = ImageFs.find(context)
 
-                            taskAffinityMask = ProcessHelper.getAffinityMask(container.getCPUList(true)).toShort().toInt()
-                            taskAffinityMaskWoW64 = ProcessHelper.getAffinityMask(container.getCPUListWoW64(true)).toShort().toInt()
+                            taskAffinityMask = ProcessHelper.getAffinityMask(container.getCPUList(true))
+                            taskAffinityMaskWoW64 = ProcessHelper.getAffinityMask(container.getCPUListWoW64(true))
                             win32AppWorkarounds?.setTaskAffinityMasks(taskAffinityMask, taskAffinityMaskWoW64)
                             val appliedVariantSeen = container.getExtra("appliedContainerVariant")
                             val appliedWineVersionSeen = container.getExtra("appliedWineVersion")
@@ -2577,6 +2620,7 @@ fun XServerScreen(
             onFpsLimiterEnabledChanged = ::applyFpsLimiterEnabled,
             onFpsLimiterChanged = ::applyFpsLimiterTarget,
             hasPhysicalController = hasPhysicalController,
+            showLanChatToggle = lanInRoom,
             isTouchscreenModeActive = isTouchscreenModeActive,
             onTouchGestureSettingsClick = { showTouchGestureDialog = true },
             activeToggleIds = buildSet {
@@ -2605,6 +2649,25 @@ fun XServerScreen(
                 }
             },
         )
+
+        // In-game LAN chat overlay — non-pausing, auto-hides when the room ends.
+        app.gamenative.lan.InGameLanChatOverlay(
+            // Pass only showLanChat: the overlay gates its own visibility on the room being
+            // live, and its self-close LaunchedEffect fires onClose when the room ends. ANDing
+            // with lanInRoom here would make `visible` imply the room is up, so that effect could
+            // never fire and showLanChat would stay stuck true after the room closed.
+            visible = showLanChat,
+            onClose = {
+                showLanChat = false
+                // Re-capture the pointer for the game if the current mode wants it.
+                tryCapturePointer()
+            },
+        )
+        // Back closes the chat first (before falling through to the game/exit back handler).
+        BackHandler(enabled = showLanChat && lanInRoom) {
+            showLanChat = false
+            tryCapturePointer()
+        }
 
         if (manualResumeMode && PluviaApp.isOverlayPaused && !showQuickMenu && !keepPausedForEditor) {
             Box(
@@ -3302,6 +3365,36 @@ private fun setupXEnvironment(
         envVars.remove("DXVK_FRAME_RATE")
         envVars.remove("VKD3D_FRAME_RATE")
         if (!envVars.has("WINEESYNC")) envVars.put("WINEESYNC", "1")
+        // fsync (futex-based) is faster and lighter than esync (one eventfd per sync object, which
+        // can also exhaust fds on object-heavy games). Wine's preference order is ntsync > fsync >
+        // esync > wineserver, and ntdll silently falls back to esync when the kernel lacks
+        // FUTEX_WAIT_MULTIPLE, so setting this unconditionally is safe — it upgrades the sync path on
+        // capable kernels (the large tier with futex support but no /dev/ntsync) and is a no-op otherwise.
+        if (!envVars.has("WINEFSYNC")) envVars.put("WINEFSYNC", "1")
+        // Large Address Aware: let 32-bit games use up to 4GB of address space instead of 2GB,
+        // preventing "out of memory" crashes in heavier 32-bit titles. Proton forces this by
+        // default; mirror that here unless the user overrode it.
+        if (!envVars.has("WINE_LARGE_ADDRESS_AWARE")) envVars.put("WINE_LARGE_ADDRESS_AWARE", "1")
+        if (!envVars.has("PROTON_FORCE_LARGE_ADDRESS_AWARE")) envVars.put("PROTON_FORCE_LARGE_ADDRESS_AWARE", "1")
+        // ntsync: if the kernel exposes /dev/ntsync (custom GKI 6.14+), hint Wine 11+ to use it
+        // for NT synchronization primitives. esync stays set as a fallback for older Wine, which
+        // simply ignores this variable.
+        if (!envVars.has("WINENTSYNC") && File("/dev/ntsync").exists()) {
+            envVars.put("WINENTSYNC", "1")
+        }
+        // Low Graphics Mode: one switch that turns on FSR upscaling (render at a lower internal
+        // resolution and upscale) to raise FPS on demanding games. Per-game "known configs" still
+        // handle title-specific settings via the game-fix system; explicit user env wins.
+        if (container.getLowGraphicsMode()) {
+            if (!envVars.has("WINE_FULLSCREEN_FSR")) envVars.put("WINE_FULLSCREEN_FSR", "1")
+            if (!envVars.has("WINE_FULLSCREEN_FSR_STRENGTH")) envVars.put("WINE_FULLSCREEN_FSR_STRENGTH", "2")
+        }
+        // The PulseAudio "low latency" toggle must also lower the latency requested by
+        // Wine's Pulse client, otherwise it only affects the AAudio sink and the effective
+        // latency stays at the 144 ms default. A manually customized value is respected.
+        if (container.getPulseaudioLowLatency() && envVars.get("PULSE_LATENCY_MSEC") == "144") {
+            envVars.put("PULSE_LATENCY_MSEC", "60")
+        }
         val graphicsDriverConfig = KeyValueSet(container.getGraphicsDriverConfig())
         if (graphicsDriverConfig.get("version").lowercase(Locale.getDefault()).contains("gen8")) {
             var tuDebug = envVars.get("TU_DEBUG")
@@ -4350,6 +4443,12 @@ private fun unpackExecutableFile(
                         val windowsPathForLog = "A:\\${executablePath.replace('/', '\\')}"
                         Timber.i("Moving files for $windowsPathForLog")
                         if (exe.exists() && unpackedExe.exists()) {
+                            // Keep exe, .original.exe and .unpacked.exe as three independent copies.
+                            // SteamUtils.restoreUnpackedExecutable / restoreOriginalExecutable toggle
+                            // exe between the DRM-free (.unpacked.exe) and original (.original.exe)
+                            // builds across launches, so BOTH backups must survive and must not share
+                            // an inode with the live exe (a hard link or a deleted .unpacked.exe would
+                            // break that toggle — silently reverting DRM-free mode to the packed exe).
                             if (originalExe.exists()) {
                                 Timber.i("Original backup exists for $windowsPathForLog; skipping overwrite")
                             } else {
@@ -4478,9 +4577,17 @@ private suspend fun setupWineSystemFiles(
         )
     }
 
-    val needReextract = ALWAYS_REEXTRACT || xServerState.value.dxwrapper != container.getExtra("dxwrapper") || variantChanged || wineVersionChanged
+    // Cheap corruption guard: if any of the key D3D DLLs is missing or truncated in the
+    // prefix, force a re-extraction even when the configured wrapper did not change.
+    val system32Dir = File(imageFs.rootDir, ImageFs.WINEPREFIX + "/drive_c/windows/system32")
+    val dxDllsMissing = !system32Dir.isDirectory || arrayOf("dxgi.dll", "d3d11.dll", "d3d9.dll").any {
+        val dll = File(system32Dir, it)
+        !dll.isFile || dll.length() == 0L
+    }
+    val needReextract = ALWAYS_REEXTRACT || dxDllsMissing ||
+        xServerState.value.dxwrapper != container.getExtra("dxwrapper") || variantChanged || wineVersionChanged
 
-    Timber.i("needReextract is " + needReextract)
+    Timber.i("needReextract is " + needReextract + " (dxDllsMissing=" + dxDllsMissing + ")")
     Timber.i("xServerState.value.dxwrapper is " + xServerState.value.dxwrapper)
     Timber.i("container.getExtra(\"dxwrapper\") is " + container.getExtra("dxwrapper"))
 
@@ -4646,7 +4753,7 @@ private suspend fun extractGraphicsDriverComponent(
         Timber.d("Downloading graphics driver $componentId: ${(progress * 100).toInt()}%")
     }
 
-    if (componentFile == null) {
+    val ok = if (componentFile == null) {
         // Legacy variant: use bundled asset
         Timber.d("Extracting graphics driver $componentId from bundled assets")
         TarCompressorUtils.extract(
@@ -4666,6 +4773,10 @@ private suspend fun extractGraphicsDriverComponent(
             rootDir, onExtractFileListener,
         )
     }
+    // Fail loudly: TarCompressorUtils.extract swallows IO/mid-copy errors and returns false.
+    // The caller only records the "driver installed" marker when this returns without throwing,
+    // so a silent extraction failure must not look like success.
+    if (!ok) throw IllegalStateException("Failed to extract graphics driver component '$componentId'")
 }
 
 /**
@@ -5008,13 +5119,11 @@ private suspend fun extractGraphicsDriverFiles(
             val vulkanICDDir = File(rootDir, "/usr/share/vulkan/icd.d")
             FileUtils.delete(vulkanICDDir)
             vulkanICDDir.mkdirs()
-            container.putExtra("graphicsDriver", cacheId)
-            container.saveData()
-            if (!sentinel.exists()) {
-                sentinel.parentFile?.mkdirs()
-                sentinel.createNewFile()
-            }
-            sentinel.writeText(cacheId)
+            // NOTE: the "graphicsDriver" extra and the on-disk sentinel are only written
+            // AFTER the driver components are extracted (see end of this branch chain).
+            // Writing them here would mark the extraction as done before it happened:
+            // if the process died in between, the next launch would skip extraction and
+            // leave the container without a working driver (files were just deleted above).
         }
         if (dxwrapper.contains("dxvk")) {
             DXVKHelper.setEnvVars(context, dxwrapperConfig, envVars)
@@ -5126,6 +5235,18 @@ private suspend fun extractGraphicsDriverFiles(
                 extractGraphicsDriverComponent(context, "vortek-2.1", rootDir)
                 extractGraphicsDriverComponent(context, "zink-22.2.5", rootDir)
             }
+        }
+
+        if (changed) {
+            // Extraction finished without throwing: only now record the installed driver,
+            // so an interrupted extraction is retried on the next launch.
+            container.putExtra("graphicsDriver", cacheId)
+            container.saveData()
+            if (!sentinel.exists()) {
+                sentinel.parentFile?.mkdirs()
+                sentinel.createNewFile()
+            }
+            sentinel.writeText(cacheId)
         }
     } else {
         var adrenoToolsDriverId: String? = ""

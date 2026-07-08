@@ -275,9 +275,9 @@ public class GuestProgramLauncherComponent extends EnvironmentComponent {
                 command += " --bind=\"" + (new File(path)).getAbsolutePath() + "\"";
         }
 
-        // envVars.put("WINEDLLPATH", dllsDir.toString());
-        // envVars.put("WINEDLLOVERRIDES", "\"steam_api=n\"");
-        envVars.put("WINEESYNC", "0");
+        // Note: WINEESYNC must keep the user's value here. It used to be forced to "0",
+        // which silently disabled esync on this launch path even though the /dev/shm bind
+        // above was already set up based on the user's setting.
 
         command += " /usr/bin/env " + envVars.toEscapedString() + " " + prootCmd;
 

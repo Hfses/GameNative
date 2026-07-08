@@ -46,3 +46,6 @@ target_link_libraries(libproot.so
 
 add_library(proot-loader SHARED
             src/loader/loader.c)
+# Align ELF LOAD segments to 16 KB for Android 15+ devices with 16 KB page size.
+target_link_options(libproot.so PRIVATE -Wl,-z,max-page-size=16384)
+target_link_options(proot-loader PRIVATE -Wl,-z,max-page-size=16384)

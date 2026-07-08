@@ -229,18 +229,25 @@ fun GeneralTabContent(
                     }
                 },
             )
-            if (config.containerVariant.equals(Container.BIONIC, ignoreCase = true)) {
-                val wineIndex = state.bionicWineOptions.ids.indexOfFirst { it == config.wineVersion }.coerceAtLeast(0)
+            // The Wine version selector is always visible: options depend on the container
+            // variant (bionic → Proton/Wine builds, glibc → glibc Wine builds). Previously
+            // it was rendered only for bionic containers, leaving glibc users without any
+            // way to see or choose the Wine version.
+            run {
+                val isBionic = config.containerVariant.equals(Container.BIONIC, ignoreCase = true)
+                val wineOptions = if (isBionic) state.bionicWineOptions else state.glibcWineOptions
+                val wineManifestById = if (isBionic) state.bionicWineManifestById else state.glibcWineManifestById
+                val wineIndex = wineOptions.ids.indexOfFirst { it == config.wineVersion }.coerceAtLeast(0)
                 SettingsListDropdown(
                     colors = settingsTileColors(),
                     title = { Text(text = stringResource(R.string.wine_version)) },
                     value = wineIndex,
-                    items = state.bionicWineOptions.labels,
-                    itemMuted = state.bionicWineOptions.muted,
+                    items = wineOptions.labels,
+                    itemMuted = wineOptions.muted,
                     onItemSelected = { idx ->
-                        val selectedId = state.bionicWineOptions.ids.getOrNull(idx).orEmpty()
-                        val isManifestNotInstalled = state.bionicWineOptions.muted.getOrNull(idx) == true
-                        val manifestEntry = state.bionicWineManifestById[selectedId]
+                        val selectedId = wineOptions.ids.getOrNull(idx).orEmpty()
+                        val isManifestNotInstalled = wineOptions.muted.getOrNull(idx) == true
+                        val manifestEntry = wineManifestById[selectedId]
                         if (isManifestNotInstalled && manifestEntry != null) {
                             val expectedType = if (selectedId.startsWith("proton", true)) {
                                 ContentProfile.ContentType.CONTENT_TYPE_PROTON
@@ -252,7 +259,7 @@ fun GeneralTabContent(
                             }
                             return@SettingsListDropdown
                         }
-                        state.config.value = config.copy(wineVersion = selectedId.ifEmpty { state.bionicWineOptions.labels[idx] })
+                        state.config.value = config.copy(wineVersion = selectedId.ifEmpty { wineOptions.labels[idx] })
                     },
                 )
             }

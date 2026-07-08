@@ -5,6 +5,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
@@ -16,14 +18,19 @@ import app.gamenative.R
 import app.gamenative.ui.component.dialog.Box64PresetsDialog
 import app.gamenative.ui.component.dialog.ContainerConfigDialog
 import app.gamenative.ui.component.dialog.FEXCorePresetsDialog
+import app.gamenative.ui.component.dialog.LoadingDialog
+import app.gamenative.ui.component.dialog.MessageDialog
 import app.gamenative.ui.component.dialog.OrientationDialog
 import app.gamenative.ui.theme.PluviaTheme
 import app.gamenative.ui.theme.settingsTileColors
 import app.gamenative.ui.theme.settingsTileColorsAlt
+import app.gamenative.ui.util.SnackbarManager
 import app.gamenative.utils.ContainerUtils
+import app.gamenative.utils.ManifestBulkInstaller
 import com.alorma.compose.settings.ui.SettingsGroup
 import com.alorma.compose.settings.ui.SettingsMenuLink
 import com.alorma.compose.settings.ui.SettingsSwitch
+import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsGroupEmulation() {
@@ -78,6 +85,61 @@ fun SettingsGroupEmulation() {
             WineProtonManagerDialog(open = showWineProtonManager, onDismiss = { showWineProtonManager = false })
         }
 
+        // "Download all components" — pull every manifest entry (all Wine/Proton, DXVK, VKD3D,
+        // Box64/WoWBox64, FEXCore, drivers) in one sweep so the user doesn't install each by hand.
+        val bulkContext = LocalContext.current
+        val bulkScope = rememberCoroutineScope()
+        var showDownloadAllConfirm by rememberSaveable { mutableStateOf(false) }
+        var downloadAllProgress by remember { mutableStateOf<ManifestBulkInstaller.Progress?>(null) }
+
+        MessageDialog(
+            visible = showDownloadAllConfirm,
+            title = stringResource(R.string.settings_emulation_download_all_title),
+            message = stringResource(R.string.settings_emulation_download_all_confirm),
+            confirmBtnText = stringResource(R.string.download),
+            dismissBtnText = stringResource(R.string.cancel),
+            onConfirmClick = {
+                showDownloadAllConfirm = false
+                downloadAllProgress = ManifestBulkInstaller.Progress("", 0, 0, 0f)
+                bulkScope.launch {
+                    // try/finally so the blocking LoadingDialog is always dismissed — otherwise a
+                    // throw before installAll returns (e.g. loadManifest failing) leaves the
+                    // non-dismissible dialog stuck on screen forever.
+                    try {
+                        val result = ManifestBulkInstaller.installAll(bulkContext) { p -> downloadAllProgress = p }
+                        SnackbarManager.show(
+                            bulkContext.getString(
+                                R.string.settings_emulation_download_all_done,
+                                result.installed,
+                                result.total,
+                            ),
+                        )
+                    } finally {
+                        downloadAllProgress = null
+                    }
+                }
+            },
+            onDismissClick = { showDownloadAllConfirm = false },
+            onDismissRequest = { showDownloadAllConfirm = false },
+        )
+
+        downloadAllProgress?.let { p ->
+            LoadingDialog(
+                visible = true,
+                progress = if (p.total > 0) (p.index - 1 + p.itemFraction) / p.total else -1f,
+                message = if (p.total > 0) {
+                    stringResource(
+                        R.string.settings_emulation_download_all_progress,
+                        p.index,
+                        p.total,
+                        p.currentName,
+                    )
+                } else {
+                    stringResource(R.string.main_loading)
+                },
+            )
+        }
+
         SettingsMenuLink(
             colors = settingsTileColors(),
             title = { Text(text = stringResource(R.string.settings_emulation_orientations_title)) },
@@ -125,6 +187,12 @@ fun SettingsGroupEmulation() {
             title = { Text(text = stringResource(R.string.settings_emulation_contents_manager_title)) },
             subtitle = { Text(text = stringResource(R.string.settings_emulation_contents_manager_subtitle)) },
             onClick = { showContentsManager = true },
+        )
+        SettingsMenuLink(
+            colors = settingsTileColors(),
+            title = { Text(text = stringResource(R.string.settings_emulation_download_all_title)) },
+            subtitle = { Text(text = stringResource(R.string.settings_emulation_download_all_subtitle)) },
+            onClick = { showDownloadAllConfirm = true },
         )
         SettingsMenuLink(
             colors = settingsTileColors(),

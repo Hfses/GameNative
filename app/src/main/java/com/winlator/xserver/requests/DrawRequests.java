@@ -34,6 +34,22 @@ public abstract class DrawRequests {
         int length = client.getRemainingRequestLength();
         ByteBuffer data = inputStream.readByteBuffer(length);
 
+        // The pixel payload feeds native code that reads it with no bounds check of its own, so a
+        // client sending large width/height with a short payload would trigger a heap out-of-bounds
+        // read. Reject negative dimensions and any payload smaller than the pixels it claims.
+        if (width < 0 || height < 0) throw new BadMatch();
+        if (format == Format.Z_PIXMAP && (depth == 24 || depth == 32)) {
+            // native copyArea reads width*height*4 bytes (width stride, 32bpp).
+            long requiredBytes = (long) width * (long) height * 4L;
+            if (length < requiredBytes) throw new BadMatch();
+        } else if (format == Format.BITMAP && depth == 1) {
+            // native drawBitmap reads getBitmapBytePad(width) bytes/row * height rows, where the
+            // row stride is width rounded up to a 32-bit scanline pad: ((width + 31) / 32) * 4.
+            long rowBytes = (((long) width + 31) / 32) * 4L;
+            long requiredBytes = rowBytes * (long) height;
+            if (length < requiredBytes) throw new BadMatch();
+        }
+
         Drawable drawable =  client.xServer.drawableManager.getDrawable(drawableId);
         if (drawable == null) throw new BadDrawable(drawableId);
 
@@ -157,7 +173,8 @@ public abstract class DrawRequests {
             short y = inputStream.readShort();
             short width = inputStream.readShort();
             short height = inputStream.readShort();
-            drawable.fillRect(x, y, width, height, graphicsContext.getBackground());
+            // X11 PolyFillRectangle fills with the GC foreground pixel, not the background.
+            drawable.fillRect(x, y, width, height, graphicsContext.getForeground());
             length -= 8;
         }
     }

@@ -973,9 +973,10 @@ class EpicDownloadManager @Inject constructor(
 
                                 val assembleResult = assembleReady(chunk)
                                 if (assembleResult.isFailure) {
-                                    assemblyFailure = assembleResult.exceptionOrNull()
+                                    val failure = assembleResult.exceptionOrNull()
                                         ?: Exception("Failed to assemble ready files")
-                                    Timber.tag("EPIC").d("Chunk ${chunk.guidStr} assembleReady Failed: ${assemblyFailure.message}")
+                                    assemblyFailure = failure
+                                    Timber.tag("EPIC").d("Chunk ${chunk.guidStr} assembleReady Failed: ${failure.message}")
 
                                     // Requeue the chunk for retry
                                     downloadedChunkIds.remove(chunk.guidStr)
@@ -1009,6 +1010,10 @@ class EpicDownloadManager @Inject constructor(
 
                                 // For other failures, could add additional retry logic here
                                 Timber.tag("EPIC").e("Chunk ${chunk.guidStr} failed permanently: ${exception?.message}")
+                                // Record the failure so the wait loop aborts instead of hanging:
+                                // pendingChunks is never decremented for a permanently-failed chunk
+                                // and the stuck-detector would re-emit it forever.
+                                assemblyFailure = exception ?: Exception("Chunk ${chunk.guidStr} failed permanently")
                             }
 
                             emit(Unit)
@@ -1035,7 +1040,7 @@ class EpicDownloadManager @Inject constructor(
                     Timber.tag("EPIC").v("Pre-allocating ${file.filename}")
 
                     // Allocating file before download
-                    val outputFile = File(installDir, file.filename)
+                    val outputFile = resolveInsideInstallDir(installDir, file.filename) ?: return@forEach
                     outputFile.parentFile?.mkdirs()
 
                     val totalSize = file.fileSize
@@ -1073,6 +1078,13 @@ class EpicDownloadManager @Inject constructor(
                     networkChunkJob.cancel()
                     assembleJob.cancel()
                     return@withContext Result.failure(Exception("Download cancelled"))
+                }
+
+                // A chunk failed permanently — stop waiting (pendingChunks would never reach 0).
+                if (assemblyFailure != null) {
+                    networkChunkJob.cancel()
+                    assembleJob.cancel()
+                    return@withContext Result.failure(assemblyFailure!!)
                 }
 
                 Timber.tag("EPIC").d("Waiting for $currentPendingChunks pending chunks to complete")
@@ -1130,7 +1142,10 @@ class EpicDownloadManager @Inject constructor(
         installDir: File,
     ): Result<File> = withContext(Dispatchers.IO) {
         try {
-            val outputFile = File(installDir, fileManifest.filename)
+            val outputFile = resolveInsideInstallDir(installDir, fileManifest.filename)
+                ?: return@withContext Result.failure(
+                    SecurityException("Manifest path escapes install dir: ${fileManifest.filename}"),
+                )
             outputFile.parentFile?.mkdirs()
 
             outputFile.outputStream().use { output ->
@@ -1178,7 +1193,10 @@ class EpicDownloadManager @Inject constructor(
         installDir: File,
     ): Result<File> = withContext(Dispatchers.IO) {
         try {
-            val outputFile = File(installDir, fileManifest.filename)
+            val outputFile = resolveInsideInstallDir(installDir, fileManifest.filename)
+                ?: return@withContext Result.failure(
+                    SecurityException("Manifest path escapes install dir: ${fileManifest.filename}"),
+                )
             outputFile.parentFile?.mkdirs()
 
             // Get compressed chunk file
@@ -1273,6 +1291,23 @@ class EpicDownloadManager @Inject constructor(
             bytes < 1024 * 1024 -> "%.2f KB".format(bytes / 1024.0)
             bytes < 1024 * 1024 * 1024 -> "%.2f MB".format(bytes / (1024.0 * 1024.0))
             else -> "%.2f GB".format(bytes / (1024.0 * 1024.0 * 1024.0))
+        }
+    }
+
+    /**
+     * Resolve [relativePath] (which comes from the untrusted Epic manifest) against [installDir]
+     * and verify the result stays inside [installDir]. A manifest filename like "../../../foo"
+     * would otherwise let a malicious/compromised manifest write arbitrary files outside the game
+     * directory (path traversal / "zip slip"). Returns null if the path escapes.
+     */
+    private fun resolveInsideInstallDir(installDir: File, relativePath: String): File? {
+        val installRoot = installDir.canonicalPath
+        val resolved = File(installDir, relativePath).canonicalFile
+        return if (resolved.path == installRoot || resolved.path.startsWith(installRoot + File.separator)) {
+            resolved
+        } else {
+            Timber.tag("EPIC").e("Refusing manifest path outside install dir: %s", relativePath)
+            null
         }
     }
 

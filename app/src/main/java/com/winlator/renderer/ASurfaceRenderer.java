@@ -5,6 +5,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.view.Surface;
 
+import app.gamenative.BuildConfig;
 import app.gamenative.R;
 import android.graphics.Rect;
 import timber.log.Timber;
@@ -345,10 +346,14 @@ public class ASurfaceRenderer implements WindowManager.OnWindowModificationListe
         }
     }
 
+    // Scratch state reused across pushRenderList calls to avoid per-update allocations.
+    private final HashSet<Integer> visibleIdsScratch = new HashSet<>();
+    private final WindowGeometry geomScratch = new WindowGeometry();
+
     private void pushRenderList() {
-        Timber.d("pushRenderList");
         nativeBeginTransaction();
-        HashSet<Integer> visibleIds = new HashSet<>();
+        HashSet<Integer> visibleIds = visibleIdsScratch;
+        visibleIds.clear();
         for (int i = 0; i < renderListSize; i++) {
             RenderableWindow rw = renderList.get(i);
             if (rw.content == null) continue;
@@ -358,7 +363,7 @@ public class ASurfaceRenderer implements WindowManager.OnWindowModificationListe
             String debugName = rw.window.getClassName();
 
             if (debugName == null || debugName.isEmpty()) debugName = "(x11_window)";
-            WindowGeometry geom = new WindowGeometry();
+            WindowGeometry geom = geomScratch;
 
             boolean geometryOk = computeWindowRect(
                     rw.rootX, rw.rootY,
@@ -395,20 +400,22 @@ public class ASurfaceRenderer implements WindowManager.OnWindowModificationListe
                     || !geom.dst.equals(ws.lastDst)
                     || !geom.src.equals(ws.lastSrc);
 
-            Timber.d(" [renderList i=%d] id=%d cls='%s' rootX=%d rootY=%d contentW=%d contentH=%d" +
-                            " srcW=%d srcH=%d" +
-                            " isDesktop=%b isDesktopChild=%b parentId=%d" +
-                            " dst=[%d,%d,%d,%d] src=[%d,%d,%d,%d] needsUpdate=%b geometryOk=%b",
-                    i, rw.window.id,
-                    rw.window.getClassName(),
-                    rw.rootX, rw.rootY,
-                    rw.content.width, rw.content.height,
-                    srcW, srcH,
-                    rw.isDesktopWindow, rw.isDesktopChild,
-                    rw.window.getParent() != null ? rw.window.getParent().id : -1,
-                    geom.dst.left, geom.dst.top, geom.dst.right, geom.dst.bottom,
-                    geom.src.left, geom.src.top, geom.src.right, geom.src.bottom,
-                    needsUpdate, geometryOk);
+            if (BuildConfig.DEBUG) {
+                Timber.d(" [renderList i=%d] id=%d cls='%s' rootX=%d rootY=%d contentW=%d contentH=%d" +
+                                " srcW=%d srcH=%d" +
+                                " isDesktop=%b isDesktopChild=%b parentId=%d" +
+                                " dst=[%d,%d,%d,%d] src=[%d,%d,%d,%d] needsUpdate=%b geometryOk=%b",
+                        i, rw.window.id,
+                        rw.window.getClassName(),
+                        rw.rootX, rw.rootY,
+                        rw.content.width, rw.content.height,
+                        srcW, srcH,
+                        rw.isDesktopWindow, rw.isDesktopChild,
+                        rw.window.getParent() != null ? rw.window.getParent().id : -1,
+                        geom.dst.left, geom.dst.top, geom.dst.right, geom.dst.bottom,
+                        geom.src.left, geom.src.top, geom.src.right, geom.src.bottom,
+                        needsUpdate, geometryOk);
+            }
 
             if (geometryOk && needsUpdate) {
                 ws.visible = true;
@@ -502,6 +509,9 @@ public class ASurfaceRenderer implements WindowManager.OnWindowModificationListe
                                       boolean isDesktopWindow, boolean isDesktopChild,
                                       WindowGeometry out) {
         out.src.set(0, 0, w, h);
+        // Reset dst: the WindowGeometry instance is reused across windows, so a stale
+        // rect from the previous window must not leak into branches that don't set it.
+        out.dst.setEmpty();
 
         if (isDesktopWindow && rootX == 0 && rootY == 0) {
             Timber.d("  computeWindowRect -> FULLSCREEN branch (isDesktopWindow=%b rootX=%d rootY=%d)",

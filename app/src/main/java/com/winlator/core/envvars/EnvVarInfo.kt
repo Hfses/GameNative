@@ -58,6 +58,28 @@ data class EnvVarInfo(
                 identifier = "BOX64_MAXCPU",
                 possibleValues = listOf("4", "8", "16", "32", "64"),
             ),
+            // DynaCache: persist translated blocks to disk (~/.cache/box64) so repeated
+            // launches skip re-translation, reducing startup time and JIT stutter.
+            // 0 = off, 1 = read/write, 2 = read-only.
+            "BOX64_DYNACACHE" to EnvVarInfo(
+                identifier = "BOX64_DYNACACHE",
+                possibleValues = listOf("0", "1", "2"),
+            ),
+            "BOX64_DYNACACHE_LIMIT" to EnvVarInfo(
+                identifier = "BOX64_DYNACACHE_LIMIT",
+                possibleValues = listOf("512", "1024", "2048", "4096"),
+            ),
+            "BOX64_DYNACACHE_COMPRESS" to EnvVarInfo(
+                identifier = "BOX64_DYNACACHE_COMPRESS",
+                possibleValues = listOf("0", "1", "2"),
+            ),
+            // Drop per-block architecture metadata to reduce dynarec RAM footprint. May break
+            // games with anti-tamper/integrity checks, so it is opt-in.
+            "BOX64_DYNAREC_NOARCH" to EnvVarInfo(
+                identifier = "BOX64_DYNAREC_NOARCH",
+                selectionType = EnvVarSelectionType.TOGGLE,
+                possibleValues = listOf("0", "1"),
+            ),
             "BOX64_UNITYPLAYER" to EnvVarInfo(
                 identifier = "BOX64_UNITYPLAYER",
                 selectionType = EnvVarSelectionType.TOGGLE,
@@ -229,6 +251,29 @@ data class EnvVarInfo(
             ),
             "VKD3D_SHADER_MODEL" to EnvVarInfo(
                 identifier = "VKD3D_SHADER_MODEL",
+            ),
+            // VKD3D-Proton behavior flags; nodxr (disable ray tracing) and no_upload_hvv cut
+            // VRAM/RAM use for D3D12 games that would otherwise run out of memory.
+            "VKD3D_CONFIG" to EnvVarInfo(
+                identifier = "VKD3D_CONFIG",
+                selectionType = EnvVarSelectionType.MULTI_SELECT,
+                possibleValues = listOf("nodxr", "no_upload_hvv", "single_queue", "force_static_cbv"),
+            ),
+            // Large Address Aware: let 32-bit games address up to 4GB (avoids OOM crashes).
+            "WINE_LARGE_ADDRESS_AWARE" to EnvVarInfo(
+                identifier = "WINE_LARGE_ADDRESS_AWARE",
+                selectionType = EnvVarSelectionType.TOGGLE,
+                possibleValues = listOf("0", "1"),
+            ),
+            // FSR / FSHack: render at a lower internal resolution and upscale (Vulkan, fullscreen).
+            "WINE_FULLSCREEN_FSR" to EnvVarInfo(
+                identifier = "WINE_FULLSCREEN_FSR",
+                selectionType = EnvVarSelectionType.TOGGLE,
+                possibleValues = listOf("0", "1"),
+            ),
+            "WINE_FULLSCREEN_FSR_STRENGTH" to EnvVarInfo(
+                identifier = "WINE_FULLSCREEN_FSR_STRENGTH",
+                possibleValues = listOf("0", "1", "2", "3", "4", "5"),
             ),
             "WINE_DO_NOT_CREATE_DXGI_DEVICE_MANAGER" to EnvVarInfo(
                 identifier = "WINE_DO_NOT_CREATE_DXGI_DEVICE_MANAGER",

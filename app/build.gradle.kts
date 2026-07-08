@@ -225,6 +225,9 @@ android {
     testOptions {
         unitTests {
             isIncludeAndroidResources = true
+            // Return defaults for unmocked android.jar calls (e.g. android.util.Log) instead
+            // of throwing, so plain-JVM unit tests that touch logging don't fail spuriously.
+            isReturnDefaultValues = true
         }
     }
 

@@ -137,7 +137,13 @@ public class Drawable extends XResource {
             return;
         }
         if (depth == 1) {
-            drawBitmap(width, height, data, byteBuffer);
+            // Clamp to the destination: drawBitmap writes width*height ints into byteBuffer with no
+            // native bounds check, so an oversized width/height from a malicious client would write
+            // past the destination allocation (heap corruption). The 24/32-bit path below already
+            // clamps; this path must too.
+            int w = Math.max(0, Math.min((int) width, this.width));
+            int h = Math.max(0, Math.min((int) height, this.height));
+            if (w > 0 && h > 0) drawBitmap((short) w, (short) h, data, byteBuffer);
         }
         else {
             if (depth == 24 || depth == 32) {
@@ -148,10 +154,10 @@ public class Drawable extends XResource {
 
                 copyArea(srcX, srcY, dstX, dstY, width, height, totalWidth, this.getStride(), data, this.data);
             }
-            this.data.rewind();
-            data.rewind();
-            forceUpdate();
         }
+        // Single native submit for the whole image. This path (X_PutImage / MIT-SHM) is the hottest
+        // request type in the server; the previous code called forceUpdate() twice for 24/32bpp,
+        // submitting every frame to the native scanout — and doing the full JNI upload — twice.
         this.data.rewind();
         data.rewind();
         forceUpdate();
@@ -184,6 +190,19 @@ public class Drawable extends XResource {
             dstY = (short)Mathf.clamp(dstY, 0, this.height-1);
             if ((dstX + width) > this.width) width = (short)(this.width - dstX);
             if ((dstY + height) > this.height) height = (short)(this.height - dstY);
+
+            // Clamp the SOURCE too. srcX/srcY come straight from the X client and are otherwise
+            // unbounded; native copyArea reads srcPixels[srcX + (y+srcY)*srcStride], so an
+            // out-of-range source reads past the source drawable (OOB read / info leak or crash).
+            srcX = (short)Mathf.clamp(srcX, 0, drawable.width-1);
+            srcY = (short)Mathf.clamp(srcY, 0, drawable.height-1);
+            if ((srcX + width) > drawable.width) width = (short)(drawable.width - srcX);
+            if ((srcY + height) > drawable.height) height = (short)(drawable.height - srcY);
+            if (width <= 0 || height <= 0) {
+                this.data.rewind();
+                drawable.data.rewind();
+                return;
+            }
 
             if (gcFunction == GraphicsContext.Function.COPY) {
                 copyArea(srcX, srcY, dstX, dstY, width, height, drawable.getStride(), this.getStride(), drawable.data, this.data);

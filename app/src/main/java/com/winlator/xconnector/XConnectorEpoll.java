@@ -176,6 +176,13 @@ public class XConnectorEpoll implements Runnable {
             this.requestHandler.handleRequest(client);
         } catch (IOException e) {
             killConnection(client);
+        } catch (RuntimeException e) {
+            // Backstop: a request handler must never let a RuntimeException escape here, because
+            // this method runs on the shared epoll thread and an uncaught exception would tear the
+            // whole connector down, killing every client's connection. A single misbehaving client
+            // (e.g. a malformed X setup/auth packet) should only lose its own connection.
+            Log.e("XConnectorEpoll", "Uncaught error handling client on " + connectorLabel + "; dropping this connection", e);
+            killConnection(client);
         }
     }
 

@@ -24,6 +24,19 @@ object AssetUtils {
         extractType: TarCompressorUtils.Type
     ) {
         for ((assetFile, targetDir) in extractionPairs) {
+            // Actual version check: the asset filenames are date-stamped (e.g.
+            // pulseaudio-gamenative-20260612.tzst), so a sentinel holding the last-extracted asset
+            // name lets us skip the delete+re-extract on every launch when nothing changed. This
+            // method was previously re-extracting unconditionally despite its name.
+            val versionMarker = File(targetDir.parentFile, "${targetDir.name}.version")
+            if (targetDir.exists() &&
+                versionMarker.isFile &&
+                runCatching { versionMarker.readText() }.getOrNull() == assetFile
+            ) {
+                log().i("$assetFile already current — skipping extraction")
+                continue
+            }
+
             log().i("Extracting $assetFile to ${targetDir.absolutePath}")
             val tempDir = File(targetDir.parentFile, "${targetDir.name}.tmp")
             if (tempDir.exists()) tempDir.deleteRecursively()
@@ -43,6 +56,8 @@ object AssetUtils {
                     tempDir.deleteRecursively()
                     continue
                 }
+                // Stamp the sentinel only after a confirmed-successful promote.
+                runCatching { versionMarker.writeText(assetFile) }
                 log().i("Successfully extracted $assetFile")
             } else {
                 tempDir.deleteRecursively()

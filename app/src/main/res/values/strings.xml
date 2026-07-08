@@ -100,6 +100,31 @@
     <string name="confirm_delete">Confirm Deletion</string>
     <string name="destination_library">Library</string>
     <string name="destination_downloads">Downloads &amp; Storage</string>
+    <string name="destination_game_hub">Loja</string>
+    <string name="game_hub_title">Loja</string>
+    <string name="game_hub_all_sources">All stores</string>
+    <string name="game_hub_filter_all">All</string>
+    <string name="game_hub_filter_installed">Installed</string>
+    <string name="game_hub_filter_not_installed">Not installed</string>
+    <string name="game_hub_search">Search games</string>
+    <string name="game_hub_empty">No games yet. Connect a store or refresh to load your library.</string>
+    <string name="game_hub_refresh">Refresh libraries</string>
+    <string name="game_hub_game_count">%1$d games</string>
+    <string name="game_hub_tab_library">Library</string>
+    <string name="game_hub_tab_stores">Stores</string>
+    <string name="game_hub_store_connected">Connected</string>
+    <string name="game_hub_store_disconnected">Not connected</string>
+    <string name="game_hub_store_connecting">Connecting…</string>
+    <string name="game_hub_sort_name">Name</string>
+    <string name="game_hub_sort_store">Store</string>
+    <string name="game_hub_sort_recent">Recent</string>
+    <string name="game_hub_count">%1$d of %2$d</string>
+    <string name="game_hub_favorites">Favorites</string>
+    <string name="game_hub_favorite_add">Add to favorites</string>
+    <string name="game_hub_favorite_remove">Remove from favorites</string>
+    <string name="game_hub_custom_stores">Lojas personalizadas</string>
+    <string name="game_hub_add_store">Adicionar loja</string>
+    <string name="game_hub_remove_store">Remover loja</string>
     <string name="downloads_section_title">Downloads</string>
     <string name="downloads_empty">No active downloads</string>
     <string name="downloads_overview_subtitle">Track active, paused, and resumable downloads</string>
@@ -107,6 +132,7 @@
 
     <!-- Library Tabs -->
     <string name="tab_all">All</string>
+    <string name="tab_store">Loja</string>
     <string name="tab_steam">Steam</string>
     <string name="tab_gog">GOG</string>
     <string name="tab_epic">Epic</string>
@@ -593,6 +619,7 @@
     <string name="status_away">Away</string>
     <string name="status_invisible">Invisible</string>
     <string name="system_menu_title">System</string>
+    <string name="system_menu_layout">Layout</string>
     <string name="size">Size</string>
     <string name="location">Location</string>
     <string name="developer">Developer</string>
@@ -732,6 +759,8 @@
     <string name="display_renderer">Display Renderer</string>
     <string name="sf_compat_mode">Compatibility Mode</string>
     <string name="sf_compat_mode_description">Turn off for better performance. Keep on to fix inverted colors.</string>
+    <string name="low_graphics_mode">Low Graphics Mode</string>
+    <string name="low_graphics_mode_description">Render at a lower internal resolution and upscale with FSR for higher FPS on demanding games (Vulkan, fullscreen).</string>
     <string name="vkd3d_feature_level">VKD3D Feature Level</string>
     <string name="use_dri3">Use DRI3</string>
     <string name="use_dri3_description">Disabling may fix graphical glitches on some devices</string>
@@ -937,6 +966,11 @@
     <string name="settings_emulation_driver_manager_subtitle">Install or remove custom graphics driver packages</string>
     <string name="settings_emulation_contents_manager_title">Contents Manager</string>
     <string name="settings_emulation_contents_manager_subtitle">Install additional components (.wcp)</string>
+    <string name="settings_emulation_download_all_title">Download all components</string>
+    <string name="settings_emulation_download_all_subtitle">Fetch every Wine/Proton, DXVK, VKD3D, Box64 and driver from the manifest</string>
+    <string name="settings_emulation_download_all_confirm">This downloads every available component and can use several GB and take a while. Prefer Wi-Fi. Continue?</string>
+    <string name="settings_emulation_download_all_progress">Downloading %1$d of %2$d: %3$s</string>
+    <string name="settings_emulation_download_all_done">Done: %1$d of %2$d components installed</string>
     <string name="settings_emulation_wine_proton_manager_title">Wine/Proton Manager</string>
     <string name="settings_emulation_wine_proton_manager_subtitle">Import custom Wine/Proton versions (Bionic only)</string>
 
@@ -989,6 +1023,17 @@
     <string name="settings_interface_show_gamepad_hints_title">Show controller hints</string>
     <string name="settings_interface_show_gamepad_hints_subtitle">Show the controller button hints bar at the bottom of the screen</string>
     <string name="settings_interface_icon_style">Icon style</string>
+    <!-- Animated login background -->
+    <string name="settings_login_bg_video_group">Animated login background</string>
+    <string name="settings_login_bg_video_enable_title">Animated background</string>
+    <string name="settings_login_bg_video_enable_subtitle">Play a looping video behind the login screen. Uses more battery.</string>
+    <string name="settings_login_bg_video_choose_title">Background video</string>
+    <string name="settings_login_bg_video_none">None selected — tap to choose a video</string>
+    <string name="settings_login_bg_video_chosen">Video selected — tap to change</string>
+    <string name="settings_login_bg_video_selected">Login background video set</string>
+    <string name="settings_login_bg_video_remove">Remove video</string>
+    <string name="settings_login_bg_video_sound_title">Play with sound</string>
+    <string name="settings_login_bg_video_sound_subtitle">Muted automatically while a game is running</string>
     <string name="settings_interface_custom_games">Custom Games</string>
     <string name="settings_interface_custom_game_import_as_steam">Import custom games as Steam games</string>
     <string name="settings_interface_wifi_only_title">Download only over Wi-Fi/LAN</string>
@@ -1295,6 +1340,13 @@
     <string name="library_source_not_logged_in_amazon">Sign in to Amazon to see your library</string>
     <string name="library_source_no_custom_games">No custom games added yet</string>
     <string name="library_layout_title">Layout</string>
+    <string name="library_wallpaper_title">Background wallpaper</string>
+    <string name="library_wallpaper_enable">Show wallpaper behind the library</string>
+    <string name="library_wallpaper_sound">Play video sound</string>
+    <string name="library_wallpaper_choose_video">Choose video</string>
+    <string name="library_wallpaper_choose_image">Choose image</string>
+    <string name="library_wallpaper_remove">Remove wallpaper</string>
+    <string name="library_wallpaper_hint">Pick a looping video (optionally with sound) or a static image to show behind your library.</string>
     <string name="library_options">Options</string>
     <string name="back">Back</string>
     <string name="cloud">Cloud</string>
@@ -1450,6 +1502,11 @@
     <string name="wine_proton_install_error">Installation error: %s</string>
     <string name="wine_proton_install_success">%1$s %2$s installed successfully</string>
     <string name="wine_proton_glibc_incompatible">This Wine/Proton build requires GLIBC containers and is not compatible with GameNative. Please use ARM64/bionic builds only.</string>
+    <string name="wine_proton_url_section">Download from URL:</string>
+    <string name="wine_proton_url_description">Paste a direct link to a Wine/Proton package (e.g. a GitHub release .wcp/.tzst). The filename must start with \"wine\" or \"proton\".</string>
+    <string name="wine_proton_url_hint">https://…/wine-…​.wcp</string>
+    <string name="wine_proton_url_button">Download &amp; Install from URL</string>
+    <string name="wine_proton_url_empty">Please enter a valid URL.</string>
     <string name="wine_proton_containers_in_use">Containers using this version:</string>
     <string name="wine_proton_no_containers_warning">No containers are currently using this version.</string>
     <string name="wine_proton_containers_will_break">These containers will no longer work if you proceed:</string>
@@ -1663,6 +1720,9 @@
     <string name="lan_create_room">Create room</string>
     <string name="lan_join_room">Join room</string>
     <string name="lan_host_ip">Host IP</string>
+    <string name="lan_host_ip_or_link">Host IP or invite link</string>
+    <string name="lan_copy_link">Copy invite link</string>
+    <string name="lan_link_copied">Invite link copied</string>
     <string name="lan_searching_rooms">Searching for rooms…</string>
     <string name="lan_denied">Wrong password.</string>
     <string name="lan_error">Could not connect. Are both devices on the same network (or same VPN), with the room open?</string>
@@ -1671,6 +1731,7 @@
     <string name="lan_room_ip">Room IP: %1$s (share with your friends)</string>
     <string name="lan_players">Players: %1$s</string>
     <string name="lan_chat_message">Message</string>
+    <string name="lan_chat_title">LAN Chat</string>
     <string name="lan_open_game">Open the game</string>
     <string name="lan_in_room_hint">When everyone is in, each player taps Open the game and connects through the game\'s own LAN menu. The room and chat stay active while the game runs.</string>
     <string name="lan_leave_room">Leave room</string>

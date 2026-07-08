@@ -1,8 +1,12 @@
 package app.gamenative.ui.screen.library.components
 
+import android.content.Intent
 import android.content.res.Configuration
+import android.net.Uri
 import android.view.KeyEvent
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -51,10 +55,16 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -301,6 +311,98 @@ fun LibraryOptionsPanel(
                                 onClick = { onViewChanged(PaneType.CAROUSEL) },
                                 icon = Icons.Default.ViewCarousel,
                                 modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        // Wallpaper / animated background behind the library.
+                        OptionSectionHeader(text = stringResource(R.string.library_wallpaper_title))
+                        val wpCtx = LocalContext.current
+                        var wpEnabled by rememberSaveable { mutableStateOf(PrefManager.libraryBackgroundEnabled) }
+                        var wpVideo by rememberSaveable { mutableStateOf(PrefManager.libraryBackgroundVideoUri) }
+                        var wpImage by rememberSaveable { mutableStateOf(PrefManager.libraryBackgroundImageUri) }
+                        var wpSound by rememberSaveable { mutableStateOf(PrefManager.libraryBackgroundSound) }
+                        val takePersist: (Uri) -> Unit = { uri ->
+                            runCatching {
+                                wpCtx.contentResolver.takePersistableUriPermission(
+                                    uri, Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                                )
+                            }
+                        }
+                        val videoPicker = rememberLauncherForActivityResult(
+                            ActivityResultContracts.OpenDocument(),
+                        ) { uri ->
+                            if (uri != null) {
+                                takePersist(uri)
+                                wpVideo = uri.toString(); PrefManager.libraryBackgroundVideoUri = uri.toString()
+                                wpEnabled = true; PrefManager.libraryBackgroundEnabled = true
+                            }
+                        }
+                        val imagePicker = rememberLauncherForActivityResult(
+                            ActivityResultContracts.OpenDocument(),
+                        ) { uri ->
+                            if (uri != null) {
+                                takePersist(uri)
+                                wpImage = uri.toString(); PrefManager.libraryBackgroundImageUri = uri.toString()
+                                wpEnabled = true; PrefManager.libraryBackgroundEnabled = true
+                            }
+                        }
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.library_wallpaper_enable),
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                Switch(
+                                    checked = wpEnabled,
+                                    onCheckedChange = { wpEnabled = it; PrefManager.libraryBackgroundEnabled = it },
+                                )
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.library_wallpaper_sound),
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                Switch(
+                                    checked = wpSound,
+                                    onCheckedChange = { wpSound = it; PrefManager.libraryBackgroundSound = it },
+                                )
+                            }
+                            TextButton(onClick = { videoPicker.launch(arrayOf("video/*")) }) {
+                                Text(stringResource(R.string.library_wallpaper_choose_video))
+                            }
+                            TextButton(onClick = { imagePicker.launch(arrayOf("image/*")) }) {
+                                Text(stringResource(R.string.library_wallpaper_choose_image))
+                            }
+                            if (wpVideo.isNotBlank() || wpImage.isNotBlank()) {
+                                TextButton(onClick = {
+                                    wpVideo = ""; wpImage = ""; wpEnabled = false
+                                    PrefManager.libraryBackgroundVideoUri = ""
+                                    PrefManager.libraryBackgroundImageUri = ""
+                                    PrefManager.libraryBackgroundEnabled = false
+                                }) {
+                                    Text(
+                                        text = stringResource(R.string.library_wallpaper_remove),
+                                        color = MaterialTheme.colorScheme.error,
+                                    )
+                                }
+                            }
+                            Text(
+                                text = stringResource(R.string.library_wallpaper_hint),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
 

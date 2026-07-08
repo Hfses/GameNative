@@ -1544,4 +1544,71 @@
     <string name="lan_open_game">Abrir o jogo</string>
     <string name="lan_in_room_hint">Quando todos entrarem, cada um toca em Abrir o jogo e conecta pelo menu de LAN do próprio jogo. A sala e o chat continuam ativos enquanto o jogo roda.</string>
     <string name="lan_leave_room">Sair da sala</string>
+    <!-- Game Hub / Loja -->
+    <string name="destination_game_hub">Loja</string>
+    <string name="game_hub_title">Loja</string>
+    <string name="tab_store">Loja</string>
+    <string name="game_hub_add_store">Adicionar loja</string>
+    <string name="game_hub_remove_store">Remover loja</string>
+    <string name="game_hub_custom_stores">Lojas personalizadas</string>
+    <string name="game_hub_all_sources">Todas as lojas</string>
+    <string name="game_hub_count">%1$d de %2$d</string>
+    <string name="game_hub_game_count">%1$d jogos</string>
+    <string name="game_hub_empty">Nenhum jogo ainda. Conecte uma loja ou atualize para carregar sua biblioteca.</string>
+    <string name="game_hub_favorite_add">Adicionar aos favoritos</string>
+    <string name="game_hub_favorite_remove">Remover dos favoritos</string>
+    <string name="game_hub_favorites">Favoritos</string>
+    <string name="game_hub_filter_all">Todos</string>
+    <string name="game_hub_filter_installed">Instalados</string>
+    <string name="game_hub_filter_not_installed">Não instalados</string>
+    <string name="game_hub_refresh">Atualizar bibliotecas</string>
+    <string name="game_hub_search">Buscar jogos</string>
+    <string name="game_hub_sort_name">Nome</string>
+    <string name="game_hub_sort_recent">Recentes</string>
+    <string name="game_hub_sort_store">Loja</string>
+    <string name="game_hub_store_connected">Conectado</string>
+    <string name="game_hub_store_connecting">Conectando…</string>
+    <string name="game_hub_store_disconnected">Não conectado</string>
+    <string name="game_hub_tab_library">Biblioteca</string>
+    <string name="game_hub_tab_stores">Lojas</string>
+    <!-- Chat/convite da LAN -->
+    <string name="lan_chat_title">Chat da LAN</string>
+    <string name="lan_copy_link">Copiar link de convite</string>
+    <string name="lan_host_ip_or_link">IP do host ou link de convite</string>
+    <string name="lan_link_copied">Link de convite copiado</string>
+    <!-- Papel de parede da biblioteca (menu Layout) -->
+    <string name="library_wallpaper_title">Papel de parede de fundo</string>
+    <string name="library_wallpaper_enable">Mostrar papel de parede atrás da biblioteca</string>
+    <string name="library_wallpaper_sound">Reproduzir som do vídeo</string>
+    <string name="library_wallpaper_choose_video">Escolher vídeo</string>
+    <string name="library_wallpaper_choose_image">Escolher imagem</string>
+    <string name="library_wallpaper_remove">Remover papel de parede</string>
+    <string name="library_wallpaper_hint">Escolha um vídeo em loop (opcionalmente com som) ou uma imagem estática para exibir atrás da sua biblioteca.</string>
+    <string name="system_menu_layout">Layout</string>
+    <!-- Modo de gráficos baixos -->
+    <string name="low_graphics_mode">Modo de gráficos baixos</string>
+    <string name="low_graphics_mode_description">Renderiza em resolução interna menor e faz upscale com FSR para mais FPS em jogos pesados (Vulkan, tela cheia).</string>
+    <!-- Baixar todos os componentes -->
+    <string name="settings_emulation_download_all_title">Baixar todos os componentes</string>
+    <string name="settings_emulation_download_all_subtitle">Baixar todos os Wine/Proton, DXVK, VKD3D, Box64 e drivers do manifesto</string>
+    <string name="settings_emulation_download_all_confirm">Isso baixa todos os componentes disponíveis e pode usar vários GB e demorar um pouco. Prefira Wi-Fi. Continuar?</string>
+    <string name="settings_emulation_download_all_progress">Baixando %1$d de %2$d: %3$s</string>
+    <string name="settings_emulation_download_all_done">Concluído: %1$d de %2$d componentes instalados</string>
+    <!-- Fundo animado da tela de login -->
+    <string name="settings_login_bg_video_group">Fundo animado do login</string>
+    <string name="settings_login_bg_video_enable_title">Fundo animado</string>
+    <string name="settings_login_bg_video_enable_subtitle">Reproduz um vídeo em loop atrás da tela de login. Usa mais bateria.</string>
+    <string name="settings_login_bg_video_sound_title">Reproduzir com som</string>
+    <string name="settings_login_bg_video_sound_subtitle">Silenciado automaticamente enquanto um jogo está em execução</string>
+    <string name="settings_login_bg_video_choose_title">Vídeo de fundo</string>
+    <string name="settings_login_bg_video_none">Nenhum selecionado — toque para escolher um vídeo</string>
+    <string name="settings_login_bg_video_chosen">Vídeo selecionado — toque para trocar</string>
+    <string name="settings_login_bg_video_remove">Remover vídeo</string>
+    <string name="settings_login_bg_video_selected">Vídeo de fundo do login definido</string>
+    <!-- Baixar Wine/Proton por URL -->
+    <string name="wine_proton_url_section">Baixar da URL:</string>
+    <string name="wine_proton_url_description">Cole um link direto para um pacote Wine/Proton (ex.: um .wcp/.tzst de release do GitHub). O nome do arquivo precisa começar com \"wine\" ou \"proton\".</string>
+    <string name="wine_proton_url_hint">https://…/wine-…​.wcp</string>
+    <string name="wine_proton_url_button">Baixar e instalar da URL</string>
+    <string name="wine_proton_url_empty">Insira uma URL válida.</string>
 </resources>

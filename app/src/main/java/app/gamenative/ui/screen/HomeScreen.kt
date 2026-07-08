@@ -13,6 +13,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.gamenative.ui.enums.HomeDestination
 import app.gamenative.ui.model.HomeViewModel
 import app.gamenative.ui.screen.downloads.HomeDownloadsScreen
+import app.gamenative.ui.screen.gamehub.GameHubScreen
 import app.gamenative.ui.screen.library.HomeLibraryScreen
 import app.gamenative.ui.theme.PluviaTheme
 
@@ -49,7 +50,14 @@ fun HomeScreen(
             onLogout = onLogout,
             onGoOnline = onGoOnline,
             onDownloadsClick = { viewModel.onDestination(HomeDestination.Downloads) },
+            onGameHubClick = { viewModel.onDestination(HomeDestination.GameHub) },
             isOffline = isOffline,
+        )
+        HomeDestination.GameHub -> GameHubScreen(
+            onBack = { viewModel.onDestination(HomeDestination.Library) },
+            onClickPlay = onClickPlay,
+            onTestGraphics = onTestGraphics,
+            onPlayWithDiagnostics = onPlayWithDiagnostics,
         )
         HomeDestination.Downloads -> HomeDownloadsScreen(
             onBack = { viewModel.onDestination(HomeDestination.Library) },

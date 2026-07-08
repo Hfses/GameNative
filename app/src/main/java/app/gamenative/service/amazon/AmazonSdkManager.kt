@@ -201,8 +201,19 @@ object AmazonSdkManager {
                     }
                 }
                 if (destFile.exists()) destFile.delete()
-                tmpFile.renameTo(destFile)
-                true
+                // renameTo fails across filesystems; fall back to copy so a false success
+                // (deleted dest + failed rename) can't leave the file missing.
+                var moveError: Throwable? = null
+                val moved = tmpFile.renameTo(destFile) || runCatching {
+                    tmpFile.copyTo(destFile, overwrite = true); tmpFile.delete(); true
+                }.onFailure { moveError = it }.getOrDefault(false)
+                if (!moved) {
+                    Timber.tag(TAG).e(moveError, "downloadFile: failed to move temp into place for $url")
+                    tmpFile.delete()
+                    // A failed copyTo may have left a partial dest; don't keep a corrupt file.
+                    if (destFile.exists()) destFile.delete()
+                }
+                moved
             } else {
                 Timber.tag(TAG).e("downloadFile: HTTP ${response.code} for $url")
                 tmpFile.delete()

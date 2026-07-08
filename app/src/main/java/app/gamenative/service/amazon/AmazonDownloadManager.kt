@@ -235,9 +235,13 @@ class AmazonDownloadManager @Inject constructor(
         val destFile = File(installDir, file.unixPath).canonicalFile
         val tmpFile = File(installDir, "${file.unixPath}.tmp").canonicalFile
         val installDirCanonical = installDir.canonicalPath
+        // Match on a separator boundary (or exact dir), otherwise a sibling like "<dir>-evil" whose
+        // path merely shares the prefix would slip past the traversal check.
+        val installDirPrefix = installDirCanonical + File.separator
 
         // Security check: prevent path traversal attacks
-        if (!destFile.path.startsWith(installDirCanonical) || !tmpFile.path.startsWith(installDirCanonical)) {
+        if ((destFile.path != installDirCanonical && !destFile.path.startsWith(installDirPrefix)) ||
+            (tmpFile.path != installDirCanonical && !tmpFile.path.startsWith(installDirPrefix))) {
             Timber.tag(TAG).e("Path traversal attempt blocked: ${file.unixPath}")
             return@withContext Result.failure(SecurityException("Invalid file path"))
         }
@@ -311,7 +315,20 @@ class AmazonDownloadManager @Inject constructor(
             }
 
             if (destFile.exists()) destFile.delete()
-            tmpFile.renameTo(destFile)
+            // renameTo fails across filesystems (e.g. internal tmp -> SD/OTG game dir);
+            // fall back to copy so we never report success without the file in place.
+            var moveError: Throwable? = null
+            val moved = tmpFile.renameTo(destFile) || runCatching {
+                tmpFile.copyTo(destFile, overwrite = true); tmpFile.delete(); true
+            }.onFailure { moveError = it }.getOrDefault(false)
+            if (!moved) {
+                tmpFile.delete()
+                // A failed copyTo may have left a partial dest; don't keep a corrupt file.
+                if (destFile.exists()) destFile.delete()
+                return@withContext Result.failure(
+                    Exception("Failed to move ${file.unixPath} into place", moveError)
+                )
+            }
 
             Result.success(Unit)
         } catch (e: CancellationException) {

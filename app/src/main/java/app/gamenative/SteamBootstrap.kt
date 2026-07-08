@@ -90,7 +90,7 @@ object SteamBootstrap {
     }
 
     private fun pidOf(p: Process): Int? =
-        runCatching { p.javaClass.getDeclaredField("pid").apply { isAccessible = true }.getInt(p) }.getOrNull()
+        com.winlator.core.ProcessHelper.getPid(p).takeIf { it > 0 }
 
     fun prepareApp(appId: Int) {
         val cfg = hostCfg

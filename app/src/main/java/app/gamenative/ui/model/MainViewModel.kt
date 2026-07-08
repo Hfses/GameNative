@@ -686,7 +686,10 @@ class MainViewModel @Inject constructor(
                     val processes = mutableListOf<AppProcessInfo>()
                     var currentWindow: Window = window
                     do {
-                        var parentWindow: Window? = window.parent
+                        // Walk UP the parent chain: read currentWindow.parent, not the fixed
+                        // `window` param — otherwise parentWindow never advances and, for any window
+                        // whose parent isn't explorer.exe, this loops forever (ANR + unbounded list).
+                        var parentWindow: Window? = currentWindow.parent
                         val process = if (parentWindow != null && parentWindow.className.lowercase() != "explorer.exe") {
                             val processId = currentWindow.processId
                             val parentProcessId = parentWindow.processId

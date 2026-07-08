@@ -47,6 +47,10 @@ public class TouchpadView extends View implements View.OnCapturedPointerListener
     private float sensitivity;
     private final XServer xServer;
     private final float[] xform;
+    // Reusable buffers for XForm.transformPoint: touch handling runs on the UI thread
+    // and results are consumed immediately, so per-event allocations are avoidable.
+    private final float[] tmpPoint = new float[2];
+    private final float[] tmpPoint2 = new float[2];
     private boolean simTouchScreen = false;
     private boolean continueClick = true;
     private int lastTouchedPosX;
@@ -292,7 +296,7 @@ public class TouchpadView extends View implements View.OnCapturedPointerListener
         private int y;
 
         public Finger(float x, float y) {
-            float[] transformedPoint = XForm.transformPoint(TouchpadView.this.xform, x, y);
+            float[] transformedPoint = XForm.transformPoint(TouchpadView.this.xform, x, y, TouchpadView.this.tmpPoint);
             this.x = this.startX = this.lastX = (int)transformedPoint[0];
             this.y = this.startY = this.lastY = (int)transformedPoint[1];
             touchTime = System.currentTimeMillis();
@@ -301,7 +305,7 @@ public class TouchpadView extends View implements View.OnCapturedPointerListener
         public void update(float x, float y) {
             this.lastX = this.x;
             this.lastY = this.y;
-            float[] transformedPoint = XForm.transformPoint(TouchpadView.this.xform, x, y);
+            float[] transformedPoint = XForm.transformPoint(TouchpadView.this.xform, x, y, TouchpadView.this.tmpPoint);
             this.x = (int)transformedPoint[0];
             this.y = (int)transformedPoint[1];
         }
@@ -361,7 +365,7 @@ public class TouchpadView extends View implements View.OnCapturedPointerListener
                 Timber.tag("StylusEvent").d("Hover Enter");
             case MotionEvent.ACTION_HOVER_MOVE:
                 Timber.tag("StylusEvent").d("Hover Move: (" + event.getX() + ", " + event.getY() + ")");
-                float[] transformedPoint = XForm.transformPoint(xform, event.getX(), event.getY());
+                float[] transformedPoint = XForm.transformPoint(xform, event.getX(), event.getY(), tmpPoint);
                 xServer.injectPointerMove((int) transformedPoint[0], (int) transformedPoint[1]);
                 break;
             case MotionEvent.ACTION_HOVER_EXIT:
@@ -412,19 +416,19 @@ public class TouchpadView extends View implements View.OnCapturedPointerListener
     }
 
     private void handleStylusLeftClick(MotionEvent event) {
-        float[] transformedPoint = XForm.transformPoint(xform, event.getX(), event.getY());
+        float[] transformedPoint = XForm.transformPoint(xform, event.getX(), event.getY(), tmpPoint);
         xServer.injectPointerMove((int) transformedPoint[0], (int) transformedPoint[1]);
         xServer.injectPointerButtonPress(Pointer.Button.BUTTON_LEFT);
     }
 
     private void handleStylusRightClick(MotionEvent event) {
-        float[] transformedPoint = XForm.transformPoint(xform, event.getX(), event.getY());
+        float[] transformedPoint = XForm.transformPoint(xform, event.getX(), event.getY(), tmpPoint);
         xServer.injectPointerMove((int) transformedPoint[0], (int) transformedPoint[1]);
         xServer.injectPointerButtonPress(Pointer.Button.BUTTON_RIGHT);
     }
 
     private void handleStylusMove(MotionEvent event) {
-        float[] transformedPoint = XForm.transformPoint(xform, event.getX(), event.getY());
+        float[] transformedPoint = XForm.transformPoint(xform, event.getX(), event.getY(), tmpPoint);
         xServer.injectPointerMove((int) transformedPoint[0], (int) transformedPoint[1]);
     }
 
@@ -479,7 +483,7 @@ public class TouchpadView extends View implements View.OnCapturedPointerListener
                 break;
             case MotionEvent.ACTION_MOVE:
                 if (event.isFromSource(InputDevice.SOURCE_MOUSE)) {
-                    float[] transformedPoint = XForm.transformPoint(xform, event.getX(), event.getY());
+                    float[] transformedPoint = XForm.transformPoint(xform, event.getX(), event.getY(), tmpPoint);
                     if (xServer.isRelativeMouseMovement())
                         xServer.getWinHandler().mouseEvent(MouseEventFlags.MOVE, (int)transformedPoint[0], (int)transformedPoint[1], 0);
                     else
@@ -563,7 +567,7 @@ public class TouchpadView extends View implements View.OnCapturedPointerListener
 
     // Original GameNative touchscreen handler methods
     private void handleTouchDown(MotionEvent event) {
-        float[] transformedPoint = XForm.transformPoint(xform, event.getX(), event.getY());
+        float[] transformedPoint = XForm.transformPoint(xform, event.getX(), event.getY(), tmpPoint);
         if (xServer.isRelativeMouseMovement())
             xServer.getWinHandler().mouseEvent(MouseEventFlags.MOVE, (int)transformedPoint[0], (int)transformedPoint[1], 0);
         else
@@ -585,7 +589,7 @@ public class TouchpadView extends View implements View.OnCapturedPointerListener
     }
 
     private void handleTouchMove(MotionEvent event) {
-        float[] transformedPoint = XForm.transformPoint(xform, event.getX(), event.getY());
+        float[] transformedPoint = XForm.transformPoint(xform, event.getX(), event.getY(), tmpPoint);
         if (xServer.isRelativeMouseMovement())
             xServer.getWinHandler().mouseEvent(MouseEventFlags.MOVE, (int)transformedPoint[0], (int)transformedPoint[1], 0);
         else
@@ -733,7 +737,7 @@ public class TouchpadView extends View implements View.OnCapturedPointerListener
         flushPendingHoldClickRelease();
         finishHoldMouseButtonTouch();
 
-        float[] pt = XForm.transformPoint(xform, event.getX(actionIndex), event.getY(actionIndex));
+        float[] pt = XForm.transformPoint(xform, event.getX(actionIndex), event.getY(actionIndex), tmpPoint);
         int x = (int) pt[0];
         int y = (int) pt[1];
 
@@ -868,7 +872,7 @@ public class TouchpadView extends View implements View.OnCapturedPointerListener
         // After a multi-finger gesture, ignore single-finger movement until all fingers lift
         if (multiFingerGestureUsed) return;
 
-        float[] pt = XForm.transformPoint(xform, event.getX(pointerIndex), event.getY(pointerIndex));
+        float[] pt = XForm.transformPoint(xform, event.getX(pointerIndex), event.getY(pointerIndex), tmpPoint);
         int x = (int) pt[0];
         int y = (int) pt[1];
 
@@ -1101,7 +1105,7 @@ public class TouchpadView extends View implements View.OnCapturedPointerListener
             // Move cursor to midpoint between the two fingers
             float midX = (twoFingerLastX0 + twoFingerLastX1) / 2f;
             float midY = (twoFingerLastY0 + twoFingerLastY1) / 2f;
-            float[] pt = XForm.transformPoint(xform, midX, midY);
+            float[] pt = XForm.transformPoint(xform, midX, midY, tmpPoint);
             moveCursorTo((int) pt[0], (int) pt[1]);
             injectClick(gestureConfig.getTwoFingerTapAction());
             injectRelease(gestureConfig.getTwoFingerTapAction());
@@ -1144,7 +1148,7 @@ public class TouchpadView extends View implements View.OnCapturedPointerListener
         // Always record position/time for double-tap detection, even when
         // a micro-drag was triggered by finger jitter.  This ensures the
         // next tap's double-tap check has fresh data.
-        float[] pt = XForm.transformPoint(xform, event.getX(actionIndex), event.getY(actionIndex));
+        float[] pt = XForm.transformPoint(xform, event.getX(actionIndex), event.getY(actionIndex), tmpPoint);
 
         if (isDragging && dragButtonPressed) {
             // End drag (release any held drag buttons/keys)
@@ -1690,7 +1694,7 @@ public class TouchpadView extends View implements View.OnCapturedPointerListener
 
     private void performClickDragAt(float rawX, float rawY, String action) {
         pressClickDragButton(buttonForClickDragAction(action));
-        float[] pt = XForm.transformPoint(xform, rawX, rawY);
+        float[] pt = XForm.transformPoint(xform, rawX, rawY, tmpPoint);
         moveCursorTo((int) pt[0], (int) pt[1]);
     }
 
@@ -1723,8 +1727,8 @@ public class TouchpadView extends View implements View.OnCapturedPointerListener
     }
 
     private void moveCursorByRelativeDelta(float dx, float dy) {
-        float[] ptOrigin = XForm.transformPoint(xform, 0, 0);
-        float[] ptDelta  = XForm.transformPoint(xform, dx, dy);
+        float[] ptOrigin = XForm.transformPoint(xform, 0, 0, tmpPoint);
+        float[] ptDelta  = XForm.transformPoint(xform, dx, dy, tmpPoint2);
         int mx = (int) (ptDelta[0] - ptOrigin[0]);
         int my = (int) (ptDelta[1] - ptOrigin[1]);
         if (xServer.isRelativeMouseMovement()) {
@@ -1735,8 +1739,8 @@ public class TouchpadView extends View implements View.OnCapturedPointerListener
     }
 
     private void moveCursorByDelta(float dx, float dy) {
-        float[] ptOrigin = XForm.transformPoint(xform, 0, 0);
-        float[] ptDelta  = XForm.transformPoint(xform, dx, dy);
+        float[] ptOrigin = XForm.transformPoint(xform, 0, 0, tmpPoint);
+        float[] ptDelta  = XForm.transformPoint(xform, dx, dy, tmpPoint2);
         int mx = (int) (ptDelta[0] - ptOrigin[0]);
         int my = (int) (ptDelta[1] - ptOrigin[1]);
         int curX = xServer.pointer.getX();

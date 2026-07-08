@@ -124,18 +124,34 @@ Java_com_winlator_xserver_Drawable_copyArea(JNIEnv *env, jclass obj, jshort srcX
             }
         }
     } else {
-        /* Fast path when not using ASR - direct copy without conversion */
+        /* Fast path when not using ASR - direct copy without conversion.
+           Use memmove, not memcpy: an X11 CopyArea within a single drawable (e.g. scrolling a
+           window onto itself) makes srcData and dstData the same buffer with overlapping source
+           and destination regions, and memcpy on overlapping ranges is undefined behaviour. */
+        int sameBuffer = (srcDataAddr == dstDataAddr);
         if (width == srcStride && width == dstStride) {
+            /* One contiguous block: memmove handles any overlap correctly. */
             size_t bytes = (size_t)height * dstStride * 4;
-            memcpy(dstDataAddr + (dstX + dstY * dstStride) * 4,
-                   srcDataAddr + (srcX + srcY * srcStride) * 4,
-                   bytes);
+            memmove(dstDataAddr + (dstX + dstY * dstStride) * 4,
+                    srcDataAddr + (srcX + srcY * srcStride) * 4,
+                    bytes);
         } else {
             size_t rowBytes = (size_t)width * 4;
-            for (int16_t y = 0; y < height; y++) {
-                memcpy(dstDataAddr + (dstX + (y + dstY) * dstStride) * 4,
-                       srcDataAddr + (srcX + (y + srcY) * srcStride) * 4,
-                       rowBytes);
+            /* memmove protects overlap within a row; across rows we must also pick a safe
+               direction. When copying downward in the same buffer (dstY > srcY), iterate
+               bottom-to-top so a source row isn't overwritten before it is read. */
+            if (sameBuffer && dstY > srcY) {
+                for (int16_t y = height - 1; y >= 0; y--) {
+                    memmove(dstDataAddr + (dstX + (y + dstY) * dstStride) * 4,
+                            srcDataAddr + (srcX + (y + srcY) * srcStride) * 4,
+                            rowBytes);
+                }
+            } else {
+                for (int16_t y = 0; y < height; y++) {
+                    memmove(dstDataAddr + (dstX + (y + dstY) * dstStride) * 4,
+                            srcDataAddr + (srcX + (y + srcY) * srcStride) * 4,
+                            rowBytes);
+                }
             }
         }
     }

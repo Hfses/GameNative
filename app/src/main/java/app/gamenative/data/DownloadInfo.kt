@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.StateFlow
 import timber.log.Timber
 import java.io.File
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicLong
 
 data class DownloadInfo(
     val jobCount: Int = 1,
@@ -15,7 +16,9 @@ data class DownloadInfo(
     var downloadingAppIds: CopyOnWriteArrayList<Int>,
 ) {
     private var downloadJob: Job? = null
-    private val downloadProgressListeners = mutableListOf<((Float) -> Unit)>()
+    // CopyOnWriteArrayList: emitProgressChange() iterates this from many concurrent chunk coroutines
+    // while the UI adds/removes listeners — a plain list would throw ConcurrentModificationException.
+    private val downloadProgressListeners = CopyOnWriteArrayList<((Float) -> Unit)>()
     private val progresses: Array<Float> = Array(jobCount) { 0f }
 
     private val weights    = FloatArray(jobCount) { 1f }     // ⇐ new
@@ -23,7 +26,9 @@ data class DownloadInfo(
 
     // === Bytes / speed tracking for more stable ETA ===
     private var totalExpectedBytes: Long = 0L
-    private var bytesDownloaded: Long = 0L
+    // AtomicLong: incremented concurrently by every parallel chunk downloader; a plain `+=` loses
+    // updates (progress under-counts and never reaches 100%).
+    private val bytesDownloaded = AtomicLong(0L)
     private var persistencePath: String? = null
 
     private data class SpeedSample(val timeMs: Long, val bytes: Long)
@@ -65,7 +70,7 @@ data class DownloadInfo(
     fun getProgress(): Float {
         // Always use bytes-based progress when available for accuracy
         if (totalExpectedBytes > 0L) {
-            val bytesProgress = (bytesDownloaded.toFloat() / totalExpectedBytes.toFloat()).coerceIn(0f, 1f)
+            val bytesProgress = (bytesDownloaded.get().toFloat() / totalExpectedBytes.toFloat()).coerceIn(0f, 1f)
             return bytesProgress
         }
 
@@ -98,7 +103,7 @@ data class DownloadInfo(
      * Initialize bytesDownloaded with a persisted value (used on resume).
      */
     fun initializeBytesDownloaded(value: Long) {
-        bytesDownloaded = if (value < 0L) 0L else value
+        bytesDownloaded.set(if (value < 0L) 0L else value)
     }
 
     /**
@@ -127,9 +132,9 @@ data class DownloadInfo(
             return
         }
 
-        bytesDownloaded += deltaBytes
-        if (bytesDownloaded < 0L) {
-            bytesDownloaded = 0L
+        val newTotal = bytesDownloaded.addAndGet(deltaBytes)
+        if (newTotal < 0L) {
+            bytesDownloaded.set(0L)
         }
         if (trackSpeed) {
             addSpeedSample(timestampMs)
@@ -151,14 +156,18 @@ data class DownloadInfo(
     fun getPostInstallSyncingFlow(): StateFlow<Boolean> = postInstallSyncing
 
     private fun addSpeedSample(timestampMs: Long) {
-        speedSamples.add(SpeedSample(timestampMs, bytesDownloaded))
+        speedSamples.add(SpeedSample(timestampMs, bytesDownloaded.get()))
         trimOldSamples(timestampMs)
     }
 
     private fun trimOldSamples(nowMs: Long, windowMs: Long = 30_000L) {
         val cutoff = nowMs - windowMs
-        while (speedSamples.isNotEmpty() && speedSamples.first().timeMs < cutoff) {
-            speedSamples.removeAt(0)
+        // firstOrNull, not first(): another thread can empty the COW list between the size check
+        // and the access, which would throw NoSuchElementException.
+        while (true) {
+            val head = speedSamples.firstOrNull() ?: break
+            if (head.timeMs >= cutoff) break
+            speedSamples.remove(head)
         }
     }
 
@@ -185,7 +194,7 @@ data class DownloadInfo(
     /**
      * Returns the cumulative bytes downloaded so far.
      */
-    fun getBytesDownloaded(): Long = bytesDownloaded
+    fun getBytesDownloaded(): Long = bytesDownloaded.get()
 
     /**
      * Returns a pair of (downloaded bytes, total expected bytes).
@@ -193,7 +202,7 @@ data class DownloadInfo(
      */
     fun getBytesProgress(): Pair<Long, Long> {
         return if (totalExpectedBytes > 0L) {
-            bytesDownloaded.coerceAtMost(totalExpectedBytes) to totalExpectedBytes
+            bytesDownloaded.get().coerceAtMost(totalExpectedBytes) to totalExpectedBytes
         } else {
             0L to 0L
         }
@@ -206,7 +215,7 @@ data class DownloadInfo(
     fun getEstimatedTimeRemaining(windowSeconds: Int = 30): Long? {
         if (!isActive) return null
         if (totalExpectedBytes <= 0L) return null
-        if (bytesDownloaded >= totalExpectedBytes) return null
+        if (bytesDownloaded.get() >= totalExpectedBytes) return null
 
         val now = System.currentTimeMillis()
 
@@ -241,7 +250,7 @@ data class DownloadInfo(
 
         if (smoothedSpeed <= 0.0) return null
 
-        val remainingBytes = totalExpectedBytes - bytesDownloaded
+        val remainingBytes = totalExpectedBytes - bytesDownloaded.get()
         if (remainingBytes <= 0L) return null
 
         val etaSeconds = remainingBytes / smoothedSpeed
@@ -281,7 +290,7 @@ data class DownloadInfo(
                 dir.mkdirs()
             }
             val file = File(dir, PERSISTENCE_FILE)
-            file.writeText(bytesDownloaded.toString())
+            file.writeText(bytesDownloaded.get().toString())
         } catch (e: Exception) {
             Timber.e(e, "Failed to persist bytes downloaded to $appDirPath")
         }

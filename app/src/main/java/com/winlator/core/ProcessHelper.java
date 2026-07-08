@@ -25,7 +25,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 public abstract class ProcessHelper {
-    public static final boolean PRINT_DEBUG = true; // FIXME change to false
+    public static final boolean PRINT_DEBUG = BuildConfig.DEBUG;
     private static final ArrayList<Callback<String>> debugCallbacks = new ArrayList<>();
     private static final byte SIGCONT = 18;
     private static final byte SIGSTOP = 19;
@@ -304,10 +304,7 @@ public abstract class ProcessHelper {
 
             process = Runtime.getRuntime().exec(splitCommand(command), envp, workingDir);
 
-            Field pidField = process.getClass().getDeclaredField("pid");
-            pidField.setAccessible(true);
-            pid = pidField.getInt(process);
-            pidField.setAccessible(false);
+            pid = getPid(process);
 
             if (!debugCallbacks.isEmpty()) {
                 createDebugThread(process.getInputStream());
@@ -325,6 +322,30 @@ public abstract class ProcessHelper {
             if (terminationCallback != null) terminationCallback.call(-1);
         }
         return pid;
+    }
+
+    /** Returns the OS pid of a child process. Process.pid() exists at runtime on
+     *  Android 13+ (Java 9 API) but is not exposed by the compile-time android.jar,
+     *  so it is invoked reflectively; older versions fall back to the private field. */
+    public static int getPid(java.lang.Process process) {
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            try {
+                Object pid = java.lang.Process.class.getMethod("pid").invoke(process);
+                if (pid instanceof Long) return (int) (long) (Long) pid;
+            } catch (Exception ignored) {
+                // fall through to the field-based approach
+            }
+        }
+        try {
+            Field pidField = process.getClass().getDeclaredField("pid");
+            pidField.setAccessible(true);
+            int pid = pidField.getInt(process);
+            pidField.setAccessible(false);
+            return pid;
+        } catch (Exception e) {
+            Log.e("ProcessHelper", "Failed to obtain pid of process: " + e);
+            return -1;
+        }
     }
 
     public static java.lang.Process startProcess(String command, String[] envp, File workingDir) {
@@ -538,13 +559,7 @@ public abstract class ProcessHelper {
     }
 
     public static String getAffinityMaskAsHexString(String cpuList) {
-        String[] values = cpuList.split(",");
-        int affinityMask = 0;
-        for (String value : values) {
-            byte index = Byte.parseByte(value);
-            affinityMask |= (int)Math.pow(2, index);
-        }
-        return Integer.toHexString(affinityMask);
+        return Integer.toHexString(getAffinityMask(cpuList));
     }
 
     public static int getAffinityMask(String cpuList) {
@@ -552,23 +567,23 @@ public abstract class ProcessHelper {
         String[] values = cpuList.split(",");
         int affinityMask = 0;
         for (String value : values) {
-            byte index = Byte.parseByte(value);
-            affinityMask |= (int)Math.pow(2, index);
+            int index = Integer.parseInt(value.trim());
+            if (index >= 0 && index < 32) affinityMask |= (1 << index);
         }
         return affinityMask;
     }
 
     public static int getAffinityMask(boolean[] cpuList) {
         int affinityMask = 0;
-        for (int i = 0; i < cpuList.length; i++) {
-            if (cpuList[i]) affinityMask |= (int)Math.pow(2, i);
+        for (int i = 0; i < cpuList.length && i < 32; i++) {
+            if (cpuList[i]) affinityMask |= (1 << i);
         }
         return affinityMask;
     }
 
     public static int getAffinityMask(int from, int to) {
         int affinityMask = 0;
-        for (int i = from; i < to; i++) affinityMask |= (int)Math.pow(2, i);
+        for (int i = Math.max(from, 0); i < to && i < 32; i++) affinityMask |= (1 << i);
         return affinityMask;
     }
 

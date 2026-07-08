@@ -58,6 +58,18 @@ enum class LibraryTab(
         showAmazon = true,
         installedOnly = false,
     ),
+    // A navigation "tab": tapping it opens the unified store (Loja) screen instead of filtering.
+    // Its filter flags mirror ALL so that, if it ever becomes the active filter (e.g. a gamepad
+    // cycle), it simply shows everything rather than an odd subset.
+    STORE(
+        labelResId = R.string.tab_store,
+        showCustom = true,
+        showSteam = true,
+        showGoG = true,
+        showEpic = true,
+        showAmazon = true,
+        installedOnly = false,
+    ),
     LOCAL(
         labelResId = R.string.tab_local,
         showCustom = true,
@@ -70,11 +82,16 @@ enum class LibraryTab(
 
     companion object {
         /**
-         * Tabs shown in the UI. Custom (LOCAL) games rely on all-files access, which only the
-         * legacy storage flavors have, so the tab is hidden on modern (scoped-storage) builds.
+         * Tabs shown in the UI. The per-store tabs (Steam/GOG/Epic/Amazon) are consolidated into
+         * the STORE ("Loja") screen, so the bar shows Todos | Loja | Personalizado. Custom (LOCAL)
+         * games need all-files access, which only the legacy storage flavors have, so that tab is
+         * hidden on modern (scoped-storage) builds.
          */
         val visibleEntries: List<LibraryTab>
-            get() = if (BuildConfig.MODERN_ANDROID) entries.filter { it != LOCAL } else entries
+            get() {
+                val base = listOf(ALL, STORE, LOCAL)
+                return if (BuildConfig.MODERN_ANDROID) base.filter { it != LOCAL } else base
+            }
 
         fun LibraryTab.next(): LibraryTab {
             val values = visibleEntries

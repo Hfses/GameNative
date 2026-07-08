@@ -549,14 +549,18 @@ public class BionicProgramLauncherComponent extends GuestProgramLauncherComponen
             envVars.put("SteamGameId", steamAppId);
             envVars.put("SteamAppId", steamAppId);
         }
-        envVars.put("STEAM_LOG_LEVEL", "10");
-        envVars.put("STEAM_DEBUG", "1");
-        envVars.put("IPCLOGGING", "1");
-        envVars.put("STEAMNETWORKINGSOCKETS_LOG_LEVEL", "verbose");
-        envVars.put("NetworkVerbose", "1");
-        envVars.put("SteamNetworkingSockets_Verbose", "4");
-        envVars.put("SteamNetworkingSocketsLib_Verbose", "4");
-        envVars.put("DebugNetworkConnections", "1");
+        // Verbose Steam client/networking logging costs CPU and floods logcat during
+        // gameplay, so it is only enabled on debug builds.
+        if (BuildConfig.DEBUG) {
+            envVars.put("STEAM_LOG_LEVEL", "10");
+            envVars.put("STEAM_DEBUG", "1");
+            envVars.put("IPCLOGGING", "1");
+            envVars.put("STEAMNETWORKINGSOCKETS_LOG_LEVEL", "verbose");
+            envVars.put("NetworkVerbose", "1");
+            envVars.put("SteamNetworkingSockets_Verbose", "4");
+            envVars.put("SteamNetworkingSocketsLib_Verbose", "4");
+            envVars.put("DebugNetworkConnections", "1");
+        }
     }
 
     /**

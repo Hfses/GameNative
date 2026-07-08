@@ -7,6 +7,7 @@ import com.winlator.xconnector.RequestHandler;
 import com.winlator.xconnector.XInputStream;
 import com.winlator.xconnector.XOutputStream;
 import com.winlator.xconnector.XStreamLock;
+import com.winlator.xserver.errors.BadImplementation;
 import com.winlator.xserver.errors.XRequestError;
 import com.winlator.xserver.extensions.Extension;
 import com.winlator.xserver.requests.AtomRequests;
@@ -463,6 +464,22 @@ public class XClientRequestHandler implements RequestHandler {
             client.skipRequest();
             Timber.e("handleNormalRequest: XRequestError for opcode=%d: %s", opcode, e);
             e.sendError(client, opcode);
+        }
+        catch (RuntimeException e) {
+            // A malformed request (bad enum index -> ArrayIndexOutOfBounds, a length that
+            // underflows the request loop -> BufferUnderflow, an over-sized allocation, etc.)
+            // must not escape this handler: it is invoked directly from the JNI epoll thread,
+            // where an uncaught RuntimeException tears down the connector and kills the X server
+            // for every client. Realign to the request boundary (skipRequest() lands exactly at
+            // header + requestLength regardless of how much this handler consumed) and report a
+            // protocol error to the offending client instead.
+            try {
+                client.skipRequest();
+                new BadImplementation().sendError(client, opcode);
+            } catch (RuntimeException | IOException recoveryError) {
+                Timber.e(recoveryError, "handleNormalRequest: failed to recover from malformed opcode=%d", opcode);
+            }
+            Timber.e(e, "handleNormalRequest: malformed request for opcode=%d, requestData=%d, requestLength=%d", opcode, requestData, requestLength);
         }
 
         return true;

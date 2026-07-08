@@ -44,6 +44,7 @@ import androidx.compose.material.icons.automirrored.filled.StarHalf
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.NewReleases
@@ -249,6 +250,8 @@ fun SystemMenu(
     onDismiss: () -> Unit,
     onNavigateRoute: (String) -> Unit,
     onDownloadsClick: () -> Unit = {},
+    onGameHubClick: () -> Unit = {},
+    onLayoutClick: () -> Unit = {},
     onLogout: () -> Unit,
     onGoOnline: () -> Unit,
     isOffline: Boolean = false,
@@ -584,6 +587,16 @@ fun SystemMenu(
                             focusRequester = firstItemFocusRequester,
                         )
 
+                        // Opens the library options panel (sort by, app type, app status, layout).
+                        SystemMenuItem(
+                            text = stringResource(R.string.system_menu_layout),
+                            icon = Icons.Default.GridView,
+                            onClick = {
+                                onLayoutClick()
+                                onDismiss()
+                            },
+                        )
+
                         SystemMenuItem(
                             text = stringResource(R.string.settings_text),
                             icon = Icons.Default.Settings,
@@ -602,6 +615,8 @@ fun SystemMenu(
                             },
                             focusRequester = firstItemFocusRequester,
                         )
+
+                        // "Loja" moved out of the system menu into the library tab bar.
 
                         SystemMenuItem(
                             text = stringResource(R.string.help_and_support),
