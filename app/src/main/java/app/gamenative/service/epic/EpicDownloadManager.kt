@@ -1009,6 +1009,10 @@ class EpicDownloadManager @Inject constructor(
 
                                 // For other failures, could add additional retry logic here
                                 Timber.tag("EPIC").e("Chunk ${chunk.guidStr} failed permanently: ${exception?.message}")
+                                // Record the failure so the wait loop aborts instead of hanging:
+                                // pendingChunks is never decremented for a permanently-failed chunk
+                                // and the stuck-detector would re-emit it forever.
+                                assemblyFailure = exception ?: Exception("Chunk ${chunk.guidStr} failed permanently")
                             }
 
                             emit(Unit)
@@ -1073,6 +1077,13 @@ class EpicDownloadManager @Inject constructor(
                     networkChunkJob.cancel()
                     assembleJob.cancel()
                     return@withContext Result.failure(Exception("Download cancelled"))
+                }
+
+                // A chunk failed permanently — stop waiting (pendingChunks would never reach 0).
+                if (assemblyFailure != null) {
+                    networkChunkJob.cancel()
+                    assembleJob.cancel()
+                    return@withContext Result.failure(assemblyFailure!!)
                 }
 
                 Timber.tag("EPIC").d("Waiting for $currentPendingChunks pending chunks to complete")

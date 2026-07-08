@@ -961,6 +961,11 @@ class GOGDownloadManager @Inject constructor(
 
                                 // For other failures, could add additional retry logic here
                                 Timber.tag("GOG").e("Chunk $chunkMd5 failed permanently: ${exception?.message}")
+                                // Record the failure so the wait loop below aborts instead of
+                                // spinning forever: pendingChunks is never decremented for a
+                                // permanently-failed chunk and the stuck-detector would re-emit it
+                                // endlessly, hanging the whole download.
+                                assemblyFailure = exception ?: Exception("Chunk $chunkMd5 failed permanently")
                             }
 
                             emit(Unit)
@@ -1027,6 +1032,14 @@ class GOGDownloadManager @Inject constructor(
                     networkChunkJob.cancel()
                     assembleJob.cancel()
                     return@withContext Result.failure(Exception("Download cancelled"))
+                }
+
+                // A chunk failed permanently — stop waiting (pendingChunks would never reach 0)
+                // and report failure below instead of hanging.
+                if (assemblyFailure != null) {
+                    networkChunkJob.cancel()
+                    assembleJob.cancel()
+                    return@withContext Result.failure(assemblyFailure!!)
                 }
 
                 Timber.tag("GOG").d("Waiting for $currentPendingChunks pending chunks to complete")

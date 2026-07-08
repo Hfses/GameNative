@@ -2228,7 +2228,10 @@ class SteamService : Service(), IChallengeUrlChanged {
             // Track cumulative compressed (network) bytes per depot to calculate deltas.
             // compressedBytes from onChunkCompleted is cumulative per depot, and matches the
             // unit of totalExpectedBytes which is summed from manifest.download.
-            private val depotCumulativeCompressedBytes = mutableMapOf<Int, Long>()
+            // Concurrent: parallel depot workers call onChunkCompleted/onDepotCompleted at the same
+            // time (maxDownloads > 1), so a plain HashMap could corrupt on concurrent structural
+            // writes for different depot keys. Each key is still owned by a single depot worker.
+            private val depotCumulativeCompressedBytes = java.util.concurrent.ConcurrentHashMap<Int, Long>()
             override fun onItemAdded(item: DownloadItem) {
                 Timber.d("Item ${item.appId} added to queue")
             }

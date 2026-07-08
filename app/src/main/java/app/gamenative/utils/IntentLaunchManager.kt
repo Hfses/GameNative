@@ -257,7 +257,11 @@ object IntentLaunchManager {
         // Quick return if no actual overrides
         if (override == base) return base
 
-        return ContainerData(
+        // Start from `base` so every field NOT explicitly merged below keeps the base container's
+        // real value. Building a fresh ContainerData(...) instead would silently reset every
+        // unlisted field (containerVariant, wineVersion, emulator, renderer, fexcore*, etc.) to the
+        // constructor default.
+        return base.copy(
             name = override.name.ifEmpty { base.name },
             screenSize = if (override.screenSize != Container.DEFAULT_SCREEN_SIZE) {
                 override.screenSize
