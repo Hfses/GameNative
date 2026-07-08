@@ -12,7 +12,6 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onStart
 import java.util.concurrent.ConcurrentHashMap
 import timber.log.Timber
 
@@ -72,11 +71,10 @@ class StoreManager {
     fun unifiedLibrary(): Flow<List<GameModel>> {
         val libraries = allProviders().map { provider ->
             provider.library()
-                // onStart: seed an empty slice so combine can emit before every store has produced
-                // its first list (otherwise one slow/never-emitting store stalls the whole library).
-                .onStart { emit(emptyList()) }
                 // catch: a store that throws contributes an empty slice instead of cancelling the
                 // merged flow — one misbehaving store can never take down the aggregated library.
+                // (No onStart seed: it would make the first combined emission empty, and callers
+                // that take .first() expect the merged list. Real providers emit immediately.)
                 .catch { e ->
                     Timber.e(e, "unifiedLibrary: store ${provider.source} failed; using empty slice")
                     emit(emptyList())
