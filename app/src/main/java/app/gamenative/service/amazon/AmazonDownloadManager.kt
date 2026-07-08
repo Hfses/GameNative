@@ -235,9 +235,13 @@ class AmazonDownloadManager @Inject constructor(
         val destFile = File(installDir, file.unixPath).canonicalFile
         val tmpFile = File(installDir, "${file.unixPath}.tmp").canonicalFile
         val installDirCanonical = installDir.canonicalPath
+        // Match on a separator boundary (or exact dir), otherwise a sibling like "<dir>-evil" whose
+        // path merely shares the prefix would slip past the traversal check.
+        val installDirPrefix = installDirCanonical + File.separator
 
         // Security check: prevent path traversal attacks
-        if (!destFile.path.startsWith(installDirCanonical) || !tmpFile.path.startsWith(installDirCanonical)) {
+        if ((destFile.path != installDirCanonical && !destFile.path.startsWith(installDirPrefix)) ||
+            (tmpFile.path != installDirCanonical && !tmpFile.path.startsWith(installDirPrefix))) {
             Timber.tag(TAG).e("Path traversal attempt blocked: ${file.unixPath}")
             return@withContext Result.failure(SecurityException("Invalid file path"))
         }

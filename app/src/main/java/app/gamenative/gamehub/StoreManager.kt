@@ -8,10 +8,13 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import java.util.concurrent.ConcurrentHashMap
+import timber.log.Timber
 
 /**
  * Game Hub — the store registry and aggregation point.
@@ -67,7 +70,18 @@ class StoreManager {
      * slice; a store that errors is simply absent from that emission (its own flow handles errors).
      */
     fun unifiedLibrary(): Flow<List<GameModel>> {
-        val libraries = allProviders().map { it.library() }
+        val libraries = allProviders().map { provider ->
+            provider.library()
+                // onStart: seed an empty slice so combine can emit before every store has produced
+                // its first list (otherwise one slow/never-emitting store stalls the whole library).
+                .onStart { emit(emptyList()) }
+                // catch: a store that throws contributes an empty slice instead of cancelling the
+                // merged flow — one misbehaving store can never take down the aggregated library.
+                .catch { e ->
+                    Timber.e(e, "unifiedLibrary: store ${provider.source} failed; using empty slice")
+                    emit(emptyList())
+                }
+        }
         if (libraries.isEmpty()) return flowOf(emptyList())
         return combine(libraries) { slices -> slices.toList().flatten() }
     }
