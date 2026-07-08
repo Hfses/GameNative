@@ -27,8 +27,6 @@ typedef struct {
 
 static FdTracker fd_tracking[MAX_TRACKED_FDS] = {0};
 
-struct epoll_event events[MAX_EVENTS];
-
 static int waitForEpollEvents(jint epollFd, struct epoll_event *epollEvents, int maxEvents) {
     while (true) {
         int numFds = epoll_wait(epollFd, epollEvents, maxEvents, -1);
@@ -160,6 +158,10 @@ Java_com_winlator_xconnector_XConnectorEpoll_doEpollIndefinitely(JNIEnv *env, jo
     jmethodID handleExistingConnection =
             (*env)->GetMethodID(env, cls, "handleExistingConnection", "(I)V");
 
+    // Stack-local, not file-scope: multiple connector threads (X server, VirGL, Vortek, ALSA, SysV
+    // SHM) each run this function concurrently, so a shared global buffer was a data race that could
+    // corrupt event dispatch across connectors.
+    struct epoll_event events[MAX_EVENTS];
     int numFds = waitForEpollEvents(epollFd, events, MAX_EVENTS);
     if (numFds < 0) {
         return JNI_FALSE;

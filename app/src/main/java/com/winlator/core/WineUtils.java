@@ -181,6 +181,16 @@ public abstract class WineUtils {
             final String[] socialClubBuiltinLibs = {"dxgi", "d3d9", "d3d10", "d3d10_1", "d3d10core", "d3d11"};
             for (String name : socialClubBuiltinLibs) registryEditor.setStringValue(socialClubDllOverridesKey, name, "builtin");
 
+            // Disable winemenubuilder.exe: Wine spawns it on every installer run / file-association
+            // / shortcut change to write .desktop files that are useless inside this emulator — pure
+            // per-install/startup process-spawn overhead. Proton disables it by default.
+            registryEditor.setStringValue(dllOverridesKey, "winemenubuilder.exe", "");
+
+            // Don't pop the Wine crash dialog: on a touch UI it blocks the crashed process waiting
+            // for input that never comes (looks like a freeze and leaks the wineserver/process).
+            // Setting this makes crashes fail fast, as Proton/Winlator do.
+            registryEditor.setDwordValue("Software\\Wine\\WineDbg", "ShowCrashDialog", 0);
+
             registryEditor.removeKey("Software\\Winlator\\WFM\\ContextMenu\\7-Zip");
             registryEditor.setStringValue("Software\\Winlator\\WFM\\ContextMenu\\7-Zip", "Open Archive", "Z:\\opt\\apps\\7-Zip\\7zFM.exe \"%FILE%\"");
             registryEditor.setStringValue("Software\\Winlator\\WFM\\ContextMenu\\7-Zip", "Extract Here", "Z:\\opt\\apps\\7-Zip\\7zG.exe x \"%FILE%\" -r -o\"%DIR%\" -y");

@@ -8,7 +8,11 @@ import com.winlator.xenvironment.ImageFs;
 import java.io.File;
 
 public class DXVKHelper {
-    public static final String DEFAULT_CONFIG = "version="+DefaultVersion.DXVK+",framerate=0,maxDeviceMemory=0";
+    // async/asyncCache included so containers that fall back to this default (empty dxWrapperConfig)
+    // still get async pipeline compilation + the gplasync on-disk cache, matching the container-level
+    // DEFAULT_DXWRAPPERCONFIG. Without them, edge-case/legacy containers ran with async disabled.
+    public static final String DEFAULT_CONFIG = "version="+DefaultVersion.DXVK+",framerate=0,maxDeviceMemory=0"
+        + ",async="+DefaultVersion.ASYNC+",asyncCache="+DefaultVersion.ASYNC_CACHE;
 
     public static KeyValueSet parseConfig(Object config) {
         String data = config != null && !config.toString().isEmpty() ? config.toString() : DEFAULT_CONFIG;
@@ -80,5 +84,10 @@ public class DXVKHelper {
     public static void setVKD3DEnvVars(Context context, KeyValueSet config, EnvVars envVars) {
         String featureLevel = config.get("vkd3dFeatureLevel", "12_1");
         envVars.put("VKD3D_FEATURE_LEVEL", featureLevel);
+        // Persist the vkd3d-proton pipeline cache alongside DXVK's. Without a stable path vkd3d
+        // writes into the process CWD (or disables the cache), so D3D12 titles recompiled every PSO
+        // on every launch — the worst first-minutes stutter. Shares the dir with DXVK safely
+        // (vkd3d uses a fixed "vkd3d-proton.cache" name; DXVK names per-exe).
+        envVars.put("VKD3D_SHADER_CACHE_PATH", "/data/data/app.gamenative/files/imagefs"+ImageFs.CACHE_PATH);
     }
 }

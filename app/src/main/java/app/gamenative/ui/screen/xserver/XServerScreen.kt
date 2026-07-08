@@ -3361,6 +3361,12 @@ private fun setupXEnvironment(
         envVars.remove("DXVK_FRAME_RATE")
         envVars.remove("VKD3D_FRAME_RATE")
         if (!envVars.has("WINEESYNC")) envVars.put("WINEESYNC", "1")
+        // fsync (futex-based) is faster and lighter than esync (one eventfd per sync object, which
+        // can also exhaust fds on object-heavy games). Wine's preference order is ntsync > fsync >
+        // esync > wineserver, and ntdll silently falls back to esync when the kernel lacks
+        // FUTEX_WAIT_MULTIPLE, so setting this unconditionally is safe — it upgrades the sync path on
+        // capable kernels (the large tier with futex support but no /dev/ntsync) and is a no-op otherwise.
+        if (!envVars.has("WINEFSYNC")) envVars.put("WINEFSYNC", "1")
         // Large Address Aware: let 32-bit games use up to 4GB of address space instead of 2GB,
         // preventing "out of memory" crashes in heavier 32-bit titles. Proton forces this by
         // default; mirror that here unless the user overrode it.

@@ -154,10 +154,10 @@ public class Drawable extends XResource {
 
                 copyArea(srcX, srcY, dstX, dstY, width, height, totalWidth, this.getStride(), data, this.data);
             }
-            this.data.rewind();
-            data.rewind();
-            forceUpdate();
         }
+        // Single native submit for the whole image. This path (X_PutImage / MIT-SHM) is the hottest
+        // request type in the server; the previous code called forceUpdate() twice for 24/32bpp,
+        // submitting every frame to the native scanout — and doing the full JNI upload — twice.
         this.data.rewind();
         data.rewind();
         forceUpdate();

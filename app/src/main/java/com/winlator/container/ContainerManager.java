@@ -113,7 +113,10 @@ public class ContainerManager {
         // Boolean wow64Mode = false;
         Byte startupSelection = Container.STARTUP_SELECTION_ESSENTIAL;
         String box86Preset = Box86_64Preset.COMPATIBILITY;
-        String box64Preset = Box86_64Preset.COMPATIBILITY;
+        // INTERMEDIATE ~= box64 upstream defaults (BIGBLOCK=1, CALLRET=1, FASTNAN/FASTROUND=1,
+        // X87DOUBLE=0) without the riskier STRONGMEM/AVX levers — a large CPU-throughput win over the
+        // heavily de-tuned COMPATIBILITY default. Per-game problem titles can drop back via the picker.
+        String box64Preset = Box86_64Preset.INTERMEDIATE;
         String desktopTheme = WineThemeManager.DEFAULT_DESKTOP_THEME;
 
         JSONObject data = new JSONObject();
