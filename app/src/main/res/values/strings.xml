@@ -966,6 +966,11 @@
     <string name="settings_emulation_driver_manager_subtitle">Install or remove custom graphics driver packages</string>
     <string name="settings_emulation_contents_manager_title">Contents Manager</string>
     <string name="settings_emulation_contents_manager_subtitle">Install additional components (.wcp)</string>
+    <string name="settings_emulation_download_all_title">Download all components</string>
+    <string name="settings_emulation_download_all_subtitle">Fetch every Wine/Proton, DXVK, VKD3D, Box64 and driver from the manifest</string>
+    <string name="settings_emulation_download_all_confirm">This downloads every available component and can use several GB and take a while. Prefer Wi-Fi. Continue?</string>
+    <string name="settings_emulation_download_all_progress">Downloading %1$d of %2$d: %3$s</string>
+    <string name="settings_emulation_download_all_done">Done: %1$d of %2$d components installed</string>
     <string name="settings_emulation_wine_proton_manager_title">Wine/Proton Manager</string>
     <string name="settings_emulation_wine_proton_manager_subtitle">Import custom Wine/Proton versions (Bionic only)</string>
 
