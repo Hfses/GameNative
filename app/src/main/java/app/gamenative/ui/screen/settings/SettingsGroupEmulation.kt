@@ -102,15 +102,21 @@ fun SettingsGroupEmulation() {
                 showDownloadAllConfirm = false
                 downloadAllProgress = ManifestBulkInstaller.Progress("", 0, 0, 0f)
                 bulkScope.launch {
-                    val result = ManifestBulkInstaller.installAll(bulkContext) { p -> downloadAllProgress = p }
-                    downloadAllProgress = null
-                    SnackbarManager.show(
-                        bulkContext.getString(
-                            R.string.settings_emulation_download_all_done,
-                            result.installed,
-                            result.total,
-                        ),
-                    )
+                    // try/finally so the blocking LoadingDialog is always dismissed — otherwise a
+                    // throw before installAll returns (e.g. loadManifest failing) leaves the
+                    // non-dismissible dialog stuck on screen forever.
+                    try {
+                        val result = ManifestBulkInstaller.installAll(bulkContext) { p -> downloadAllProgress = p }
+                        SnackbarManager.show(
+                            bulkContext.getString(
+                                R.string.settings_emulation_download_all_done,
+                                result.installed,
+                                result.total,
+                            ),
+                        )
+                    } finally {
+                        downloadAllProgress = null
+                    }
                 }
             },
             onDismissClick = { showDownloadAllConfirm = false },

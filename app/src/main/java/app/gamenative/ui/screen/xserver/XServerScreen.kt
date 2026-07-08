@@ -2652,7 +2652,11 @@ fun XServerScreen(
 
         // In-game LAN chat overlay — non-pausing, auto-hides when the room ends.
         app.gamenative.lan.InGameLanChatOverlay(
-            visible = showLanChat && lanInRoom,
+            // Pass only showLanChat: the overlay gates its own visibility on the room being
+            // live, and its self-close LaunchedEffect fires onClose when the room ends. ANDing
+            // with lanInRoom here would make `visible` imply the room is up, so that effect could
+            // never fire and showLanChat would stay stuck true after the room closed.
+            visible = showLanChat,
             onClose = {
                 showLanChat = false
                 // Re-capture the pointer for the game if the current mode wants it.
@@ -2660,7 +2664,7 @@ fun XServerScreen(
             },
         )
         // Back closes the chat first (before falling through to the game/exit back handler).
-        BackHandler(enabled = showLanChat) {
+        BackHandler(enabled = showLanChat && lanInRoom) {
             showLanChat = false
             tryCapturePointer()
         }

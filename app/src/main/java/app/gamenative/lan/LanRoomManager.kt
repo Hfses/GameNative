@@ -205,10 +205,16 @@ object LanRoomManager {
             // `server` is declared outside the try so a bind failure can still close the orphan
             // socket (otherwise a failed create leaks a file descriptor each attempt).
             val server = ServerSocket()
+            // Local bind marker owned by this coroutine. Don't use serverSocket-nullness to tell a
+            // bind failure from a normal stop(): stop() nulls serverSocket from another thread, and
+            // because it's @Volatile that write is visible here, so a normal leave would otherwise
+            // be misread as "port in use" and flip the room to ERROR.
+            var bound = false
             try {
                 server.reuseAddress = true
                 server.bind(InetSocketAddress(ROOM_PORT))
                 serverSocket = server
+                bound = true
                 launch { runDiscoveryResponder() }
                 appendSystem("Sala \"$roomName\" criada. Passe o IP ${_roomInfo.value} para os amigos.")
                 while (!server.isClosed) {
@@ -216,7 +222,7 @@ object LanRoomManager {
                     launch { handleClient(socket) }
                 }
             } catch (e: Exception) {
-                if (serverSocket == null) {
+                if (!bound) {
                     // bind/setup failed before we started serving (e.g. port in use):
                     // don't leave the UI showing a hosting room that nobody can join.
                     runCatching { server.close() }
@@ -501,7 +507,12 @@ object LanRoomManager {
         when (_status.value) {
             Status.HOSTING -> {
                 appendChat(selfName, trimmed)
-                broadcast(JSONObject().put("type", "chat").put("from", selfName).put("text", trimmed))
+                // Offload the fan-out: broadcast() does blocking socket writes, and a single stalled
+                // peer would otherwise pin whatever thread called sendChat (the UI thread) and risk
+                // an ANR. The local echo above already happened, so this only defers the network I/O.
+                scope.launch {
+                    broadcast(JSONObject().put("type", "chat").put("from", selfName).put("text", trimmed))
+                }
             }
             Status.JOINED -> {
                 appendChat(selfName, trimmed)
