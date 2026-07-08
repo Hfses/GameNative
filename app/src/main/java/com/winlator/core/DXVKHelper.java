@@ -1,5 +1,6 @@
 package com.winlator.core;
 
+import android.app.ActivityManager;
 import android.content.Context;
 
 import com.winlator.core.envvars.EnvVars;
@@ -32,6 +33,17 @@ public class DXVKHelper {
         if (!maxDeviceMemory.isEmpty() && !maxDeviceMemory.equals("0")) {
             content += "dxgi.maxDeviceMemory = "+maxDeviceMemory+"\n";
             content += "dxgi.maxSharedMemory = "+maxDeviceMemory+"\n";
+        } else {
+            // No explicit cap: derive a generous one from physical RAM. On unified-memory SoCs an
+            // unbounded (0) budget makes DXVK report the full Vulkan heap, so games size resource
+            // pools as if they had discrete VRAM and over-commit → Android paging/lowmemorykiller
+            // thrash or a guest OOM. A ~70% cap (floor 2GB) is well above any mobile game's real
+            // need, so it only trims the pathological case, not normal play.
+            long capMb = deviceMemoryCapMb(context);
+            if (capMb > 0) {
+                content += "dxgi.maxDeviceMemory = "+capMb+"\n";
+                content += "dxgi.maxSharedMemory = "+capMb+"\n";
+            }
         }
 
         String maxFeatureLevel = config.get("maxFeatureLevel");
@@ -57,6 +69,14 @@ public class DXVKHelper {
         String numCompilerThreads = config.get("numCompilerThreads");
         if (!numCompilerThreads.isEmpty() && !numCompilerThreads.equals("0")) {
             content += "dxvk.numCompilerThreads = " + numCompilerThreads + "\n";
+        } else {
+            // No explicit value: cap pipeline-compiler threads so shader compilation doesn't fight
+            // Box64/Wine for the big cores (a common source of frametime spikes on shader-heavy
+            // scenes). Clamp to [1,4]; the gplasync on-disk cache we enabled softens the first-run
+            // compile cost this trades for.
+            int cores = Runtime.getRuntime().availableProcessors();
+            int threads = Math.max(1, Math.min(4, cores / 2 - 1));
+            content += "dxvk.numCompilerThreads = " + threads + "\n";
         }
         String customDevice = config.get("customDevice");
         if (customDevice.contains(":")) {
@@ -89,5 +109,20 @@ public class DXVKHelper {
         // on every launch — the worst first-minutes stutter. Shares the dir with DXVK safely
         // (vkd3d uses a fixed "vkd3d-proton.cache" name; DXVK names per-exe).
         envVars.put("VKD3D_SHADER_CACHE_PATH", "/data/data/app.gamenative/files/imagefs"+ImageFs.CACHE_PATH);
+    }
+
+    /** ~70% of physical RAM in MB (floor 2048), or 0 if it can't be read. */
+    private static long deviceMemoryCapMb(Context context) {
+        try {
+            ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+            if (am == null) return 0;
+            ActivityManager.MemoryInfo mi = new ActivityManager.MemoryInfo();
+            am.getMemoryInfo(mi);
+            long totalMb = mi.totalMem / (1024L * 1024L);
+            if (totalMb <= 0) return 0;
+            return Math.max(2048L, totalMb * 70 / 100);
+        } catch (Exception e) {
+            return 0;
+        }
     }
 }
