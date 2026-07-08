@@ -736,10 +736,26 @@ private fun LibraryScreenContent(
         }
     }
 
+    // Optional animated wallpaper behind the library (video with sound, or an image), set from the
+    // Layout options panel. Skipped in @Preview where PrefManager/DataStore isn't initialized.
+    val inLibPreview = androidx.compose.ui.platform.LocalInspectionMode.current
+    val libBgVideo = remember { if (inLibPreview) "" else PrefManager.libraryBackgroundVideoUri }
+    val libBgImage = remember { if (inLibPreview) "" else PrefManager.libraryBackgroundImageUri }
+    val libBgSound = remember { if (inLibPreview) false else PrefManager.libraryBackgroundSound }
+    val showLibWallpaper = remember {
+        !inLibPreview && PrefManager.libraryBackgroundEnabled &&
+            (libBgVideo.isNotBlank() || libBgImage.isNotBlank())
+    }
+
     Box(
         Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            // When a wallpaper is active the solid colour would hide it; a scrim (below) keeps text
+            // readable instead.
+            .then(
+                if (showLibWallpaper) Modifier
+                else Modifier.background(MaterialTheme.colorScheme.background),
+            )
             .then(safePaddingModifier)
             .focusRequester(rootFocusRequester)
             .focusable()
@@ -880,6 +896,20 @@ private fun LibraryScreenContent(
                 }
             }
     ) {
+        if (showLibWallpaper) {
+            app.gamenative.ui.screen.library.components.LibraryBackground(
+                videoUri = libBgVideo,
+                imageUri = libBgImage,
+                soundOn = libBgSound,
+                modifier = Modifier.fillMaxSize(),
+            )
+            // Scrim over the wallpaper so cards/text stay legible.
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background.copy(alpha = 0.6f)),
+            )
+        }
         if (selectedAppId == null) {
             // Use Box to allow content to scroll behind the tab bar
             Box(modifier = Modifier.fillMaxSize()) {

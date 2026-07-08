@@ -1043,6 +1043,30 @@ object PrefManager {
             setPref(LOGIN_BG_VIDEO_SOUND, value)
         }
 
+    // --- Animated library wallpaper (opt-in, set from the Layout options panel) ---
+    private val LIB_BG_ENABLED = booleanPreferencesKey("library_bg_enabled")
+    var libraryBackgroundEnabled: Boolean
+        get() = getPref(LIB_BG_ENABLED, false)
+        set(value) { setPref(LIB_BG_ENABLED, value) }
+
+    // User-picked looping video behind the library; empty = none. Takes priority over the image.
+    private val LIB_BG_VIDEO_URI = stringPreferencesKey("library_bg_video_uri")
+    var libraryBackgroundVideoUri: String
+        get() = getPref(LIB_BG_VIDEO_URI, "")
+        set(value) { setPref(LIB_BG_VIDEO_URI, value) }
+
+    // User-picked static wallpaper image behind the library; empty = none.
+    private val LIB_BG_IMAGE_URI = stringPreferencesKey("library_bg_image_uri")
+    var libraryBackgroundImageUri: String
+        get() = getPref(LIB_BG_IMAGE_URI, "")
+        set(value) { setPref(LIB_BG_IMAGE_URI, value) }
+
+    // Whether the library background video plays with sound.
+    private val LIB_BG_SOUND = booleanPreferencesKey("library_bg_sound")
+    var libraryBackgroundSound: Boolean
+        get() = getPref(LIB_BG_SOUND, true)
+        set(value) { setPref(LIB_BG_SOUND, value) }
+
     // Whether to show the on-screen gamepad hints/action bar in the UI
     private val SHOW_GAMEPAD_HINTS = booleanPreferencesKey("show_gamepad_hints")
     var showGamepadHints: Boolean

@@ -1340,6 +1340,13 @@
     <string name="library_source_not_logged_in_amazon">Sign in to Amazon to see your library</string>
     <string name="library_source_no_custom_games">No custom games added yet</string>
     <string name="library_layout_title">Layout</string>
+    <string name="library_wallpaper_title">Background wallpaper</string>
+    <string name="library_wallpaper_enable">Show wallpaper behind the library</string>
+    <string name="library_wallpaper_sound">Play video sound</string>
+    <string name="library_wallpaper_choose_video">Choose video</string>
+    <string name="library_wallpaper_choose_image">Choose image</string>
+    <string name="library_wallpaper_remove">Remove wallpaper</string>
+    <string name="library_wallpaper_hint">Pick a looping video (optionally with sound) or a static image to show behind your library.</string>
     <string name="library_options">Options</string>
     <string name="back">Back</string>
     <string name="cloud">Cloud</string>
