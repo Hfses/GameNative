@@ -392,6 +392,54 @@ class CustomGameAppScreen : BaseAppScreen() {
         // Fetch images from SteamGridDB for Custom Games
         options.add(getFetchImagesOption(context, libraryItem))
 
+        // Cover manager: pick a custom cover image / restore the default art.
+        val gameFolder = remember(libraryItem.appId) {
+            CustomGameScanner.getFolderPathFromAppId(libraryItem.appId)?.let(::File)
+        }
+        if (gameFolder != null) {
+            val notifyCoverChanged: (String?) -> Unit = { error ->
+                if (error == null) {
+                    CustomGameScanner.invalidateCache()
+                    PluviaApp.events.emit(AndroidEvent.CustomGameImagesFetched(libraryItem.appId))
+                    SnackbarManager.show(context.getString(R.string.cover_set_ok))
+                } else {
+                    SnackbarManager.show(context.getString(R.string.cover_set_failed, error))
+                }
+            }
+            val coverPicker = androidx.activity.compose.rememberLauncherForActivityResult(
+                androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
+            ) { uri ->
+                if (uri != null) {
+                    CoroutineScope(Dispatchers.IO).launch {
+                        val error = app.gamenative.utils.CoverArtManager.setCustomCover(context, gameFolder, uri)
+                        notifyCoverChanged(error)
+                    }
+                }
+            }
+            options.add(
+                AppMenuOption(
+                    optionType = AppOptionMenuType.ChangeCover,
+                    onClick = { coverPicker.launch(arrayOf("image/*")) },
+                ),
+            )
+            if (app.gamenative.utils.CoverArtManager.hasCustomCover(gameFolder)) {
+                options.add(
+                    AppMenuOption(
+                        optionType = AppOptionMenuType.RemoveCustomCover,
+                        onClick = {
+                            CoroutineScope(Dispatchers.IO).launch {
+                                if (app.gamenative.utils.CoverArtManager.removeCustomCover(gameFolder)) {
+                                    CustomGameScanner.invalidateCache()
+                                    PluviaApp.events.emit(AndroidEvent.CustomGameImagesFetched(libraryItem.appId))
+                                    SnackbarManager.show(context.getString(R.string.cover_removed))
+                                }
+                            }
+                        },
+                    ),
+                )
+            }
+        }
+
         return options
     }
 

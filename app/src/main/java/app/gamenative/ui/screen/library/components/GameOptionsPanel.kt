@@ -340,6 +340,8 @@ private fun getIconForOption(type: AppOptionMenuType): ImageVector {
         AppOptionMenuType.ForceDownloadRemote -> Icons.Default.CloudDownload
         AppOptionMenuType.ForceUploadLocal -> Icons.Default.CloudUpload
         AppOptionMenuType.FetchSteamGridDBImages -> Icons.Default.Image
+        AppOptionMenuType.ChangeCover -> Icons.Default.Image
+        AppOptionMenuType.RemoveCustomCover -> Icons.Default.Delete
         AppOptionMenuType.TestGraphics -> Icons.Default.Build
         AppOptionMenuType.PlayWithDiagnostics -> Icons.Default.BugReport
         AppOptionMenuType.ShareDiagnostics -> Icons.Default.Share
@@ -378,6 +380,8 @@ private fun groupOptions(options: List<AppMenuOption>): Map<OptionCategory, List
             AppOptionMenuType.MoveToExternalStorage,
             AppOptionMenuType.MoveToInternalStorage,
             AppOptionMenuType.ChangeBranch,
+            AppOptionMenuType.ChangeCover,
+            AppOptionMenuType.RemoveCustomCover,
             -> gameManagement.add(option)
 
             // Container Settings

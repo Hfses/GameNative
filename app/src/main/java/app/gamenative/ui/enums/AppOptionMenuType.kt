@@ -28,6 +28,8 @@ enum class AppOptionMenuType(@StringRes val title: Int) {
     ForceDownloadRemote(R.string.option_force_download_remote),
     ForceUploadLocal(R.string.option_force_upload_local),
     FetchSteamGridDBImages(R.string.option_fetch_game_images),
+    ChangeCover(R.string.option_change_cover),
+    RemoveCustomCover(R.string.option_remove_custom_cover),
     TestGraphics(R.string.option_test_graphics),
     PlayWithDiagnostics(R.string.option_play_with_diagnostics),
     ShareDiagnostics(R.string.option_share_diagnostics),

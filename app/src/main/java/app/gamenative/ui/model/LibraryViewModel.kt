@@ -120,6 +120,7 @@ class LibraryViewModel @Inject constructor(
 
     // Track debounce job for search
     private var searchDebounceJob: Job? = null
+    private var customGameWatchJob: Job? = null
     private val SEARCH_DEBOUNCE_MS = 500L // 500ms debounce
 
     // Cache GPU name to avoid repeated calls
@@ -242,10 +243,29 @@ class LibraryViewModel @Inject constructor(
                 onFilterApps(paginationCurrentPage)
             }
         }
+
+        // Real-time library: watch the custom-game folders so a game copied/removed on disk
+        // shows up (or disappears) without a manual refresh. Events are debounced because a
+        // file copy emits a storm of CLOSE_WRITE events.
+        armCustomGameWatcher()
+    }
+
+    private fun armCustomGameWatcher() {
+        app.gamenative.utils.CustomGameWatcher.start(PrefManager.customGameManualFolders) {
+            customGameWatchJob?.cancel()
+            customGameWatchJob = viewModelScope.launch(Dispatchers.IO) {
+                delay(1_000)
+                Timber.tag("LibraryViewModel").d("Custom game folder changed on disk; rescanning")
+                CustomGameScanner.invalidateCache()
+                onFilterApps(paginationCurrentPage)
+            }
+        }
     }
 
     override fun onCleared() {
         searchDebounceJob?.cancel()
+        customGameWatchJob?.cancel()
+        app.gamenative.utils.CustomGameWatcher.stop()
         PluviaApp.events.off<AndroidEvent.LibraryInstallStatusChanged, Unit>(onInstallStatusChanged)
         PluviaApp.events.off<AndroidEvent.CustomGameImagesFetched, Unit>(onCustomGameImagesFetched)
         PluviaApp.events.off<AndroidEvent.RecommendationToggleChanged, Unit>(onRecommendationToggleChanged)
@@ -445,6 +465,8 @@ class LibraryViewModel @Inject constructor(
 
             CustomGameScanner.invalidateCache()
             onFilterApps(paginationCurrentPage)
+            // Watch the newly added folder too, so changes inside it refresh the library live.
+            armCustomGameWatcher()
         }
     }
 
