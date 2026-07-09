@@ -258,6 +258,14 @@ data class EnvVarInfo(
             "DXVK_FRAME_RATE" to EnvVarInfo(
                 identifier = "DXVK_FRAME_RATE",
             ),
+            // Workaround for mobile Vulkan drivers with broken timeline semaphores (mostly Mali,
+            // some older Adreno): fixes hangs/artifacts with DXVK 2.x at a small perf cost.
+            // Ludashi ships it globally; here it's per-game opt-in.
+            "DXVK_DISABLE_TIMELINE_SEMAPHORES" to EnvVarInfo(
+                identifier = "DXVK_DISABLE_TIMELINE_SEMAPHORES",
+                selectionType = EnvVarSelectionType.TOGGLE,
+                possibleValues = listOf("0", "1"),
+            ),
             "VKD3D_SHADER_MODEL" to EnvVarInfo(
                 identifier = "VKD3D_SHADER_MODEL",
             ),

@@ -396,6 +396,24 @@ fun XServerScreen(
         }
     }
 
+    // Keep the CPU alive while a game session is running (ported from Winlator-Ludashi's
+    // keep-alive service): keepScreenOn stops the screen from sleeping on its own, but if the
+    // user locks the screen or switches away, Android suspends the CPU and the guest (shader
+    // compiles, LAN room hosting, in-game downloads) freezes or gets killed. A partial wakelock
+    // scoped strictly to the session keeps the guest running; released on dispose.
+    DisposableEffect(appId) {
+        val wakeLock = runCatching {
+            val pm = context.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+            pm.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "GameNative:GameSession").apply {
+                setReferenceCounted(false)
+                acquire()
+            }
+        }.getOrNull()
+        onDispose {
+            runCatching { wakeLock?.release() }
+        }
+    }
+
     // Ask Android for the panel's highest refresh-rate mode while a game is on screen.
     // Many devices pin unknown apps to 60 Hz even on 90/120 Hz panels; without this the
     // FPS limiter happily targets a rate the display was never allowed to reach. The
