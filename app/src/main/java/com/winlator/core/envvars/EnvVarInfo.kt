@@ -222,8 +222,17 @@ data class EnvVarInfo(
                 possibleValues = listOf(
                     "startup", "nir", "nobin", "sysmem", "gmem", "forcebin", "layout", "noubwc", "nomultipos",
                     "nolrz", "nolrzfc", "perf", "perfc", "flushall", "syncdraw", "push_consts_per_stage", "rast_order",
-                    "unaligned_store", "log_skip_gmem_ops", "dynamic", "bos", "3d_load", "fdm", "noconform", "rd", "deck_emu"
+                    "unaligned_store", "log_skip_gmem_ops", "dynamic", "bos", "3d_load", "fdm", "noconform", "rd", "deck_emu",
+                    "forcecb", "nocb"
                 ),
+            ),
+            // Freedreno/Turnip feature overrides (e.g. "enable_tp_ubwc_flag_hint") and IR3 shader
+            // compiler debug — exposed for per-game tuning on Adreno, mirroring newer Winlator forks.
+            "FD_DEV_FEATURES" to EnvVarInfo(
+                identifier = "FD_DEV_FEATURES",
+            ),
+            "IR3_SHADER_DEBUG" to EnvVarInfo(
+                identifier = "IR3_SHADER_DEBUG",
             ),
             "DXVK_HUD" to EnvVarInfo(
                 identifier = "DXVK_HUD",

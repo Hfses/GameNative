@@ -23,6 +23,10 @@ public class DXVKHelper {
     public static void setEnvVars(Context context, KeyValueSet config, EnvVars envVars) {
         ImageFs imageFs = ImageFs.find(context);
         envVars.put("DXVK_STATE_CACHE_PATH", "/data/data/app.gamenative/files/imagefs"+ImageFs.CACHE_PATH);
+        // Pin the Mesa (Zink/Turnip GL) shader cache next to DXVK's. DEFAULT_ENV_VARS enables the
+        // cache (MESA_SHADER_CACHE_DISABLE=false) but never pinned its directory, so it landed in a
+        // transient ~/.cache inside the prefix and first-run shader stutter came back every session.
+        envVars.put("MESA_SHADER_CACHE_DIR", "/data/data/app.gamenative/files/imagefs"+ImageFs.CACHE_PATH);
         envVars.put("DXVK_LOG_LEVEL", "none");
 
         File rootDir = ImageFs.find(context).getRootDir();

@@ -396,6 +396,31 @@ fun XServerScreen(
         }
     }
 
+    // Ask Android for the panel's highest refresh-rate mode while a game is on screen.
+    // Many devices pin unknown apps to 60 Hz even on 90/120 Hz panels; without this the
+    // FPS limiter happily targets a rate the display was never allowed to reach. The
+    // preference is cleared on dispose so the rest of the app follows the system policy.
+    DisposableEffect(activity) {
+        val window = activity?.window ?: return@DisposableEffect onDispose { }
+        val display = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            activity.display
+        } else {
+            @Suppress("DEPRECATION")
+            activity.windowManager.defaultDisplay
+        }
+        val bestMode = display?.supportedModes?.maxByOrNull { it.refreshRate }
+        val previousModeId = window.attributes.preferredDisplayModeId
+        if (bestMode != null) {
+            window.attributes = window.attributes.apply { preferredDisplayModeId = bestMode.modeId }
+            Timber.i("Requested display mode ${bestMode.modeId} (${bestMode.refreshRate} Hz) for the game session")
+        }
+        onDispose {
+            runCatching {
+                window.attributes = window.attributes.apply { preferredDisplayModeId = previousModeId }
+            }
+        }
+    }
+
     // Session-scoped performance/network state: sustained performance keeps the
     // SoC from clocking down under long thermal load, and the multicast lock is
     // required for LAN game discovery (Android drops UDP broadcast/multicast
