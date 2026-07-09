@@ -19,6 +19,37 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Runs immediately (in parallel with build): frees Actions storage BEFORE the build job
+  # uploads its ~800 MB of artifacts — otherwise a 100%-full quota fails the upload itself.
+  # Keeps only the artifacts of the 4 most recent runs of this workflow.
+  cleanup:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Delete artifacts older than the last 4 runs
+        run: |
+          set -uo pipefail
+          KEEP_RUNS=$(gh api "repos/$GH_REPO/actions/workflows/build-apk.yml/runs?per_page=4" \
+            -q '.workflow_runs[].id' | tr '\n' ' ')
+          echo "Keeping artifacts of runs: $KEEP_RUNS"
+          gh api --paginate "repos/$GH_REPO/actions/artifacts?per_page=100" \
+            -q '.artifacts[] | "\(.id) \(.workflow_run.id) \(.size_in_bytes)"' |
+          while read -r ART_ID RUN_ID SIZE; do
+            KEEP=false
+            for K in $KEEP_RUNS; do
+              if [ "$RUN_ID" = "$K" ]; then KEEP=true; break; fi
+            done
+            if [ "$KEEP" = "false" ]; then
+              echo "Deleting artifact $ART_ID (run $RUN_ID, $SIZE bytes)"
+              gh api -X DELETE "repos/$GH_REPO/actions/artifacts/$ART_ID" || true
+            fi
+          done
+          echo "Cleanup done."
+
   build:
     runs-on: ubuntu-latest
 
@@ -48,17 +79,21 @@ jobs:
       - name: Build debug APKs (legacy + modern)
         run: ./gradlew :app:assembleLegacyDebug :app:assembleModernDebug
 
+      # retention-days: 1 — artifacts only exist to hand the APKs to the release job;
+      # the durable download is the Release (which does NOT count against Actions storage).
       - name: Upload legacy debug APK
         uses: actions/upload-artifact@v4
         with:
           name: gamenative-legacy-debug-apk
           path: app/build/outputs/apk/legacy/debug/*.apk
+          retention-days: 1
 
       - name: Upload modern debug APK
         uses: actions/upload-artifact@v4
         with:
           name: gamenative-modern-debug-apk
           path: app/build/outputs/apk/modern/debug/*.apk
+          retention-days: 1
 
   # Publishing the ~800 MB of APKs to a Release is slow, so it runs in its own job AFTER build.
   # This keeps the build job (and therefore the downloadable Actions artifacts) available quickly,
