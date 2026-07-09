@@ -380,8 +380,6 @@ private fun groupOptions(options: List<AppMenuOption>): Map<OptionCategory, List
             AppOptionMenuType.MoveToExternalStorage,
             AppOptionMenuType.MoveToInternalStorage,
             AppOptionMenuType.ChangeBranch,
-            AppOptionMenuType.ChangeCover,
-            AppOptionMenuType.RemoveCustomCover,
             -> gameManagement.add(option)
 
             // Container Settings
@@ -406,6 +404,10 @@ private fun groupOptions(options: List<AppMenuOption>): Map<OptionCategory, List
             AppOptionMenuType.GetSupport,
             AppOptionMenuType.SubmitFeedback,
             AppOptionMenuType.FetchSteamGridDBImages,
+            // Cover options live right below "Fetch game images" (same section, and they are
+            // appended to the options list immediately after it).
+            AppOptionMenuType.ChangeCover,
+            AppOptionMenuType.RemoveCustomCover,
             AppOptionMenuType.TestGraphics,
             AppOptionMenuType.PlayWithDiagnostics,
             AppOptionMenuType.ShareDiagnostics,

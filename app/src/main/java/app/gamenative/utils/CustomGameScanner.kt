@@ -280,7 +280,10 @@ object CustomGameScanner {
                 val ext = file.name.substringAfterLast('.', "").lowercase()
                 extensions.indexOf(ext).let { if (it == -1) Int.MAX_VALUE else it }
             }
-            if (match != null) return Uri.fromFile(match).toString()
+            // The ?v= suffix busts Coil's cache when the file is overwritten in place (same
+            // path, new content — e.g. the user replaces an existing custom cover). Coil loads
+            // file:// URIs by path, so the query only affects the cache key.
+            if (match != null) return Uri.fromFile(match).toString() + "?v=" + match.lastModified()
         }
         return null
     }

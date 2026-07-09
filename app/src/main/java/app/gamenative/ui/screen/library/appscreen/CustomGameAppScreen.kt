@@ -59,6 +59,11 @@ class CustomGameAppScreen : BaseAppScreen() {
 
         // Shared state for deletion progress dialog
         var showDeletingDialog by mutableStateOf(false)
+
+        // Bumped whenever the user sets/removes a custom cover so the open detail screen
+        // recomputes its cover URLs immediately (they are remembered per folder path, which
+        // doesn't change when the cover file inside it does).
+        var coverRefreshTick by mutableStateOf(0)
     }
     @Composable
     override fun getGameDisplayInfo(
@@ -83,7 +88,7 @@ class CustomGameAppScreen : BaseAppScreen() {
         // Hero view uses horizontal grid (grid_hero)
         // A user-supplied "coverh"/"cover" image takes priority over SteamGridDB.
         // coverh = horizontal cover
-        val heroImageUrl = remember(gameFolderPath) {
+        val heroImageUrl = remember(gameFolderPath, coverRefreshTick) {
             gameFolderPath?.let { path ->
                 val folder = File(path)
                 CustomGameScanner.findHeroCoverInFolder(folder)
@@ -94,7 +99,7 @@ class CustomGameAppScreen : BaseAppScreen() {
         // Capsule view uses vertical grid (grid_capsule)
         // A user-supplied "coverv"/"cover" image takes priority over SteamGridDB.
         // coverv = vertical cover
-        val capsuleUrl = remember(gameFolderPath) {
+        val capsuleUrl = remember(gameFolderPath, coverRefreshTick) {
             gameFolderPath?.let { path ->
                 val folder = File(path)
                 CustomGameScanner.findCapsuleCoverInFolder(folder)
@@ -104,7 +109,7 @@ class CustomGameAppScreen : BaseAppScreen() {
 
         // Header view uses heroes endpoint (hero, but not grid_hero)
         // This is also a horizontal banner, so the user "coverh"/"cover" applies here too.
-        val headerUrl = remember(gameFolderPath) {
+        val headerUrl = remember(gameFolderPath, coverRefreshTick) {
             gameFolderPath?.let { path ->
                 val folder = File(path)
                 CustomGameScanner.findHeroCoverInFolder(folder)
@@ -392,7 +397,8 @@ class CustomGameAppScreen : BaseAppScreen() {
         // Fetch images from SteamGridDB for Custom Games
         options.add(getFetchImagesOption(context, libraryItem))
 
-        // Cover manager: pick a custom cover image / restore the default art.
+        // Cover manager: pick a custom cover image / restore the default art. These land right
+        // below "Fetch game images" (same options section).
         val gameFolder = remember(libraryItem.appId) {
             CustomGameScanner.getFolderPathFromAppId(libraryItem.appId)?.let(::File)
         }
@@ -400,14 +406,18 @@ class CustomGameAppScreen : BaseAppScreen() {
             val notifyCoverChanged: (String?) -> Unit = { error ->
                 if (error == null) {
                     CustomGameScanner.invalidateCache()
+                    // Bump first so both this screen's covers and the Remove option re-evaluate.
+                    coverRefreshTick++
                     PluviaApp.events.emit(AndroidEvent.CustomGameImagesFetched(libraryItem.appId))
                     SnackbarManager.show(context.getString(R.string.cover_set_ok))
                 } else {
                     SnackbarManager.show(context.getString(R.string.cover_set_failed, error))
                 }
             }
+            // GetContent (not OpenDocument): opens the gallery/photo picker instead of the
+            // documents UI, which is what users expect when choosing a cover image.
             val coverPicker = androidx.activity.compose.rememberLauncherForActivityResult(
-                androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
+                androidx.activity.result.contract.ActivityResultContracts.GetContent(),
             ) { uri ->
                 if (uri != null) {
                     CoroutineScope(Dispatchers.IO).launch {
@@ -419,10 +429,13 @@ class CustomGameAppScreen : BaseAppScreen() {
             options.add(
                 AppMenuOption(
                     optionType = AppOptionMenuType.ChangeCover,
-                    onClick = { coverPicker.launch(arrayOf("image/*")) },
+                    onClick = { coverPicker.launch("image/*") },
                 ),
             )
-            if (app.gamenative.utils.CoverArtManager.hasCustomCover(gameFolder)) {
+            val hasCustomCover = remember(gameFolder, coverRefreshTick) {
+                app.gamenative.utils.CoverArtManager.hasCustomCover(gameFolder)
+            }
+            if (hasCustomCover) {
                 options.add(
                     AppMenuOption(
                         optionType = AppOptionMenuType.RemoveCustomCover,
@@ -430,6 +443,7 @@ class CustomGameAppScreen : BaseAppScreen() {
                             CoroutineScope(Dispatchers.IO).launch {
                                 if (app.gamenative.utils.CoverArtManager.removeCustomCover(gameFolder)) {
                                     CustomGameScanner.invalidateCache()
+                                    coverRefreshTick++
                                     PluviaApp.events.emit(AndroidEvent.CustomGameImagesFetched(libraryItem.appId))
                                     SnackbarManager.show(context.getString(R.string.cover_removed))
                                 }
