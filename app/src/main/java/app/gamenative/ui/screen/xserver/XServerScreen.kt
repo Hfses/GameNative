@@ -2062,6 +2062,20 @@ fun XServerScreen(
                             taskAffinityMask = ProcessHelper.getAffinityMask(container.getCPUList(true))
                             taskAffinityMaskWoW64 = ProcessHelper.getAffinityMask(container.getCPUListWoW64(true))
                             win32AppWorkarounds?.setTaskAffinityMasks(taskAffinityMask, taskAffinityMaskWoW64)
+                            val contentsManager = ContentsManager(context)
+                            contentsManager.syncContents()
+                            // Pre-launch runtime guard: fixes wine↔libc mismatches (the
+                            // "Symbol __libc_init not found" loader crash) and too-old Box64
+                            // for the selected Wine series BEFORE the guest starts, and tells
+                            // the user what was applied and why. Must run BEFORE the
+                            // appliedWineVersion mismatch markers below so an auto-switched
+                            // Wine correctly triggers prefix re-extraction.
+                            val compatFix = app.gamenative.utils.RuntimeCompatibility
+                                .checkAndAutoFix(context, container, contentsManager)
+                            if (compatFix.changed) {
+                                compatFix.message?.let { app.gamenative.ui.util.SnackbarManager.show(it) }
+                            }
+
                             val appliedVariantSeen = container.getExtra("appliedContainerVariant")
                             val appliedWineVersionSeen = container.getExtra("appliedWineVersion")
                             val markersAvail = appliedVariantSeen.isNotEmpty() && appliedWineVersionSeen.isNotEmpty()
@@ -2075,8 +2089,6 @@ fun XServerScreen(
 
                             val wineVersion = container.wineVersion
                             Timber.i("Wine version is: $wineVersion")
-                            val contentsManager = ContentsManager(context)
-                            contentsManager.syncContents()
                             Timber.i("Wine info is: " + WineInfo.fromIdentifier(context, contentsManager, wineVersion))
                             xServerState.value = xServerState.value.copy(
                                 wineInfo = WineInfo.fromIdentifier(context, contentsManager, wineVersion),

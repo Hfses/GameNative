@@ -1584,6 +1584,8 @@
     <string name="library_wallpaper_choose_image">Escolher imagem</string>
     <string name="library_wallpaper_remove">Remover papel de parede</string>
     <string name="library_wallpaper_hint">Escolha um vídeo em loop (opcionalmente com som) ou uma imagem estática para exibir atrás da sua biblioteca.</string>
+    <string name="runtime_compat_box64_adjusted">%1$s requer Box64 ≥ %2$s — Box64 ajustado automaticamente para %3$s</string>
+    <string name="runtime_compat_wine_libc_fixed">O Wine %1$s foi compilado para %2$s e é incompatível com este container %3$s (causaria o erro \"Symbol __libc_init not found\"). Aplicado automaticamente: %4$s</string>
     <string name="system_menu_layout">Layout</string>
     <!-- Modo de gráficos baixos -->
     <string name="low_graphics_mode">Modo de gráficos baixos</string>

@@ -1347,6 +1347,8 @@
     <string name="library_wallpaper_choose_image">Choose image</string>
     <string name="library_wallpaper_remove">Remove wallpaper</string>
     <string name="library_wallpaper_hint">Pick a looping video (optionally with sound) or a static image to show behind your library.</string>
+    <string name="runtime_compat_box64_adjusted">%1$s requires Box64 ≥ %2$s — Box64 automatically set to %3$s</string>
+    <string name="runtime_compat_wine_libc_fixed">Wine %1$s is built for %2$s and is incompatible with this %3$s container (it would crash with \"Symbol __libc_init not found\"). Automatically applied: %4$s</string>
     <string name="library_options">Options</string>
     <string name="back">Back</string>
     <string name="cloud">Cloud</string>

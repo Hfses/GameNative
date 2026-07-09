@@ -238,6 +238,26 @@ fun GeneralTabContent(
                 val wineOptions = if (isBionic) state.bionicWineOptions else state.glibcWineOptions
                 val wineManifestById = if (isBionic) state.bionicWineManifestById else state.glibcWineManifestById
                 val wineIndex = wineOptions.ids.indexOfFirst { it == config.wineVersion }.coerceAtLeast(0)
+                // Applies a wine selection through the compatibility matrix: if the chosen
+                // Wine/Proton series needs a newer Box64 than the current one, bump Box64 in the
+                // same config update and tell the user what was adjusted and why.
+                val compatContext = androidx.compose.ui.platform.LocalContext.current
+                val applyWineSelection: (String) -> Unit = { newWine ->
+                    val fixedBox64 = app.gamenative.utils.RuntimeCompatibility
+                        .box64FixFor(newWine, config.containerVariant, config.box64Version)
+                    if (fixedBox64 != null) {
+                        val minVer = app.gamenative.utils.RuntimeCompatibility
+                            .minBox64For(newWine, config.containerVariant).orEmpty()
+                        app.gamenative.ui.util.SnackbarManager.show(
+                            compatContext.getString(
+                                R.string.runtime_compat_box64_adjusted, newWine, minVer, fixedBox64,
+                            ),
+                        )
+                        state.config.value = config.copy(wineVersion = newWine, box64Version = fixedBox64)
+                    } else {
+                        state.config.value = config.copy(wineVersion = newWine)
+                    }
+                }
                 SettingsListDropdown(
                     colors = settingsTileColors(),
                     title = { Text(text = stringResource(R.string.wine_version)) },
@@ -255,11 +275,11 @@ fun GeneralTabContent(
                                 ContentProfile.ContentType.CONTENT_TYPE_WINE
                             }
                             state.launchManifestContentInstall(manifestEntry, expectedType) {
-                                state.config.value = config.copy(wineVersion = selectedId)
+                                applyWineSelection(selectedId)
                             }
                             return@SettingsListDropdown
                         }
-                        state.config.value = config.copy(wineVersion = selectedId.ifEmpty { wineOptions.labels[idx] })
+                        applyWineSelection(selectedId.ifEmpty { wineOptions.labels[idx] })
                     },
                 )
             }
