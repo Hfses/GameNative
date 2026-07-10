@@ -431,10 +431,12 @@ class SteamService : Service(), IChallengeUrlChanged {
         @Volatile
         var isRunning: Boolean = false
             private set
+        @Volatile
         var isLoggingOut: Boolean = false
             private set
         val isLoggedIn: Boolean
             get() = instance?.steamClient?.steamID?.isValid == true
+        @Volatile
         var isWaitingForQRAuth: Boolean = false
             private set
 
@@ -1451,7 +1453,10 @@ class SteamService : Service(), IChallengeUrlChanged {
             dest: File,
             onProgress: (Float) -> Unit,
         ) = withContext(Dispatchers.IO) {
-            val tmp = File(dest.absolutePath + ".part")
+            // Unique temp name per call: keying the .part only on the destination meant two
+            // concurrent fetches of the same file wrote to and renamed the same temp path,
+            // corrupting the result. The suffix keeps them isolated.
+            val tmp = File(dest.absolutePath + ".part." + java.util.UUID.randomUUID())
             try {
                 val http = SteamUtils.http
 
@@ -3775,6 +3780,11 @@ class SteamService : Service(), IChallengeUrlChanged {
                     }
                 }
 
+                // Cancel any previous instances before reassigning: onLoggedOn runs again on
+                // every Steam reconnect, so without this each reconnect leaks a checker + a
+                // product-info coroutine that keep running in parallel with the new ones.
+                picsChangesCheckerJob?.cancel()
+                picsGetProductInfoJob?.cancel()
                 picsChangesCheckerJob = continuousPICSChangesChecker()
                 picsGetProductInfoJob = continuousPICSGetProductInfo()
 

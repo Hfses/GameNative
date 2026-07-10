@@ -167,13 +167,20 @@ fun DriverManagerDialog(open: Boolean, onDismiss: () -> Unit) {
     )
 
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
-        uri?.let {
-            scope.launch {
-                isImporting = true
-                val res = withContext(Dispatchers.IO) { handlePickedUri(ctx, it) }
+        if (uri == null) {
+            // Picker cancelled: SteamService.isImporting was set to true before launching (line
+            // ~409); without clearing it here a cancel leaves it stuck true, blocking shutdown.
+            SteamService.isImporting = false
+            return@rememberLauncherForActivityResult
+        }
+        scope.launch {
+            isImporting = true
+            try {
+                val res = withContext(Dispatchers.IO) { handlePickedUri(ctx, uri) }
                 lastMessage = res
                 if (res.startsWith("Installed driver:")) refreshDriverList()
                 SnackbarManager.show(res)
+            } finally {
                 SteamService.isImporting = false
                 isImporting = false
             }

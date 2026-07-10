@@ -96,7 +96,12 @@ fun ContentsManagerDialog(open: Boolean, onDismiss: () -> Unit) {
     }
 
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
-        uri ?: return@rememberLauncherForActivityResult
+        if (uri == null) {
+            // Picker cancelled: clear the flag we set before launching, or it stays true forever
+            // and permanently blocks SteamService shutdown.
+            SteamService.isImporting = false
+            return@rememberLauncherForActivityResult
+        }
         scope.launch {
             isBusy = true
             statusMessage = "Validating content..."
@@ -141,6 +146,7 @@ fun ContentsManagerDialog(open: Boolean, onDismiss: () -> Unit) {
                 statusMessage = error?.message?.let { "$msg: $it" } ?: msg
                 SnackbarManager.show(statusMessage ?: "")
                 isBusy = false
+                SteamService.isImporting = false
                 return@launch
             }
 

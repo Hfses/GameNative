@@ -81,7 +81,12 @@ class StoreManager {
                 }
         }
         if (libraries.isEmpty()) return flowOf(emptyList())
-        return combine(libraries) { slices -> slices.toList().flatten() }
+        return combine(libraries) { slices ->
+            // Deduplicate by id: the Game Hub grid uses GameModel.id as its LazyGrid key, so two
+            // providers emitting the same unified id (or a provider double-emitting) would crash
+            // the grid with "key was used multiple times". distinctBy keeps the first occurrence.
+            slices.toList().flatten().distinctBy { it.id }
+        }
     }
 
     /**

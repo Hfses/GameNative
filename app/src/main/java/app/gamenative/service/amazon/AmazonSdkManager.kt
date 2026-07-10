@@ -81,10 +81,21 @@ object AmazonSdkManager {
             var downloaded = 0
             var failed = 0
 
+            val sdkRootCanonical = sdkRoot.canonicalPath
             for (file in sdkFiles) {
                 val hashHex = file.hashBytes.joinToString("") { "%02x".format(it.toInt() and 0xFF) }
                 val fileUrl = AmazonApiClient.appendPath(spec.downloadUrl, "files/$hashHex")
                 val destFile = File(sdkRoot, file.unixPath)
+
+                // Path-traversal guard: a manifest entry containing ../ would otherwise escape the
+                // SDK cache dir and let a malicious/compromised manifest overwrite arbitrary files.
+                if (destFile.canonicalPath != sdkRootCanonical &&
+                    !destFile.canonicalPath.startsWith(sdkRootCanonical + File.separator)
+                ) {
+                    Timber.tag(TAG).e("  rejected (path traversal): ${file.unixPath}")
+                    failed++
+                    continue
+                }
 
                 // Skip already-downloaded files
                 if (destFile.exists() && destFile.length() == file.size) {

@@ -1050,8 +1050,13 @@ class EpicDownloadManager @Inject constructor(
                         RandomAccessFile(outputFile.path, "rw").use {
                             it.setLength(totalSize)
                         }
-                    } catch (e: IOException) {
-                        throw IOException("Failed to allocate file ${outputFile.path}: ${e.message}")
+                    } catch (e: Throwable) {
+                        // Don't rethrow: this runs in a root launch of a non-supervised scope with
+                        // no exception handler, so an uncaught throw here crashes the whole app.
+                        // Record it as a download failure — the wait loop aborts on assemblyFailure.
+                        Timber.tag("EPIC").e(e, "Failed to allocate ${outputFile.path}")
+                        assemblyFailure = IOException("Failed to allocate file ${outputFile.path}: ${e.message}")
+                        return@launch
                     }
                 }
 
