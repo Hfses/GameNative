@@ -629,11 +629,43 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * Maps an allowed-orientation set to the Android sensor constant that lets the OS rotate
+     * the game freely within it — so a phone held in either landscape (or either portrait)
+     * auto-rotates to match. Returns null for mixed/single sets that need the manual pick below.
+     */
+    private fun sensorOrientationFor(conformTo: EnumSet<Orientation>): Int? {
+        val landscapes = EnumSet.of(Orientation.LANDSCAPE, Orientation.REVERSE_LANDSCAPE)
+        val portraits = EnumSet.of(Orientation.PORTRAIT, Orientation.REVERSE_PORTRAIT)
+        return when {
+            conformTo.contains(Orientation.UNSPECIFIED) -> ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
+            conformTo == landscapes || conformTo.containsAll(landscapes) &&
+                !conformTo.contains(Orientation.PORTRAIT) && !conformTo.contains(Orientation.REVERSE_PORTRAIT) ->
+                ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            conformTo == portraits || conformTo.containsAll(portraits) &&
+                !conformTo.contains(Orientation.LANDSCAPE) && !conformTo.contains(Orientation.REVERSE_LANDSCAPE) ->
+                ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+            conformTo.size >= 3 -> ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
+            else -> null
+        }
+    }
+
     private fun setOrientationTo(orientation: Int, conformTo: EnumSet<Orientation>) {
         if (isHeadset(this)) {
             if (requestedOrientation != ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE) {
                 requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
             }
+            return
+        }
+
+        // Let Android's own sensor drive rotation whenever the allowed set is a natural
+        // sensor group. The custom OrientationEventListener (startOrientator) is disabled
+        // because it leaked/restarted the Activity, which left currentOrientationChangeValue
+        // stuck at 0 — so the manual angle math below locked the game to ONE fixed landscape.
+        // SENSOR_LANDSCAPE flips freely between the two landscapes as the phone turns (and the
+        // same for portrait / full sensor), which is exactly the "follow the device" behaviour.
+        sensorOrientationFor(conformTo)?.let { sensor ->
+            if (requestedOrientation != sensor) requestedOrientation = sensor
             return
         }
         // Log.d("MainActivity$index", "Setting orientation to conform")
