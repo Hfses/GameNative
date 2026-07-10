@@ -1278,13 +1278,11 @@ fun PluviaMain(
             val startDestination = rememberSaveable {
                 when {
                     SteamService.isLoggedIn -> PluviaScreen.Home.route + "?offline=false"
-                    // skip login screen if any service has stored credentials
-                    SteamUtils.hasStoredCredentials() ||
-                        GOGService.hasStoredCredentials(context) ||
-                        EpicService.hasStoredCredentials(context) ||
-                        AmazonService.hasStoredCredentials(context) ->
-                        PluviaScreen.Home.route + "?offline=true"
-                    else -> PluviaScreen.LoginUser.route
+                    // Always open straight into the library. The store tabs show their own
+                    // "sign in" prompts when logged out, and login for every store is reachable
+                    // from the system menu — so the dedicated login screen is no longer forced
+                    // at startup (the user asked for the library first, not a login wall).
+                    else -> PluviaScreen.Home.route + "?offline=true"
                 }
             }
 
