@@ -5445,10 +5445,17 @@ private suspend fun extractGraphicsDriverFiles(
         if (presentMode.contains("immediate")) {
             envVars.put("WRAPPER_MAX_IMAGE_COUNT", "1")
         }
-        envVars.put("MESA_VK_WSI_PRESENT_MODE", presentMode)
+        // Only export a present mode when the container actually specifies one. Exporting an
+        // empty MESA_VK_WSI_PRESENT_MODE makes the Turnip/Mesa WSI ignore it or fall back to a
+        // slow default and, worse, overrides the "mailbox" default set earlier — a real FPS hit.
+        if (presentMode.isNotEmpty()) {
+            envVars.put("MESA_VK_WSI_PRESENT_MODE", presentMode)
+        }
 
         val resourceType = graphicsDriverConfig.get("resourceType")
-        envVars.put("WRAPPER_RESOURCE_TYPE", resourceType)
+        if (resourceType.isNotEmpty()) {
+            envVars.put("WRAPPER_RESOURCE_TYPE", resourceType)
+        }
 
         val syncFrame = graphicsDriverConfig.get("syncFrame")
         if (syncFrame == "1") envVars.put("MESA_VK_WSI_DEBUG", "forcesync")
