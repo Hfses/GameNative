@@ -653,6 +653,46 @@ object ContainerUtils {
         }
     }
 
+    /**
+     * Resolves the on-disk game exe for PE analysis. Only handles the sources whose install path
+     * we can resolve cheaply and reliably (Steam + custom games); returns null otherwise so the
+     * caller keeps the default. Never throws.
+     */
+    private fun resolveGameExeFile(
+        context: Context,
+        appId: String,
+        gameSource: GameSource,
+        data: ContainerData,
+    ): File? = try {
+        when (gameSource) {
+            GameSource.CUSTOM_GAME -> {
+                val folder = CustomGameScanner.getFolderPathFromAppId(appId)
+                if (folder == null) {
+                    null
+                } else {
+                    val rel = data.executablePath.ifEmpty {
+                        CustomGameScanner.findUniqueExeRelativeToFolder(folder) ?: ""
+                    }
+                    if (rel.isEmpty()) null else File(folder, rel.replace('/', File.separatorChar)).takeIf { it.isFile }
+                }
+            }
+            GameSource.STEAM -> {
+                val gameId = extractGameIdFromContainerId(appId)
+                val dir = SteamService.getAppDirPath(gameId)
+                val rel = data.executablePath.ifEmpty { SteamService.getInstalledExe(gameId) }
+                if (dir.isNullOrEmpty() || rel.isNullOrEmpty()) {
+                    null
+                } else {
+                    File(dir, rel.replace('/', File.separatorChar)).takeIf { it.isFile }
+                }
+            }
+            else -> null
+        }
+    } catch (e: Exception) {
+        Timber.w(e, "resolveGameExeFile failed for $appId")
+        null
+    }
+
     private fun createNewContainer(
         context: Context,
         appId: String,
@@ -950,9 +990,34 @@ object ContainerUtils {
             return container
         }
 
-        // No custom config, so determine the DX wrapper synchronously (only for Steam games)
-        // For GOG and Custom Games, use the default DX wrapper from preferences
-        if (gameSource == GameSource.STEAM) {
+        // Local layer minimizer: read the game's PE imports and pick the minimal DX wrapper
+        // (skip a layer the game doesn't use → FPS). Works offline and for every store, and only
+        // overrides when it's SURE — otherwise we fall back to the network/default below.
+        var layerDecided = false
+        try {
+            val exeFile = resolveGameExeFile(context, appId, gameSource, containerData)
+            if (exeFile != null && exeFile.isFile) {
+                val verdict = LayerMinimizer.analyze(exeFile)
+                if (verdict.confidence == LayerMinimizer.Confidence.SURE && verdict.dxwrapper != null) {
+                    if (verdict.dxwrapper != containerData.dxwrapper) {
+                        Timber.i("LayerMinimizer: $appId → dxwrapper=${verdict.dxwrapper} (${verdict.evidence})")
+                        containerData.dxwrapper = verdict.dxwrapper
+                    }
+                    if (verdict.dxwrapperConfigPatch.isNotEmpty()) {
+                        val kv = com.winlator.core.KeyValueSet(containerData.dxwrapperConfig)
+                        verdict.dxwrapperConfigPatch.forEach { (k, v) -> kv.put(k, v) }
+                        containerData = containerData.copy(dxwrapperConfig = kv.toString())
+                    }
+                    layerDecided = true
+                }
+            }
+        } catch (e: Exception) {
+            Timber.w(e, "LayerMinimizer: local detection failed for $appId")
+        }
+
+        // No custom config and no local decision → determine the DX wrapper over the network
+        // (Steam only). For GOG and Custom Games, use the default DX wrapper from preferences.
+        if (!layerDecided && gameSource == GameSource.STEAM) {
             runBlocking {
                 try {
                     Timber.i("Fetching DirectX version synchronously for app $appId")
