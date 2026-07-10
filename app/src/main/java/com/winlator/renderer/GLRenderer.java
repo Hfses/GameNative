@@ -517,6 +517,57 @@ public class GLRenderer implements GLSurfaceView.Renderer, WindowManager.OnWindo
         return effectComposer;
     }
 
+    // ---- GameNative frame generation (own engine, no external DLLs) ----
+    // While enabled, a Choreographer pump keeps presenting at display refresh and the
+    // FrameGenEffect interpolates against the previous presented frame, so the display gets
+    // generated in-between images instead of repeats when the game renders slower than vsync.
+    private com.winlator.renderer.effects.FrameGenEffect frameGenEffect;
+    private android.view.Choreographer.FrameCallback frameGenPump;
+    private volatile boolean frameGenActive = false;
+
+    /** 0 = off; 2..4 = frame-generation mode (Turbo/High/Max). Call from the main thread. */
+    public void setFrameGenMultiplier(int multiplier) {
+        boolean enable = multiplier >= 2;
+        if (enable) {
+            if (frameGenEffect == null) frameGenEffect = new com.winlator.renderer.effects.FrameGenEffect();
+            // Higher modes keep more history for a smoother trail between sparse game frames.
+            frameGenEffect.setWeight(multiplier >= 4 ? 0.45f : multiplier == 3 ? 0.55f : 0.65f);
+            java.util.List<com.winlator.renderer.effects.Effect> fx = effectComposer.getEffectsSnapshot();
+            if (!fx.contains(frameGenEffect)) {
+                fx.add(frameGenEffect);
+                effectComposer.setEffects(fx);
+            }
+            startFrameGenPump();
+        } else {
+            stopFrameGenPump();
+            if (frameGenEffect != null) {
+                java.util.List<com.winlator.renderer.effects.Effect> fx = effectComposer.getEffectsSnapshot();
+                if (fx.remove(frameGenEffect)) effectComposer.setEffects(fx);
+                frameGenEffect = null;
+            }
+        }
+    }
+
+    private void startFrameGenPump() {
+        if (frameGenActive) return;
+        frameGenActive = true;
+        final android.view.Choreographer choreographer = android.view.Choreographer.getInstance();
+        frameGenPump = frameTimeNanos -> {
+            if (!frameGenActive) return;
+            xServerView.requestRender();
+            choreographer.postFrameCallback(frameGenPump);
+        };
+        choreographer.postFrameCallback(frameGenPump);
+    }
+
+    private void stopFrameGenPump() {
+        frameGenActive = false;
+        if (frameGenPump != null) {
+            android.view.Choreographer.getInstance().removeFrameCallback(frameGenPump);
+            frameGenPump = null;
+        }
+    }
+
     public void setFrameRating(FrameRating frameRating) {
         this.frameRating = frameRating;
     }

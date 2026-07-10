@@ -713,6 +713,9 @@ fun XServerScreen(
         lsfgMultiplier = LsfgQuickMenuHelper.sanitizeMultiplier(mult)
         applyLsfgSettings()
         applyFpsLimiterToEngines(effectiveFpsLimit())
+        // GameNative frame-gen engine (our own, GL display renderer): drive it with the same
+        // Normal/Turbo/High/Max mode so frame generation works without any external DLL.
+        (xServerView?.renderer as? GLRenderer)?.setFrameGenMultiplier(lsfgMultiplier)
     }
 
     fun applyLsfgFlowScale(scale: Float) {
@@ -2684,7 +2687,7 @@ fun XServerScreen(
                 if (isDisableMouseInput) add(QuickMenuAction.DISABLE_MOUSE)
             },
             // LSFG hot-reload (tab only visible when enabled in container settings)
-            isLsfgAvailable = isLsfgAvailable,
+            isLsfgAvailable = isLsfgAvailable || (xServerView?.renderer is GLRenderer),
             lsfgMultiplier = lsfgMultiplier,
             lsfgFlowScale = lsfgFlowScale,
             lsfgPerformanceMode = lsfgPerformanceMode,

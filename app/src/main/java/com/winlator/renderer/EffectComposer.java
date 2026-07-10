@@ -21,6 +21,10 @@ public class EffectComposer {
         this.renderer = renderer;
     }
 
+    public synchronized java.util.List<Effect> getEffectsSnapshot() {
+        return new ArrayList<>(effects);
+    }
+
     public synchronized boolean hasEffects() {
         return !effects.isEmpty();
     }
@@ -136,6 +140,13 @@ public class EffectComposer {
             GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, renderer.getQuadVertices().count());
             GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0);
             renderer.getQuadVertices().disable();
+
+            if (renderToScreen && effect instanceof com.winlator.renderer.effects.FrameGenEffect) {
+                // Frame generation history: snapshot the frame we just presented so the next
+                // (possibly vsync-pumped) pass can interpolate against it. The default
+                // framebuffer is still bound at this point.
+                ((com.winlator.renderer.effects.FrameGenEffect) effect).captureHistory(targetWidth, targetHeight);
+            }
 
             if (!renderToScreen) {
                 source = target;
