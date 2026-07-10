@@ -179,6 +179,7 @@
     <string name="compatibility">Compatibility</string>
     <string name="intermediate">Intermediate</string>
     <string name="performance">Performance</string>
+    <string name="max_performance">Max Performance (CPU-bound)</string>
     <string name="denuvo">Denuvo</string>
     <string name="extreme">Extreme</string>
     <string name="unity">Unity</string>

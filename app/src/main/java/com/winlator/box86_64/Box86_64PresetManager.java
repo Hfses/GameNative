@@ -84,6 +84,29 @@ public abstract class Box86_64PresetManager {
                 envVars.put("BOX64_UNITYPLAYER", "0");
                 envVars.put("BOX64_MMAP32", "1");
             }
+        } else if (id.equals(Box86_64Preset.MAX_PERFORMANCE)) {
+            // Aggressive profile for CPU-bound games (CPU pegged at 100%, GPU idle). Pushes the
+            // dynarec knobs the PERFORMANCE preset leaves conservative — the biggest CPU relief
+            // comes from SAFEFLAGS=0 (drop dead EFLAGS computation) and NATIVEFLAGS=1 (map x86
+            // flags onto ARM NZCV). WEAKBARRIER stays at 1 (not the reckless 2) and BLEEDING_EDGE
+            // is on. If a game crashes/corrupts, step back toward PERFORMANCE.
+            envVars.put(ucPrefix + "_DYNAREC_SAFEFLAGS", "0");
+            envVars.put(ucPrefix + "_DYNAREC_NATIVEFLAGS", "1");
+            envVars.put(ucPrefix + "_DYNAREC_FASTNAN", "1");
+            envVars.put(ucPrefix + "_DYNAREC_FASTROUND", "1");
+            envVars.put(ucPrefix + "_DYNAREC_X87DOUBLE", "0");
+            envVars.put(ucPrefix + "_DYNAREC_BIGBLOCK", "3");
+            envVars.put(ucPrefix + "_DYNAREC_STRONGMEM", "0");
+            envVars.put(ucPrefix + "_DYNAREC_WEAKBARRIER", "1");
+            envVars.put(ucPrefix + "_DYNAREC_BLEEDING_EDGE", "1");
+            envVars.put(ucPrefix + "_DYNAREC_FORWARD", "1024");
+            envVars.put(ucPrefix + "_DYNAREC_CALLRET", "1");
+            envVars.put(ucPrefix + "_DYNAREC_WAIT", "1");
+            if (ucPrefix.equals("BOX64")) {
+                envVars.put("BOX64_AVX", "1");
+                envVars.put("BOX64_UNITYPLAYER", "0");
+                envVars.put("BOX64_MMAP32", "1");
+            }
         } else if (id.equals(Box86_64Preset.DENUVO)) {
             envVars.put(ucPrefix + "_DYNAREC_SAFEFLAGS", "2");
             envVars.put(ucPrefix + "_DYNAREC_FASTNAN", "0");
@@ -147,6 +170,7 @@ public abstract class Box86_64PresetManager {
         presets.add(new Box86_64Preset(Box86_64Preset.COMPATIBILITY, context.getString(R.string.compatibility)));
         presets.add(new Box86_64Preset(Box86_64Preset.INTERMEDIATE, context.getString(R.string.intermediate)));
         presets.add(new Box86_64Preset(Box86_64Preset.PERFORMANCE, context.getString(R.string.performance)));
+        presets.add(new Box86_64Preset(Box86_64Preset.MAX_PERFORMANCE, context.getString(R.string.max_performance)));
         presets.add(new Box86_64Preset(Box86_64Preset.UNITY, context.getString(R.string.unity)));
         presets.add(new Box86_64Preset(Box86_64Preset.UNITY_MONO_BLEEDING_EDGE, context.getString(R.string.unity_mono_bleeding_edge)));
         presets.add(new Box86_64Preset(Box86_64Preset.DENUVO, context.getString(R.string.denuvo)));

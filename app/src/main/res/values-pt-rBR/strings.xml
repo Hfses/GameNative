@@ -118,6 +118,7 @@
     <string name="compatibility">Compatibilidade</string>
     <string name="intermediate">Intermediário</string>
     <string name="performance">Desempenho</string>
+    <string name="max_performance">Máximo Desempenho (CPU no talo)</string>
     <string name="unity">Unity</string>
     <string name="unity_mono_bleeding_edge">Unity Mono Bleeding Edge</string>
     <string name="denuvo">Denuvo</string>
