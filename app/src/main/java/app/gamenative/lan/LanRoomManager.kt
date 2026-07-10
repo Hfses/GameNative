@@ -304,7 +304,10 @@ object LanRoomManager {
             hostClientWriters.remove(socket)
             hostClientLastChatMs.remove(socket)
             runCatching { socket.close() }
-            refreshPlayers()
+            // Only refresh the roster while we're actually hosting: a straggler handler that
+            // finishes after stop() would otherwise resurrect/clobber _players (a phantom idle
+            // player, or overwriting a freshly created next room's roster).
+            if (_status.value == Status.HOSTING) refreshPlayers()
             // Only announce a departure for peers that actually joined (not denied/invalid ones),
             // avoiding a spurious "? saiu da sala".
             if (joined && _status.value == Status.HOSTING) {
@@ -337,8 +340,12 @@ object LanRoomManager {
     }
 
     private fun runDiscoveryResponder() {
+        // Declared outside the try so a bind() failure still closes the orphan socket instead of
+        // leaking its file descriptor (the socket is created before it's assigned to
+        // discoverySocket, so the catch had no handle to close).
+        var socket: DatagramSocket? = null
         try {
-            val socket = DatagramSocket(null)
+            socket = DatagramSocket(null)
             socket.reuseAddress = true
             socket.bind(InetSocketAddress(DISCOVERY_PORT))
             discoverySocket = socket
@@ -359,6 +366,8 @@ object LanRoomManager {
             }
         } catch (e: Exception) {
             Timber.tag("LanRoom").d(e, "Discovery responder ended")
+        } finally {
+            runCatching { socket?.close() }
         }
     }
 
