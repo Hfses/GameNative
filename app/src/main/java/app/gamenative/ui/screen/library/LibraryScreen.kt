@@ -896,20 +896,9 @@ private fun LibraryScreenContent(
                 }
             }
     ) {
-        if (showLibWallpaper) {
-            app.gamenative.ui.screen.library.components.LibraryBackground(
-                videoUri = libBgVideo,
-                imageUri = libBgImage,
-                soundOn = libBgSound,
-                modifier = Modifier.fillMaxSize(),
-            )
-            // Scrim over the wallpaper so cards/text stay legible.
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background.copy(alpha = 0.6f)),
-            )
-        }
+        // The wallpaper itself is now drawn app-wide in PluviaMain (behind the whole NavHost);
+        // here we only keep the library surface transparent (via showLibWallpaper above) so it
+        // shows through. No local player here, to avoid running two ExoPlayers / doubled audio.
         if (selectedAppId == null) {
             // Use Box to allow content to scroll behind the tab bar
             Box(modifier = Modifier.fillMaxSize()) {

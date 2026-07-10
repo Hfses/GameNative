@@ -7,6 +7,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -1133,6 +1134,31 @@ fun PluviaMain(
         style = state.paletteStyle,
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
+            // App-wide animated wallpaper (video with optional sound, or an image), configured
+            // from the Layout menu. Rendered once here behind the whole NavHost so it shows on
+            // every screen whose surface is translucent (the library goes transparent when this
+            // is active). Guarded against @Preview where PrefManager isn't initialized.
+            val inAppPreview = androidx.compose.ui.platform.LocalInspectionMode.current
+            val appBgVideo = remember { if (inAppPreview) "" else PrefManager.libraryBackgroundVideoUri }
+            val appBgImage = remember { if (inAppPreview) "" else PrefManager.libraryBackgroundImageUri }
+            val appBgSound = remember { if (inAppPreview) false else PrefManager.libraryBackgroundSound }
+            val showAppWallpaper = remember {
+                !inAppPreview && PrefManager.libraryBackgroundEnabled &&
+                    (appBgVideo.isNotBlank() || appBgImage.isNotBlank())
+            }
+            if (showAppWallpaper) {
+                app.gamenative.ui.screen.library.components.LibraryBackground(
+                    videoUri = appBgVideo,
+                    imageUri = appBgImage,
+                    soundOn = appBgSound,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.background.copy(alpha = 0.6f)),
+                )
+            }
             LoadingDialog(
                 visible = state.loadingDialogVisible,
                 progress = state.loadingDialogProgress,
