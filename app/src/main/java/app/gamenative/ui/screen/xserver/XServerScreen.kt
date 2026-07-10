@@ -3575,8 +3575,21 @@ private fun setupXEnvironment(
 
     val gameTerminationCallback = Callback<Int> { status ->
         if (status != 0) {
-            Timber.e("Guest program terminated with status: $status")
-            onGameLaunchError?.invoke("Game terminated with error status: $status")
+            // Status 137 = 128 + 9 (SIGKILL). While the app is backgrounded this is almost always
+            // Android's low-memory/power management killing the paused guest, NOT a game bug —
+            // classify it separately so telemetry and the user aren't misled, and point at the
+            // real fix (battery optimization). A real in-game crash keeps the error path.
+            val killedInBackground = status == 137 && PluviaApp.isOverlayPaused
+            if (killedInBackground) {
+                Timber.w("Guest process killed by the system while backgrounded (status 137)")
+                app.gamenative.utils.SessionLogger.append(
+                    "Guest killed by system in background (137). Disable battery optimization for " +
+                        "GameNative to keep paused games alive.",
+                )
+            } else {
+                Timber.e("Guest program terminated with status: $status")
+                onGameLaunchError?.invoke("Game terminated with error status: $status")
+            }
         }
         PluviaApp.events.emit(AndroidEvent.GuestProgramTerminated)
     }
