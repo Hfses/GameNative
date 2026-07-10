@@ -404,10 +404,13 @@ class SteamService : Service(), IChallengeUrlChanged {
         }
 
         private fun releaseSync(appId: Int) {
+            // Release then evict ONLY if nobody re-acquired in between: set(false) followed by a
+            // racy get() let a concurrent acquire (set true) be evicted from the map, allowing two
+            // syncs for the same app. compareAndSet makes release+evict-eligibility atomic.
             val flag = syncInProgressApps[appId]
-            flag?.set(false)
-            if (flag != null && !flag.get()) {
-                syncInProgressApps.remove(appId, flag)
+            if (flag != null && flag.compareAndSet(true, false)) {
+                // Only evict while still false; a failed two-arg remove means someone re-acquired.
+                if (!flag.get()) syncInProgressApps.remove(appId, flag)
             }
             instance?.notifierOrNull?.showIdle(NotificationHelper.NOTIFICATION_ID_STEAM)
         }

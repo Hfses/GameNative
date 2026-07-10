@@ -217,6 +217,7 @@ public abstract class WindowRequests {
         Property property = window.getProperty(atom);
 
         int bytesAfter = 0;
+        boolean typeMatched = false;
         try (XStreamLock lock = outputStream.lock()) {
             if (property == null) {
                 outputStream.writeByte(RESPONSE_CODE_SUCCESS);
@@ -239,6 +240,7 @@ public abstract class WindowRequests {
                 outputStream.writePad(12);
             }
             else {
+                typeMatched = true;
                 byte[] data = property.data.array();
                 int offset = longOffset * 4;
                 int length = Math.min(data.length - offset, longLength * 4);
@@ -258,7 +260,9 @@ public abstract class WindowRequests {
             }
         }
 
-        if (delete && property != null && bytesAfter == 0) {
+        // X11 GetProperty: the property is deleted only when the TYPE MATCHED (and everything was
+        // read). Deleting on a type mismatch corrupted client state (e.g. clipboard/selections).
+        if (delete && property != null && typeMatched && bytesAfter == 0) {
             window.removeProperty(atom);
         }
     }

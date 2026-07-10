@@ -463,11 +463,15 @@ object ContainerUtils {
             registryEditor.setStringValue("Software\\Wine\\Direct3D", "renderer", containerData.renderer)
             registryEditor.setDwordValue("Software\\Wine\\Direct3D", "csmt", if (containerData.csmt) 3 else 0)
             registryEditor.setDwordValue("Software\\Wine\\Direct3D", "VideoPciDeviceID", containerData.videoPciDeviceID)
-            registryEditor.setDwordValue(
-                "Software\\Wine\\Direct3D",
-                "VideoPciVendorID",
-                getGPUCards(context)[containerData.videoPciDeviceID]!!.vendorId,
-            )
+            // Null-safe: a device ID missing from gpu_cards.json used to NPE (!!) and abort the
+            // whole config apply. Fall back to writing only the device ID.
+            getGPUCards(context)[containerData.videoPciDeviceID]?.let { card ->
+                registryEditor.setDwordValue(
+                    "Software\\Wine\\Direct3D",
+                    "VideoPciVendorID",
+                    card.vendorId,
+                )
+            }
             registryEditor.setStringValue("Software\\Wine\\Direct3D", "OffScreenRenderingMode", containerData.offScreenRenderingMode)
             registryEditor.setDwordValue("Software\\Wine\\Direct3D", "strict_shader_math", if (containerData.strictShaderMath) 1 else 0)
             registryEditor.setStringValue("Software\\Wine\\Direct3D", "VideoMemorySize", containerData.videoMemorySize)

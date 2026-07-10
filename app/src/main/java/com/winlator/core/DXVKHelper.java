@@ -85,7 +85,13 @@ public class DXVKHelper {
         String customDevice = config.get("customDevice");
         if (customDevice.contains(":")) {
             String[] parts = customDevice.split(":");
+            // A malformed value with fewer than 3 fields (id:vendor:desc) used to throw
+            // ArrayIndexOutOfBounds and abort the whole env setup — skip it instead.
+            if (parts.length < 3) {
+                android.util.Log.w("DXVKHelper", "Ignoring malformed customDevice: " + customDevice);
+            } else {
             content = (((((content + "dxgi.customDeviceId = " + parts[0] + "\n") + "dxgi.customVendorId = " + parts[1] + "\n") + "d3d9.customDeviceId = " + parts[0] + "\n") + "d3d9.customVendorId = " + parts[1] + "\n") + "dxgi.customDeviceDesc = \"" + parts[2] + "\"\n") + "d3d9.customDeviceDesc = \"" + parts[2] + "\"\n";
+            }
         }
         if (config.getBoolean("constantBufferRangeCheck")) {
             content = content + "d3d11.constantBufferRangeCheck = \"True\"\n";
