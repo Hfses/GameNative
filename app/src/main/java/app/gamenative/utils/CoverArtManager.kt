@@ -3,7 +3,9 @@ package app.gamenative.utils
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.ImageDecoder
 import android.net.Uri
+import android.os.Build
 import timber.log.Timber
 import java.io.File
 
@@ -69,8 +71,37 @@ object CoverArtManager {
         }
     }
 
-    /** Decodes [uri] subsampled near [MAX_DIMENSION], then scales down exactly if still larger. */
+    /**
+     * Decodes [uri] scaled near [MAX_DIMENSION]. Uses ImageDecoder (API 28+) FIRST because
+     * BitmapFactory cannot decode HEIC/HEIF — the default format of modern phone cameras — which
+     * is exactly why picking a gallery photo previously failed with "unsupported image". Falls
+     * back to BitmapFactory (JPG/PNG/WebP) if ImageDecoder is unavailable or throws.
+     */
     private fun decodeScaled(context: Context, uri: Uri): Bitmap? {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            runCatching {
+                val src = ImageDecoder.createSource(context.contentResolver, uri)
+                return ImageDecoder.decodeBitmap(src) { decoder, info, _ ->
+                    // SOFTWARE allocator: hardware bitmaps can't be Bitmap.compress()'d to JPEG.
+                    decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+                    decoder.isMutableRequired = false
+                    val longEdge = maxOf(info.size.width, info.size.height)
+                    if (longEdge > MAX_DIMENSION) {
+                        val scale = MAX_DIMENSION.toFloat() / longEdge
+                        decoder.setTargetSize(
+                            (info.size.width * scale).toInt().coerceAtLeast(1),
+                            (info.size.height * scale).toInt().coerceAtLeast(1),
+                        )
+                    }
+                }
+            }.onFailure { Timber.w(it, "CoverArtManager: ImageDecoder failed, falling back to BitmapFactory") }
+        }
+
+        return decodeScaledLegacy(context, uri)
+    }
+
+    /** BitmapFactory path (API < 28 and ImageDecoder fallback). Handles JPG/PNG/WebP. */
+    private fun decodeScaledLegacy(context: Context, uri: Uri): Bitmap? {
         val resolver = context.contentResolver
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) } ?: return null
