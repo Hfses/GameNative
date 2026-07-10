@@ -599,6 +599,11 @@ fun XServerScreen(
     var lsfgMultiplier by rememberSaveable(container.id) { mutableIntStateOf(initialLsfgSettings.multiplier) }
     var lsfgFlowScale by rememberSaveable(container.id) { mutableStateOf(initialLsfgSettings.flowScale) }
     var lsfgPerformanceMode by rememberSaveable(container.id) { mutableStateOf(initialLsfgSettings.performanceMode) }
+    // "Perfil Máximo": Box64 MAX_PERFORMANCE preset, toggleable from the in-game sidebar.
+    // Dynarec env vars are read at guest launch, so changes apply on the NEXT game start.
+    var maxProfileEnabled by rememberSaveable(container.id) {
+        mutableStateOf(container.box64Preset == com.winlator.box86_64.Box86_64Preset.MAX_PERFORMANCE)
+    }
 
     fun persistFpsLimiterState() {
         container.putExtra(FPS_LIMITER_ENABLED_EXTRA, fpsLimiterEnabled)
@@ -2694,6 +2699,19 @@ fun XServerScreen(
             onLsfgMultiplierChanged = ::applyLsfgMultiplier,
             onLsfgFlowScaleChanged = ::applyLsfgFlowScale,
             onLsfgPerformanceModeChanged = ::applyLsfgPerformanceMode,
+            maxProfileEnabled = maxProfileEnabled,
+            onMaxProfileChanged = { enabled ->
+                maxProfileEnabled = enabled
+                container.box64Preset = if (enabled) {
+                    com.winlator.box86_64.Box86_64Preset.MAX_PERFORMANCE
+                } else {
+                    com.winlator.box86_64.Box86_64Preset.PERFORMANCE
+                }
+                container.saveData()
+                app.gamenative.ui.util.SnackbarManager.show(
+                    context.getString(R.string.quickmenu_max_profile_applied),
+                )
+            },
             onAnimationComplete = { isMenuVisible ->
                 if (isMenuVisible) {
                     pauseForOverlayIfAllowed()

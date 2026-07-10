@@ -1636,6 +1636,10 @@
     <string name="framegen_mode_max">Max</string>
     <string name="framegen_generated_fps">Generated frames: up to %1$d FPS</string>
     <string name="framegen_generated_fps_hint">Base FPS × mode. Set the base with the FPS limiter in the HUD tab.</string>
+    <string name="quickmenu_max_profile">Max Profile</string>
+    <string name="quickmenu_max_profile_toggle">Box64 Max Performance</string>
+    <string name="quickmenu_max_profile_desc">Aggressive translation profile for CPU-bound games. Takes effect on the next game start.</string>
+    <string name="quickmenu_max_profile_applied">Profile saved — applies the next time the game starts</string>
     <string name="lsfg_description">Generate intermediate frames using Lossless Scaling\'s Vulkan layer. Only known to work on Adreno 6xx and above.</string>
     <string name="lsfg_enable">Enable LSFG-VK frame generation</string>
     <string name="lsfg_multiplier">Frame multiplier</string>

@@ -1393,6 +1393,10 @@
     <string name="framegen_mode_max">Máximo</string>
     <string name="framegen_generated_fps">Quadros gerados: até %1$d FPS</string>
     <string name="framegen_generated_fps_hint">FPS base × modo. Defina o base no limitador de FPS da aba HUD.</string>
+    <string name="quickmenu_max_profile">Perfil Máximo</string>
+    <string name="quickmenu_max_profile_toggle">Box64 Máximo Desempenho</string>
+    <string name="quickmenu_max_profile_desc">Perfil agressivo de tradução para jogos com CPU no talo. Vale a partir do próximo início do jogo.</string>
+    <string name="quickmenu_max_profile_applied">Perfil salvo — aplica na próxima vez que o jogo abrir</string>
     <string name="lsfg_description">Gerar quadros intermediários usando a camada Vulkan do Lossless Scaling. Funciona apenas em Adreno 6xx e posteriores, conforme se sabe.</string>
     <string name="lsfg_enable">Ativar geração de quadros LSFG-VK</string>
     <string name="lsfg_multiplier">Multiplicador de quadros</string>

@@ -268,6 +268,8 @@ fun QuickMenu(
     onLsfgMultiplierChanged: (Int) -> Unit = {},
     onLsfgFlowScaleChanged: (Float) -> Unit = {},
     onLsfgPerformanceModeChanged: (Boolean) -> Unit = {},
+    maxProfileEnabled: Boolean = false,
+    onMaxProfileChanged: (Boolean) -> Unit = {},
     onAnimationComplete: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -607,6 +609,8 @@ fun QuickMenu(
                                             flowScale = lsfgFlowScale,
                                             performanceMode = lsfgPerformanceMode,
                                             baseFps = if (fpsLimiterEnabled) fpsLimiterTarget else fpsLimiterMax,
+                                            maxProfileEnabled = maxProfileEnabled,
+                                            onMaxProfileChanged = onMaxProfileChanged,
                                             onMultiplierChanged = onLsfgMultiplierChanged,
                                             onFlowScaleChanged = onLsfgFlowScaleChanged,
                                             onPerformanceModeChanged = onLsfgPerformanceModeChanged,
@@ -1118,6 +1122,8 @@ private fun LsfgQuickMenuTab(
     flowScale: Float,
     performanceMode: Boolean,
     baseFps: Int,
+    maxProfileEnabled: Boolean,
+    onMaxProfileChanged: (Boolean) -> Unit,
     onMultiplierChanged: (Int) -> Unit,
     onFlowScaleChanged: (Float) -> Unit,
     onPerformanceModeChanged: (Boolean) -> Unit,
@@ -1207,6 +1213,20 @@ private fun LsfgQuickMenuTab(
                 )
             }
         }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // ── Perfil Máximo (Box64 MAX_PERFORMANCE) ─────────────────────────
+        QuickMenuSectionHeader(
+            title = stringResource(R.string.quickmenu_max_profile),
+        )
+        QuickMenuToggleRow(
+            title = stringResource(R.string.quickmenu_max_profile_toggle),
+            subtitle = stringResource(R.string.quickmenu_max_profile_desc),
+            enabled = maxProfileEnabled,
+            onToggle = { onMaxProfileChanged(!maxProfileEnabled) },
+            accentColor = accentColor,
+        )
 
         Spacer(modifier = Modifier.height(12.dp))
     }
