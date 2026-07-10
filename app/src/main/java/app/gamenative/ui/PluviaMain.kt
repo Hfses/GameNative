@@ -1139,10 +1139,13 @@ fun PluviaMain(
             // every screen whose surface is translucent (the library goes transparent when this
             // is active). Guarded against @Preview where PrefManager isn't initialized.
             val inAppPreview = androidx.compose.ui.platform.LocalInspectionMode.current
-            val appBgVideo = remember { if (inAppPreview) "" else PrefManager.libraryBackgroundVideoUri }
-            val appBgImage = remember { if (inAppPreview) "" else PrefManager.libraryBackgroundImageUri }
-            val appBgSound = remember { if (inAppPreview) false else PrefManager.libraryBackgroundSound }
-            val showAppWallpaper = remember {
+            // Keyed on AppWallpaperState.version so changing the wallpaper in the Layout panel
+            // updates the background live (PrefManager isn't a Compose State on its own).
+            val wallpaperVersion = app.gamenative.ui.AppWallpaperState.version
+            val appBgVideo = remember(wallpaperVersion) { if (inAppPreview) "" else PrefManager.libraryBackgroundVideoUri }
+            val appBgImage = remember(wallpaperVersion) { if (inAppPreview) "" else PrefManager.libraryBackgroundImageUri }
+            val appBgSound = remember(wallpaperVersion) { if (inAppPreview) false else PrefManager.libraryBackgroundSound }
+            val showAppWallpaper = remember(wallpaperVersion) {
                 !inAppPreview && PrefManager.libraryBackgroundEnabled &&
                     (appBgVideo.isNotBlank() || appBgImage.isNotBlank())
             }

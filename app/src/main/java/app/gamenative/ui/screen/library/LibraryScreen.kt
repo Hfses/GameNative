@@ -739,10 +739,13 @@ private fun LibraryScreenContent(
     // Optional animated wallpaper behind the library (video with sound, or an image), set from the
     // Layout options panel. Skipped in @Preview where PrefManager/DataStore isn't initialized.
     val inLibPreview = androidx.compose.ui.platform.LocalInspectionMode.current
-    val libBgVideo = remember { if (inLibPreview) "" else PrefManager.libraryBackgroundVideoUri }
-    val libBgImage = remember { if (inLibPreview) "" else PrefManager.libraryBackgroundImageUri }
-    val libBgSound = remember { if (inLibPreview) false else PrefManager.libraryBackgroundSound }
-    val showLibWallpaper = remember {
+    // Keyed on AppWallpaperState.version so toggling the wallpaper in the Layout panel makes the
+    // library go transparent (and the app-wide video show through) immediately, not after restart.
+    val libWallpaperVersion = app.gamenative.ui.AppWallpaperState.version
+    val libBgVideo = remember(libWallpaperVersion) { if (inLibPreview) "" else PrefManager.libraryBackgroundVideoUri }
+    val libBgImage = remember(libWallpaperVersion) { if (inLibPreview) "" else PrefManager.libraryBackgroundImageUri }
+    val libBgSound = remember(libWallpaperVersion) { if (inLibPreview) false else PrefManager.libraryBackgroundSound }
+    val showLibWallpaper = remember(libWallpaperVersion) {
         !inLibPreview && PrefManager.libraryBackgroundEnabled &&
             (libBgVideo.isNotBlank() || libBgImage.isNotBlank())
     }

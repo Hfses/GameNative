@@ -336,7 +336,9 @@ fun LibraryOptionsPanel(
                             if (uri != null) {
                                 takePersist(uri)
                                 wpVideo = uri.toString(); PrefManager.libraryBackgroundVideoUri = uri.toString()
+                                wpImage = ""; PrefManager.libraryBackgroundImageUri = ""
                                 wpEnabled = true; PrefManager.libraryBackgroundEnabled = true
+                                app.gamenative.ui.AppWallpaperState.changed()
                             }
                         }
                         val imagePicker = rememberLauncherForActivityResult(
@@ -345,7 +347,9 @@ fun LibraryOptionsPanel(
                             if (uri != null) {
                                 takePersist(uri)
                                 wpImage = uri.toString(); PrefManager.libraryBackgroundImageUri = uri.toString()
+                                wpVideo = ""; PrefManager.libraryBackgroundVideoUri = ""
                                 wpEnabled = true; PrefManager.libraryBackgroundEnabled = true
+                                app.gamenative.ui.AppWallpaperState.changed()
                             }
                         }
                         Column(
@@ -363,7 +367,10 @@ fun LibraryOptionsPanel(
                                 )
                                 Switch(
                                     checked = wpEnabled,
-                                    onCheckedChange = { wpEnabled = it; PrefManager.libraryBackgroundEnabled = it },
+                                    onCheckedChange = {
+                                        wpEnabled = it; PrefManager.libraryBackgroundEnabled = it
+                                        app.gamenative.ui.AppWallpaperState.changed()
+                                    },
                                 )
                             }
                             Row(
@@ -377,7 +384,10 @@ fun LibraryOptionsPanel(
                                 )
                                 Switch(
                                     checked = wpSound,
-                                    onCheckedChange = { wpSound = it; PrefManager.libraryBackgroundSound = it },
+                                    onCheckedChange = {
+                                        wpSound = it; PrefManager.libraryBackgroundSound = it
+                                        app.gamenative.ui.AppWallpaperState.changed()
+                                    },
                                 )
                             }
                             TextButton(onClick = { videoPicker.launch(arrayOf("video/*")) }) {
@@ -392,6 +402,7 @@ fun LibraryOptionsPanel(
                                     PrefManager.libraryBackgroundVideoUri = ""
                                     PrefManager.libraryBackgroundImageUri = ""
                                     PrefManager.libraryBackgroundEnabled = false
+                                    app.gamenative.ui.AppWallpaperState.changed()
                                 }) {
                                     Text(
                                         text = stringResource(R.string.library_wallpaper_remove),
