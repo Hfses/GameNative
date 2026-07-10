@@ -84,7 +84,10 @@ public class Container {
     private String graphicsDriverConfig = DEFAULT_GRAPHICSDRIVERCONFIG;
     private String rendererPresentMode = "fifo";
     private String displayRenderer = Container.DEFAULT_DISPLAY_RENDERER;
-    private boolean sfCompatMode = true;
+    // Default OFF for performance — see ASurfaceRenderer.sfCompatMode. Containers created before
+    // this key existed load this default (fast, zero-copy path); users on affected devices can
+    // re-enable it via Graphics > Compatibility Mode.
+    private boolean sfCompatMode = false;
     private boolean lowGraphicsMode = false;
     private String wincomponents = DEFAULT_WINCOMPONENTS;
     private String audioDriver = DEFAULT_AUDIO_DRIVER;
