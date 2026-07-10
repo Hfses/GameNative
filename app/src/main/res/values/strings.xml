@@ -1640,6 +1640,8 @@
     <string name="quickmenu_max_profile_toggle">Box64 Max Performance</string>
     <string name="quickmenu_max_profile_desc">Aggressive translation profile for CPU-bound games. Takes effect on the next game start.</string>
     <string name="quickmenu_max_profile_applied">Profile saved — applies the next time the game starts</string>
+    <string name="settings_launch_big_picture_title">Open Steam in Big Picture</string>
+    <string name="settings_launch_big_picture_subtitle">When Launch Real Steam is on, boot into Steam\'s gamepad UI instead of auto-launching the game. Experimental: the Steam UI may render black on some devices.</string>
     <string name="lsfg_description">Generate intermediate frames using Lossless Scaling\'s Vulkan layer. Only known to work on Adreno 6xx and above.</string>
     <string name="lsfg_enable">Enable LSFG-VK frame generation</string>
     <string name="lsfg_multiplier">Frame multiplier</string>

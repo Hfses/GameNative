@@ -351,6 +351,18 @@ fun SettingsGroupInterface(
             },
         )
 
+        var launchBigPicture by rememberSaveable { mutableStateOf(PrefManager.launchSteamBigPicture) }
+        SettingsSwitch(
+            colors = settingsTileColorsAlt(),
+            title = { Text(text = stringResource(R.string.settings_launch_big_picture_title)) },
+            subtitle = { Text(text = stringResource(R.string.settings_launch_big_picture_subtitle)) },
+            state = launchBigPicture,
+            onCheckedChange = {
+                launchBigPicture = it
+                PrefManager.launchSteamBigPicture = it
+            },
+        )
+
         // Gamepad hints moved to the Controllers hub (SystemMenu > Controllers),
         // the single home for every global controller option.
 

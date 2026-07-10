@@ -1397,6 +1397,8 @@
     <string name="quickmenu_max_profile_toggle">Box64 Máximo Desempenho</string>
     <string name="quickmenu_max_profile_desc">Perfil agressivo de tradução para jogos com CPU no talo. Vale a partir do próximo início do jogo.</string>
     <string name="quickmenu_max_profile_applied">Perfil salvo — aplica na próxima vez que o jogo abrir</string>
+    <string name="settings_launch_big_picture_title">Abrir Steam em Big Picture</string>
+    <string name="settings_launch_big_picture_subtitle">Com o Steam real ativado, abre a interface de controle da Steam em vez de iniciar o jogo direto. Experimental: a interface pode ficar preta em alguns aparelhos.</string>
     <string name="lsfg_description">Gerar quadros intermediários usando a camada Vulkan do Lossless Scaling. Funciona apenas em Adreno 6xx e posteriores, conforme se sabe.</string>
     <string name="lsfg_enable">Ativar geração de quadros LSFG-VK</string>
     <string name="lsfg_multiplier">Multiplicador de quadros</string>

@@ -1044,6 +1044,16 @@ object PrefManager {
         }
 
     // --- Animated library wallpaper (opt-in, set from the Layout options panel) ---
+    // When ON, the real-Steam launch path boots Steam into Big Picture (gamepad UI) instead of
+    // silently auto-launching the game. -no-cef-sandbox is the load-bearing Wine mitigation for
+    // the CEF-rendered UI (black screen otherwise on many devices).
+    private val LAUNCH_STEAM_BIG_PICTURE = booleanPreferencesKey("launch_steam_big_picture")
+    var launchSteamBigPicture: Boolean
+        get() = getPref(LAUNCH_STEAM_BIG_PICTURE, false)
+        set(value) {
+            setPref(LAUNCH_STEAM_BIG_PICTURE, value)
+        }
+
     private val LIB_BG_ENABLED = booleanPreferencesKey("library_bg_enabled")
     var libraryBackgroundEnabled: Boolean
         get() = getPref(LIB_BG_ENABLED, false)

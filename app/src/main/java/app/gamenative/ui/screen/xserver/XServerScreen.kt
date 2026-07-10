@@ -4167,9 +4167,17 @@ private fun getWineStartCommand(
             val gameFolderName = appDirPath.substringAfterLast('/').ifEmpty { gameId.toString() }
             "\"C:\\\\Program Files (x86)\\\\Steam\\\\steamapps\\\\common\\\\$gameFolderName\\\\$normalizedExe\""
         } else if (container.isLaunchRealSteam) {
-            // Launch Steam with the applaunch parameter to start the game
-            "\"C:\\\\Program Files (x86)\\\\Steam\\\\steam.exe\" -silent -vgui -tcp " +
-                    "-nobigpicture -nofriendsui -nochatui -nointro -applaunch $gameId"
+            if (PrefManager.launchSteamBigPicture) {
+                // Boot Steam straight into Big Picture (gamepad UI); do NOT auto-launch a game —
+                // the user picks from the UI. The steam:// relay is the currently supported way
+                // to force Big Picture; -no-cef-sandbox avoids the CEF black screen under Wine.
+                "\"C:\\\\Program Files (x86)\\\\Steam\\\\steam.exe\" -no-cef-sandbox -vgui -tcp " +
+                        "-start steam://open/bigpicture"
+            } else {
+                // Launch Steam with the applaunch parameter to start the game
+                "\"C:\\\\Program Files (x86)\\\\Steam\\\\steam.exe\" -silent -vgui -tcp " +
+                        "-nobigpicture -nofriendsui -nochatui -nointro -applaunch $gameId"
+            }
         } else {
             var executablePath = ""
             if (container.executablePath.isNotEmpty()) {
