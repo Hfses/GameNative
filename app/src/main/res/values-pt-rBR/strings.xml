@@ -1590,6 +1590,9 @@
     <string name="cover_set_ok">Capa atualizada</string>
     <string name="cover_set_failed">Não foi possível definir a capa: %1$s</string>
     <string name="cover_removed">Capa personalizada removida</string>
+    <string name="settings_session_log_title">Log da sessão</string>
+    <string name="settings_session_log_subtitle">Ver e compartilhar o log de diagnóstico (limitado) do app</string>
+    <string name="settings_session_log_empty">Ainda não há log de sessão</string>
     <string name="runtime_compat_wine_libc_fixed">O Wine %1$s foi compilado para %2$s e é incompatível com este container %3$s (causaria o erro \"Symbol __libc_init not found\"). Aplicado automaticamente: %4$s</string>
     <string name="system_menu_layout">Layout</string>
     <!-- Modo de gráficos baixos -->

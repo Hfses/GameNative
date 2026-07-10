@@ -68,6 +68,15 @@ class PluviaApp : SplitCompatApplication() {
             Timber.plant(ReleaseTree())
         }
 
+        // Bounded on-device session log (survives kills; capped at ~4 MB, rotating). In debug we
+        // persist everything; in release only WARN+ to keep the hot path cheap.
+        app.gamenative.utils.SessionLogger.init(this)
+        Timber.plant(
+            app.gamenative.utils.SessionLogger.Tree(
+                persistFromPriority = if (BuildConfig.DEBUG) android.util.Log.DEBUG else android.util.Log.WARN,
+            ),
+        )
+
         NetworkMonitor.init(this)
 
         // Init our custom crash handler.

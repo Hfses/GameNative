@@ -3345,9 +3345,26 @@ private fun setupXEnvironment(
         if (logFile.exists()) logFile.delete()
     }
 
+    // Diagnoses already surfaced this session, so a repeated error line doesn't spam the user.
+    val shownDiagnoses = java.util.Collections.synchronizedSet(mutableSetOf<String>())
     ProcessHelper.addDebugCallback { line ->
         if (captureLogs) {
             logFile?.appendText(line + "\n")
+        }
+        // Cheap pre-filter: only run the signature analyzer on error-ish lines, and only feed the
+        // (bounded) session log the same lines, so a known failure becomes a friendly, one-shot
+        // explanation instead of a cryptic loader dump the user has to decode.
+        val lower = line.lowercase()
+        if (lower.contains("error") || lower.contains("fail") || lower.contains("could not") ||
+            lower.contains("not found") || lower.contains("assert") || lower.contains("c0000") ||
+            lower.contains("__libc_init") || lower.contains("device lost")
+        ) {
+            val diagnosis = app.gamenative.utils.SessionLogger.logGuestOutput("guest", line)
+            if (diagnosis != null && shownDiagnoses.add(diagnosis.id)) {
+                (context as? Activity)?.runOnUiThread {
+                    app.gamenative.ui.util.SnackbarManager.show(diagnosis.message)
+                }
+            }
         }
     }
 

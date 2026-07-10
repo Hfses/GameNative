@@ -177,12 +177,59 @@ fun SettingsGroupDebug() {
         )
     }
 
+    /* Session log (bounded rotating on-device log) export setup */
+    var showSessionLogDialog by rememberSaveable { mutableStateOf(false) }
+    var sessionLogFile: File? by rememberSaveable { mutableStateOf(null) }
+    LaunchedEffect(Unit) {
+        val f = app.gamenative.utils.SessionLogger.logFiles(context).firstOrNull()
+        sessionLogFile = if (f != null && f.exists()) f else null
+    }
+    val saveSessionLogContract = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/plain"),
+    ) { resultUri ->
+        try {
+            resultUri?.let { uri ->
+                context.contentResolver.openOutputStream(uri)?.use { output ->
+                    sessionLogFile?.inputStream()?.use { input -> input.copyTo(output) }
+                }
+            }
+        } catch (e: Exception) {
+            SnackbarManager.show("Failed to save session log to destination")
+        }
+    }
+    if (showSessionLogDialog && sessionLogFile != null) {
+        val sessionText by produceState("Loading...", sessionLogFile) {
+            value = withContext(Dispatchers.IO) { readTail(sessionLogFile) }
+        }
+        CrashLogDialog(
+            visible = true,
+            fileName = sessionLogFile?.name ?: "session.log",
+            fileText = sessionText,
+            onSave = { sessionLogFile?.let { file -> saveSessionLogContract.launch(file.name) } },
+            onDismissRequest = { showSessionLogDialog = false },
+        )
+    }
+
     SettingsGroup() {
         SettingsMenuLink(
             colors = settingsTileColors(),
             title = { Text(text = stringResource(R.string.settings_save_logcat_title)) },
             subtitle = { Text(text = stringResource(R.string.settings_save_logcat_subtitle)) },
             onClick = { saveLogCat.launch("app_logs_${CrashHandler.timestamp}.txt") },
+        )
+        SettingsMenuLink(
+            colors = settingsTileColors(),
+            title = { Text(text = stringResource(R.string.settings_session_log_title)) },
+            subtitle = { Text(text = stringResource(R.string.settings_session_log_subtitle)) },
+            onClick = {
+                val f = app.gamenative.utils.SessionLogger.logFiles(context).firstOrNull()
+                sessionLogFile = if (f != null && f.exists()) f else null
+                if (sessionLogFile != null) {
+                    showSessionLogDialog = true
+                } else {
+                    SnackbarManager.show(context.getString(R.string.settings_session_log_empty))
+                }
+            },
         )
         // Link to open channel selector
         SettingsMenuLink(

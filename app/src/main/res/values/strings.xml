@@ -1353,6 +1353,9 @@
     <string name="cover_set_ok">Cover updated</string>
     <string name="cover_set_failed">Could not set the cover: %1$s</string>
     <string name="cover_removed">Custom cover removed</string>
+    <string name="settings_session_log_title">Session log</string>
+    <string name="settings_session_log_subtitle">View and share the app\'s bounded diagnostic log</string>
+    <string name="settings_session_log_empty">No session log yet</string>
     <string name="runtime_compat_wine_libc_fixed">Wine %1$s is built for %2$s and is incompatible with this %3$s container (it would crash with \"Symbol __libc_init not found\"). Automatically applied: %4$s</string>
     <string name="library_options">Options</string>
     <string name="back">Back</string>
