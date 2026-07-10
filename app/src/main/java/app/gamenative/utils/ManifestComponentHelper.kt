@@ -181,11 +181,20 @@ object ManifestComponentHelper {
         return (base + installed + manifest.map { it.id }).distinct()
     }
 
+    /** Strips a trailing " (Default)" annotation so the stored id is a clean version string. */
+    private fun cleanId(label: String): String =
+        label.replace(Regex("\\s*\\(Default\\)\\s*$", RegexOption.IGNORE_CASE), "").trim()
+
     fun buildVersionOptionList(base: List<String>, installed: List<String>, manifest: List<ManifestEntry>, ): VersionOptionList {
         val options = LinkedHashMap<String, VersionOption>()
 
+        // Key by the CLEAN id, not the label: a base entry like "0.3.6 (Default)" must store the
+        // id "0.3.6", otherwise "box64-0.3.6 (Default)" flows into getProfileByEntryName, its
+        // Integer.parseInt of "0.3.6 (Default)" throws, the box64 profile isn't found and the guest
+        // launch fails. Keying by id also de-dupes the default entry against its installed copy.
         (base + installed).forEach { label ->
-            options[label] = VersionOption(label, label, false, true)
+            val id = cleanId(label)
+            options.getOrPut(id) { VersionOption(label = label, id = id, isManifest = false, isInstalled = true) }
         }
 
         val availableIds = options.keys.toSet()

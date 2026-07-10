@@ -568,6 +568,12 @@ public class ContentsManager {
     }
 
     public ContentProfile getProfileByEntryName(String entryName) {
+        // Defensive normalization: a container saved before the picker stored clean ids can carry
+        // a " (Default)" suffix (e.g. box64 "0.3.6 (Default)"), which used to make the numeric
+        // fallback below throw and the profile lookup miss entirely. Strip it up front.
+        if (entryName != null) {
+            entryName = entryName.replaceAll("(?i)\\s*\\(Default\\)\\s*$", "").trim();
+        }
         Log.d("ContentsManager", "🔍 getProfileByEntryName called with: '" + entryName + "'");
 
         // Initialize profilesMap if needed (first call before syncContents)
@@ -637,6 +643,12 @@ public class ContentsManager {
             if (lastDash > 0) {
                 String verName = entryName.substring(0, lastDash);
                 String verCodeStr = entryName.substring(lastDash + 1);
+                // Only the legacy "<name>-<numericCode>" form has a numeric tail; identifiers like
+                // "wine-9.2-x86_64" (tail "x86_64") are not numeric, so skip instead of throwing
+                // a NumberFormatException on every lookup.
+                if (!verCodeStr.matches("\\d+")) {
+                    return null;
+                }
                 int verCode = Integer.parseInt(verCodeStr);
 
                 // Check Wine list
