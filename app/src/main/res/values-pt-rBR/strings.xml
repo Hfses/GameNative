@@ -1384,7 +1384,15 @@
     <string name="hltb_section_title">HLTB</string>
 
     <!-- LSFG-VK frame generation -->
-    <string name="lsfg_tab_title">LSFG-VK</string>
+    <string name="lsfg_tab_title">Geração de Quadros</string>
+    <string name="framegen_mode">Geração de quadros por IA</string>
+    <string name="framegen_mode_desc">Gera quadros extras para mais fluidez</string>
+    <string name="framegen_mode_normal">Normal</string>
+    <string name="framegen_mode_turbo">Turbo</string>
+    <string name="framegen_mode_high">High</string>
+    <string name="framegen_mode_max">Máximo</string>
+    <string name="framegen_generated_fps">Quadros gerados: até %1$d FPS</string>
+    <string name="framegen_generated_fps_hint">FPS base × modo. Defina o base no limitador de FPS da aba HUD.</string>
     <string name="lsfg_description">Gerar quadros intermediários usando a camada Vulkan do Lossless Scaling. Funciona apenas em Adreno 6xx e posteriores, conforme se sabe.</string>
     <string name="lsfg_enable">Ativar geração de quadros LSFG-VK</string>
     <string name="lsfg_multiplier">Multiplicador de quadros</string>

@@ -1627,7 +1627,15 @@
     <string name="review_mostly_negative">Mostly Negative</string>
     <string name="review_overwhelmingly_negative">Overwhelmingly Negative</string>
     <!-- LSFG Frame Generation -->
-    <string name="lsfg_tab_title">LSFG-VK</string>
+    <string name="lsfg_tab_title">Frame Gen</string>
+    <string name="framegen_mode">AI frame generation</string>
+    <string name="framegen_mode_desc">Generates extra frames for smoother motion</string>
+    <string name="framegen_mode_normal">Normal</string>
+    <string name="framegen_mode_turbo">Turbo</string>
+    <string name="framegen_mode_high">High</string>
+    <string name="framegen_mode_max">Max</string>
+    <string name="framegen_generated_fps">Generated frames: up to %1$d FPS</string>
+    <string name="framegen_generated_fps_hint">Base FPS × mode. Set the base with the FPS limiter in the HUD tab.</string>
     <string name="lsfg_description">Generate intermediate frames using Lossless Scaling\'s Vulkan layer. Only known to work on Adreno 6xx and above.</string>
     <string name="lsfg_enable">Enable LSFG-VK frame generation</string>
     <string name="lsfg_multiplier">Frame multiplier</string>

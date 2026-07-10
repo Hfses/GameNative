@@ -606,6 +606,7 @@ fun QuickMenu(
                                             multiplier = lsfgMultiplier,
                                             flowScale = lsfgFlowScale,
                                             performanceMode = lsfgPerformanceMode,
+                                            baseFps = if (fpsLimiterEnabled) fpsLimiterTarget else fpsLimiterMax,
                                             onMultiplierChanged = onLsfgMultiplierChanged,
                                             onFlowScaleChanged = onLsfgFlowScaleChanged,
                                             onPerformanceModeChanged = onLsfgPerformanceModeChanged,
@@ -1116,6 +1117,7 @@ private fun LsfgQuickMenuTab(
     multiplier: Int,
     flowScale: Float,
     performanceMode: Boolean,
+    baseFps: Int,
     onMultiplierChanged: (Int) -> Unit,
     onFlowScaleChanged: (Float) -> Unit,
     onPerformanceModeChanged: (Boolean) -> Unit,
@@ -1132,21 +1134,30 @@ private fun LsfgQuickMenuTab(
             .focusGroup(),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        // ── Multiplier (Off / 2x / 3x / 4x) ───────────────────────────────
+        // ── Frame-generation mode (Normal / Turbo / High / Máximo) ─────────
+        // These map onto the frame-gen multiplier: Normal = off (native frames only),
+        // Turbo = 2x, High = 3x, Máximo = 4x generated frames.
         QuickMenuSectionHeader(
-            title = stringResource(R.string.lsfg_multiplier),
+            title = stringResource(R.string.framegen_mode),
+            subtitle = stringResource(R.string.framegen_mode_desc),
+        )
+        val framegenModes = listOf(
+            0 to stringResource(R.string.framegen_mode_normal),
+            2 to stringResource(R.string.framegen_mode_turbo),
+            3 to stringResource(R.string.framegen_mode_high),
+            4 to stringResource(R.string.framegen_mode_max),
         )
         Row(
             modifier = Modifier.padding(horizontal = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            listOf(0, 2, 3, 4).forEach { value ->
+            framegenModes.forEach { (value, label) ->
                 QuickMenuChoiceChip(
-                    text = if (value == 0) "Off" else "${value}x",
+                    text = label,
                     selected = multiplier == value || (value == 0 && multiplier < 2),
                     accentColor = accentColor,
                     onClick = { onMultiplierChanged(value) },
-                    modifier = Modifier.width(56.dp),
+                    modifier = Modifier.weight(1f),
                     focusRequester = if (value == 0) focusRequester else null,
                 )
             }
@@ -1159,6 +1170,13 @@ private fun LsfgQuickMenuTab(
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Spacer(modifier = Modifier.height(4.dp))
+
+                // ── Max generated FPS (base FPS × mode) ───────────────────
+                val activeMultiplier = if (multiplier < 2) 1 else multiplier
+                QuickMenuSectionHeader(
+                    title = stringResource(R.string.framegen_generated_fps, baseFps * activeMultiplier),
+                    subtitle = stringResource(R.string.framegen_generated_fps_hint),
+                )
 
                 // ── Flow Scale ────────────────────────────────────────────
                 QuickMenuAdjustmentRow(
