@@ -66,4 +66,15 @@ public class GamepadState {
         this.buttons = other.buttons;
         System.arraycopy(other.dpad, 0, this.dpad, 0, 4);
     }
+
+    /** Field-by-field equality, so a hot input path can skip re-sending an unchanged state. */
+    public boolean contentEquals(GamepadState other) {
+        if (other == null) return false;
+        return buttons == other.buttons
+            && thumbLX == other.thumbLX && thumbLY == other.thumbLY
+            && thumbRX == other.thumbRX && thumbRY == other.thumbRY
+            && triggerL == other.triggerL && triggerR == other.triggerR
+            && dpad[0] == other.dpad[0] && dpad[1] == other.dpad[1]
+            && dpad[2] == other.dpad[2] && dpad[3] == other.dpad[3];
+    }
 }

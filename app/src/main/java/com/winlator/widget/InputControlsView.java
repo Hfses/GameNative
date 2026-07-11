@@ -64,6 +64,8 @@ public class InputControlsView extends View {
     private final Bitmap[] icons = new Bitmap[40];
     private Timer mouseMoveTimer;
     private final PointF mouseMoveOffset = new PointF();
+    // Last virtual-gamepad state pushed to the WinHandler; touch events only re-send on a real change.
+    private final com.winlator.inputcontrols.GamepadState lastSentGamepadState = new com.winlator.inputcontrols.GamepadState();
     private boolean showTouchscreenControls = true;
 
     // Shooter mode state
@@ -931,12 +933,17 @@ public class InputControlsView extends View {
                     break;
             }
 
-            // commit on-screen joystick state
+            // Commit on-screen joystick state — but only when it actually changed. Touch events
+            // (ACTION_MOVE especially) fire many times per second; re-sending an identical gamepad
+            // state each time floods the WinHandler worker queue and the socket for nothing.
             WinHandler winHandler = xServer != null ? xServer.getWinHandler() : null;
             if (winHandler != null) {
                 GamepadState state = profile.getGamepadState();
-                winHandler.sendGamepadState();
-                winHandler.sendVirtualGamepadState(state);
+                if (!state.contentEquals(lastSentGamepadState)) {
+                    lastSentGamepadState.copy(state);
+                    winHandler.sendGamepadState();
+                    winHandler.sendVirtualGamepadState(state);
+                }
             }
         }
         return true;

@@ -440,19 +440,28 @@ void ASurfaceRendererContext::setWindowBuffer(JNIEnv* env, int64_t contentId, AH
         ST_APPLY(transaction);
         ST_DELETE(transaction);
     } else {
-        // Return the source fence back to the source
-        returnSourceFence(env, ahbImage, sourceSlot, sourceAcquireFenceFd);
-
-        // Use the source buffer directly on the SurfaceControl
+        // Present the source buffer directly on the SurfaceControl.
+        //
+        // The transaction takes ownership of the acquire fence and closes it once the frame is
+        // latched, so the SAME fd must NOT also be handed to returnSourceFence() — the previous
+        // code did both, double-closing the fd (and risking closing an unrelated fd that had been
+        // reopened with the same number). The acquire fence is also meaningless to the source: the
+        // source produced the buffer, so it already knows the write is done. Give the fence solely
+        // to the compositor (ST_SETBUF) and return the source slot with no release fence; the
+        // source's 3-deep swapchain rotation keeps the buffer alive long enough to be read.
         void* transaction = ST_CREATE();
         if (!transaction) {
+            returnSourceFence(env, ahbImage, sourceSlot, sourceAcquireFenceFd);
             return;
         }
 
         ST_SETBUF(transaction, surfaceControl, sourceAhb, sourceAcquireFenceFd);
+        sourceAcquireFenceFd = -1; // owned by the transaction now
         ST_SET_TRANSPARENCY(transaction, surfaceControl, 2);
 
-        // No callback needed since we're not tracking converted buffers
+        // Source slot returned without a fence (no completion callback on this direct path).
+        returnSourceFence(env, ahbImage, sourceSlot, -1);
+
         ST_APPLY(transaction);
         ST_DELETE(transaction);
     }
