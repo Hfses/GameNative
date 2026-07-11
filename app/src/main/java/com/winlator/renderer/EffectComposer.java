@@ -113,11 +113,19 @@ public class EffectComposer {
             int targetWidth = renderToScreen ? outputWidth : target.getWidth();
             int targetHeight = renderToScreen ? outputHeight : target.getHeight();
 
+            Effect effect = snapshot.get(i);
+
+            // Frame generation runs a motion-estimation pre-pass into its own low-res FBO before the
+            // main draw; do it here while `source` is still the effect's input, then the target
+            // framebuffer/viewport are (re)bound below for the effect's fullscreen pass.
+            if (effect instanceof com.winlator.renderer.effects.FrameGenEffect) {
+                ((com.winlator.renderer.effects.FrameGenEffect) effect).prePass(renderer, source.getTextureId(), sourceWidth, sourceHeight);
+            }
+
             GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, targetFramebuffer);
             GLES20.glViewport(0, 0, targetWidth, targetHeight);
             GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
 
-            Effect effect = snapshot.get(i);
             effect.use(renderer);
             ShaderMaterial material = effect.getMaterial();
 

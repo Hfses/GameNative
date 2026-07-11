@@ -248,6 +248,20 @@ public class GLRenderer implements GLSurfaceView.Renderer, WindowManager.OnWindo
 
     @Override
     public void onUpdateWindowContent(Window window) {
+        // A genuinely new game frame arrived. Track its cadence so the frame-gen pump knows how far
+        // to extrapolate between real frames, and flag it so history is captured from a real frame.
+        if (frameGenActive && frameGenEffect != null) {
+            long now = System.nanoTime();
+            long last = lastContentNanos;
+            if (last != 0) {
+                long delta = now - last;
+                if (delta > 1_000_000L && delta < 200_000_000L) { // 1ms..200ms: ignore stalls/dupes
+                    gameFrameIntervalNanos = (gameFrameIntervalNanos * 3 + delta) / 4; // EMA
+                }
+            }
+            lastContentNanos = now;
+            frameGenEffect.markRealFrame();
+        }
         xServerView.requestRender();
     }
 
@@ -524,19 +538,22 @@ public class GLRenderer implements GLSurfaceView.Renderer, WindowManager.OnWindo
     private com.winlator.renderer.effects.FrameGenEffect frameGenEffect;
     private android.view.Choreographer.FrameCallback frameGenPump;
     private volatile boolean frameGenActive = false;
+    private volatile long lastContentNanos = 0;
+    private volatile long gameFrameIntervalNanos = 16_666_667L; // seed at 60fps until measured
 
     /** 0 = off; 2..4 = frame-generation mode (Turbo/High/Max). Call from the main thread. */
     public void setFrameGenMultiplier(int multiplier) {
         boolean enable = multiplier >= 2;
         if (enable) {
             if (frameGenEffect == null) frameGenEffect = new com.winlator.renderer.effects.FrameGenEffect();
-            // Higher modes keep more history for a smoother trail between sparse game frames.
-            frameGenEffect.setWeight(multiplier >= 4 ? 0.45f : multiplier == 3 ? 0.55f : 0.65f);
+            // Higher modes allow a longer motion-compensated extrapolation (smoother, slightly looser).
+            frameGenEffect.setMotionAmount(multiplier >= 4 ? 1.6f : multiplier == 3 ? 1.25f : 1.0f);
             java.util.List<com.winlator.renderer.effects.Effect> fx = effectComposer.getEffectsSnapshot();
             if (!fx.contains(frameGenEffect)) {
                 fx.add(frameGenEffect);
                 effectComposer.setEffects(fx);
             }
+            lastContentNanos = 0;
             startFrameGenPump();
         } else {
             stopFrameGenPump();
@@ -554,6 +571,19 @@ public class GLRenderer implements GLSurfaceView.Renderer, WindowManager.OnWindo
         final android.view.Choreographer choreographer = android.view.Choreographer.getInstance();
         frameGenPump = frameTimeNanos -> {
             if (!frameGenActive) return;
+            // Feed the extrapolation fraction: how far we are between the last real frame and the next.
+            com.winlator.renderer.effects.FrameGenEffect fg = frameGenEffect;
+            if (fg != null) {
+                long last = lastContentNanos;
+                long interval = gameFrameIntervalNanos;
+                float phase = 0f;
+                if (last != 0 && interval > 0) {
+                    phase = (frameTimeNanos - last) / (float) interval;
+                    if (phase < 0f) phase = 0f;
+                    else if (phase > 1.5f) phase = 1.5f;
+                }
+                fg.setPhase(phase);
+            }
             xServerView.requestRender();
             choreographer.postFrameCallback(frameGenPump);
         };
