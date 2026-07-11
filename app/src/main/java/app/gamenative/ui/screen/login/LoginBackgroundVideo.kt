@@ -1,6 +1,8 @@
 package app.gamenative.ui.screen.login
 
+import android.graphics.Matrix
 import android.net.Uri
+import android.view.TextureView
 import android.view.ViewGroup
 import androidx.annotation.OptIn
 import androidx.compose.runtime.Composable
@@ -15,11 +17,11 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.ui.AspectRatioFrameLayout
-import androidx.media3.ui.PlayerView
 import timber.log.Timber
+import kotlin.math.max
 
 /**
  * A looping, user-supplied video played full-bleed behind the login screen.
@@ -55,12 +57,20 @@ internal fun LoginBackgroundVideo(
         }
     }
 
+    // Last known video dimensions, used to center-crop (zoom-to-fill) the TextureView.
+    val videoSize = remember(exoPlayer) { intArrayOf(0, 0) }
+
     DisposableEffect(exoPlayer, lifecycleOwner) {
         val listener = object : Player.Listener {
             override fun onPlayerError(error: PlaybackException) {
                 // Bad codec / unreadable file — stop trying, leave the screen's solid bg visible.
                 Timber.w(error, "LoginBackgroundVideo: playback error")
                 exoPlayer.stop()
+            }
+
+            override fun onVideoSizeChanged(size: VideoSize) {
+                videoSize[0] = size.width
+                videoSize[1] = size.height
             }
         }
         exoPlayer.addListener(listener)
@@ -81,19 +91,45 @@ internal fun LoginBackgroundVideo(
         }
     }
 
+    // TextureView (not PlayerView's default SurfaceView) so the video composites inside the view
+    // hierarchy and can sit behind translucent content; the update block re-binds a recreated player.
     AndroidView(
         factory = { ctx ->
-            PlayerView(ctx).apply {
-                player = exoPlayer
-                useController = false
-                // Fill the whole screen; crop rather than letterbox so it reads as a background.
-                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+            TextureView(ctx).apply {
                 layoutParams = ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT,
                 )
+                addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
+                    applyCenterCrop(v as TextureView, videoSize[0], videoSize[1])
+                }
             }
+        },
+        update = { tv ->
+            exoPlayer.setVideoTextureView(tv)
+            applyCenterCrop(tv, videoSize[0], videoSize[1])
         },
         modifier = modifier,
     )
+}
+
+/**
+ * Center-crop (zoom-to-fill) transform for [tv] given source [videoW]x[videoH] — TextureView stretches
+ * to its bounds by default; this rescales uniformly about the centre so the video keeps its aspect
+ * ratio and covers the view (the shorter axis fills, the longer is cropped).
+ */
+private fun applyCenterCrop(tv: TextureView, videoW: Int, videoH: Int) {
+    val viewW = tv.width
+    val viewH = tv.height
+    if (videoW <= 0 || videoH <= 0 || viewW <= 0 || viewH <= 0) return
+    val scale = max(viewW.toFloat() / videoW, viewH.toFloat() / videoH)
+    val matrix = Matrix().apply {
+        setScale(
+            videoW * scale / viewW,
+            videoH * scale / viewH,
+            viewW / 2f,
+            viewH / 2f,
+        )
+    }
+    tv.setTransform(matrix)
 }
