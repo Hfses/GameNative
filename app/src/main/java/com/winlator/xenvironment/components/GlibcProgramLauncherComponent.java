@@ -249,15 +249,23 @@ public class GlibcProgramLauncherComponent extends GuestProgramLauncherComponent
         String currentBox64Version = PrefManager.getString("current_box64_version", "");
         File rootDir = imageFs.getRootDir();
 
-        ContentProfile profile = contentsManager.getProfileByEntryName("box64-" + box64Version);
+        // Normalize any " (Default)" suffix so the asset name resolves (see BionicProgramLauncherComponent).
+        String v = box64Version == null ? "" : box64Version.replaceAll("(?i)\\s*\\(Default\\)\\s*$", "").trim();
+        if (v.isEmpty()) v = com.winlator.core.DefaultVersion.BOX64;
+        ContentProfile profile = contentsManager.getProfileByEntryName("box64-" + v);
         if (profile != null) {
             contentsManager.applyContent(profile);
         }
         else {
-            Log.d("Extraction", "exctracting box64 with box64Version " + box64Version);
-            TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, context.getAssets(), "box86_64/box64-" + box64Version + ".tzst", rootDir);
+            Log.d("Extraction", "exctracting box64 with box64Version " + v);
+            boolean ok = TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, context.getAssets(), "box86_64/box64-" + v + ".tzst", rootDir);
+            if (!ok && !v.equals(com.winlator.core.DefaultVersion.BOX64)) {
+                Log.w("Extraction", "box64 " + v + " asset missing; falling back to " + com.winlator.core.DefaultVersion.BOX64);
+                v = com.winlator.core.DefaultVersion.BOX64;
+                TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, context.getAssets(), "box86_64/box64-" + v + ".tzst", rootDir);
+            }
         }
-        PrefManager.putString("current_box64_version", box64Version);
+        PrefManager.putString("current_box64_version", v);
     }
 
     private void addBox64EnvVars(EnvVars envVars, boolean enableLogs) {

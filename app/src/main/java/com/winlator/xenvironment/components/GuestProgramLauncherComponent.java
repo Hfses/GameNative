@@ -316,8 +316,16 @@ public class GuestProgramLauncherComponent extends EnvironmentComponent {
         }
 
         if (!box64Version.equals(currentBox64Version)) {
-            TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, context.getAssets(), "box86_64/box64-" + box64Version + ".tzst", rootDir);
-            PrefManager.putString("current_box64_version", box64Version);
+            // Normalize any " (Default)" suffix so the asset name resolves (see BionicProgramLauncherComponent).
+            String v = box64Version == null ? "" : box64Version.replaceAll("(?i)\\s*\\(Default\\)\\s*$", "").trim();
+            if (v.isEmpty()) v = com.winlator.core.DefaultVersion.BOX64;
+            boolean ok = TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, context.getAssets(), "box86_64/box64-" + v + ".tzst", rootDir);
+            if (!ok && !v.equals(com.winlator.core.DefaultVersion.BOX64)) {
+                Log.w("Extraction", "box64 " + v + " asset missing; falling back to " + com.winlator.core.DefaultVersion.BOX64);
+                v = com.winlator.core.DefaultVersion.BOX64;
+                TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, context.getAssets(), "box86_64/box64-" + v + ".tzst", rootDir);
+            }
+            PrefManager.putString("current_box64_version", v);
         }
     }
 

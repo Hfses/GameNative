@@ -409,27 +409,45 @@ public class BionicProgramLauncherComponent extends GuestProgramLauncherComponen
     private void extractBox64Files() {
         ImageFs imageFs = environment.getImageFs();
         Context context = environment.getContext();
-        String box64Version = container.getBox64Version();
+        // Strip any " (Default)" annotation the version picker may have persisted. Without this the
+        // asset name below becomes "box64-0.3.7 (Default)-bionic.tzst", which does not exist, so the
+        // extract silently fails and NO box64 binary lands in the image — then the guest execs a
+        // missing usr/bin/box64 and the whole app dies at launch (with no Java stack). This is the
+        // regression behind "the game opened before and now the app just closes".
+        String rawVersion = container.getBox64Version();
+        String box64Version = rawVersion == null ? "" : rawVersion.replaceAll("(?i)\\s*\\(Default\\)\\s*$", "").trim();
+        if (box64Version.isEmpty()) box64Version = DefaultVersion.BOX64;
 
         Log.i("Extraction", "Extracting required box64 version: " + box64Version);
         File rootDir = imageFs.getRootDir();
+        File box64File = new File(rootDir, "usr/bin/box64");
 
         // No more version check, just extract directly.
         ContentProfile profile = contentsManager.getProfileByEntryName("box64-" + box64Version);
         if (profile != null) {
             contentsManager.applyContent(profile);
         } else {
-            TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, context.getAssets(), "box86_64/box64-" + box64Version + "-bionic.tzst", rootDir);
+            boolean ok = TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, context.getAssets(), "box86_64/box64-" + box64Version + "-bionic.tzst", rootDir);
+            // Fall back to the shipped default if the requested version has no bundled asset, so a
+            // container carrying an odd/removed version still gets a working box64 binary instead
+            // of launching with none.
+            if (!ok && !box64Version.equals(DefaultVersion.BOX64)) {
+                Log.w("Extraction", "box64 " + box64Version + " asset missing; falling back to " + DefaultVersion.BOX64);
+                box64Version = DefaultVersion.BOX64;
+                TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, context.getAssets(), "box86_64/box64-" + box64Version + "-bionic.tzst", rootDir);
+            }
         }
 
-        // Update the metadata so the container knows which version is installed.
+        // Persist the NORMALIZED version we actually installed (not the raw "(Default)" string).
         container.putExtra("box64Version", box64Version);
         container.saveData();
 
-        // Set execute permissions.
-        File box64File = new File(rootDir, "usr/bin/box64");
+        // Set execute permissions — and if the binary is still missing, say so loudly instead of
+        // silently exec-ing a nonexistent box64.
         if (box64File.exists()) {
             FileUtils.chmod(box64File, 0755);
+        } else {
+            Log.e("Extraction", "box64 binary missing after extraction (version " + box64Version + ") — guest launch will fail");
         }
     }
 

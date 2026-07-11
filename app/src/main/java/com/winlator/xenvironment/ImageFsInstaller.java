@@ -254,18 +254,19 @@ public abstract class ImageFsInstaller {
                     }
                 );
 
+                // extras.tzst is downloaded (needs network) and only carries auxiliary helpers
+                // (generate_interfaces, Steamless, mono) — NOT the core guest runtime, which is the
+                // bundled redirect.tzst above. So a flaky-network failure here must NOT block the
+                // whole install (which would leave the user unable to launch at all). Warn and go on.
                 if (extrasFile != null && extrasFile.exists()) {
                     if (!TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, extrasFile, imagefs)) {
-                        Log.e("ImageFsInstaller", "extras.tzst extract failed (truncated/corrupt)");
-                        return false;
+                        Log.w("ImageFsInstaller", "extras.tzst extract failed (truncated) — continuing without extras");
                     }
                 } else {
-                    Log.e("ImageFsInstaller", "Failed to download extras.tzst");
-                    return false;
+                    Log.w("ImageFsInstaller", "Could not download extras.tzst — continuing without extras");
                 }
             } catch (Exception e) {
-                Log.e("ImageFsInstaller", "extras download/extract failed", e);
-                return false;
+                Log.w("ImageFsInstaller", "extras download/extract failed — continuing without extras", e);
             }
         } else {
             // Legacy variant: use bundled assets
