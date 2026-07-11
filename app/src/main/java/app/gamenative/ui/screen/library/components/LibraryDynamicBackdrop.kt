@@ -38,10 +38,19 @@ internal fun LibraryDynamicBackdrop(
 ) {
     val context = LocalContext.current
 
+    // When the user set an app-wide library wallpaper, don't paint the solid-black hero backdrop
+    // over it — keep this layer transparent so the wallpaper shows in carousel mode too. Keyed on
+    // AppWallpaperState.version so toggling the wallpaper recomposes this.
+    val wallpaperActive = run {
+        app.gamenative.ui.AppWallpaperState.version // read to subscribe
+        app.gamenative.PrefManager.libraryBackgroundEnabled &&
+            app.gamenative.PrefManager.libraryBackgroundVideoUri.isNotBlank()
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color.Black),
+            .background(if (wallpaperActive) Color.Transparent else Color.Black),
     ) {
         Crossfade(
             targetState = appInfo,

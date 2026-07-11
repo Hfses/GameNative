@@ -323,11 +323,15 @@ fun LibraryOptionsPanel(
                         var wpVideo by rememberSaveable { mutableStateOf(PrefManager.libraryBackgroundVideoUri) }
                         var wpImage by rememberSaveable { mutableStateOf(PrefManager.libraryBackgroundImageUri) }
                         var wpSound by rememberSaveable { mutableStateOf(PrefManager.libraryBackgroundSound) }
+                        // Persist read access so the wallpaper URI is still readable after a restart.
+                        // If this fails the video/image would silently vanish next launch, so log it.
                         val takePersist: (Uri) -> Unit = { uri ->
                             runCatching {
                                 wpCtx.contentResolver.takePersistableUriPermission(
                                     uri, Intent.FLAG_GRANT_READ_URI_PERMISSION,
                                 )
+                            }.onFailure {
+                                timber.log.Timber.w(it, "Wallpaper: could not persist URI permission for %s", uri)
                             }
                         }
                         val videoPicker = rememberLauncherForActivityResult(

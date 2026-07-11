@@ -326,6 +326,8 @@ internal fun LibraryCarouselPane(
 
     Scaffold(
         modifier = modifier,
+        // Transparent so the app-wide library wallpaper shows through (see LibraryListPane).
+        containerColor = Color.Transparent,
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { paddingValues ->
         PullToRefreshBox(

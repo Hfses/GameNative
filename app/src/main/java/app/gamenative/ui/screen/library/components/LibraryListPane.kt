@@ -39,6 +39,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInteropFilter
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -191,6 +192,10 @@ internal fun LibraryListPane(
 
     Scaffold(
         modifier = modifier,
+        // Transparent so the app-wide library wallpaper (video/image, drawn behind the NavHost)
+        // shows through the game grid. Safe when no wallpaper is set: LibraryScreen's root Box
+        // paints colorScheme.background in that case.
+        containerColor = Color.Transparent,
         snackbarHost = { SnackbarHost(snackBarHost) },
     ) { paddingValues ->
         Box(
