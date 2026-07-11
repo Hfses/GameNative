@@ -933,6 +933,9 @@
 
     <!-- Contents Manager -->
     <string name="contents_manager">Contents Manager</string>
+    <string name="custom_download_source">Extra download source</string>
+    <string name="custom_download_source_hint">Manifest URL (adds Box64/Wine/driver/DXVK versions)</string>
+    <string name="custom_download_source_saved">Download source saved</string>
     <string name="import_wcp_from_device">Import .wcp from device</string>
     <string name="working">Working...</string>
     <string name="selected">Selected</string>

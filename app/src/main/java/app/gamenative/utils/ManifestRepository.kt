@@ -15,13 +15,20 @@ object ManifestRepository {
     private val json = Json { ignoreUnknownKeys = true }
 
     suspend fun loadManifest(context: Context): ManifestData {
-        if (BuildConfig.DEBUG) {
-            readLocalManifest(context)?.let {
-                Timber.i("ManifestRepository: using local debug manifest")
-                return it
-            }
+        // The bundled asset is a curated base catalog that always works offline; the upstream and any
+        // user-supplied custom source are merged on top of it for extra download options.
+        var result = readLocalManifest(context) ?: ManifestData.empty()
+        if (BuildConfig.DEBUG && result.items.isNotEmpty()) {
+            Timber.i("ManifestRepository: using local debug manifest as base")
         }
 
+        result = result.merge(loadUpstreamManifest())
+        result = result.merge(loadCustomManifest())
+        return result
+    }
+
+    /** Upstream catalog, cached for a day in PrefManager. */
+    private suspend fun loadUpstreamManifest(): ManifestData {
         val cachedJson = PrefManager.componentManifestJson
         val cachedManifest = parseManifest(cachedJson) ?: ManifestData.empty()
         val lastFetchedAt = PrefManager.componentManifestFetchedAt
@@ -31,28 +38,43 @@ object ManifestRepository {
             return cachedManifest
         }
 
-        val fetched = fetchManifestJson()
+        val fetched = fetchManifestJson(MANIFEST_URL)
         if (fetched != null) {
             val parsed = parseManifest(fetched)
             if (parsed != null) {
-                val now = System.currentTimeMillis()
                 PrefManager.componentManifestJson = fetched
-                PrefManager.componentManifestFetchedAt = now
+                PrefManager.componentManifestFetchedAt = System.currentTimeMillis()
                 return parsed
             }
         }
-
         return cachedManifest
     }
 
-    private suspend fun fetchManifestJson(): String? = withContext(Dispatchers.IO) {
+    /** Optional user-configured extra source (PrefManager.customComponentManifestUrl), cached. */
+    private suspend fun loadCustomManifest(): ManifestData {
+        val url = PrefManager.customComponentManifestUrl.trim()
+        if (url.isEmpty() || !(url.startsWith("https://") || url.startsWith("http://"))) {
+            return ManifestData.empty()
+        }
+        val fetched = fetchManifestJson(url)
+        if (fetched != null) {
+            parseManifest(fetched)?.let {
+                PrefManager.customComponentManifestJson = fetched
+                return it
+            }
+        }
+        // Fall back to the last good custom manifest if the source is unreachable this run.
+        return parseManifest(PrefManager.customComponentManifestJson) ?: ManifestData.empty()
+    }
+
+    private suspend fun fetchManifestJson(url: String): String? = withContext(Dispatchers.IO) {
     try {
-        val request = Request.Builder().url(MANIFEST_URL).build()
+        val request = Request.Builder().url(url).build()
         Net.http.newCall(request).execute().use { response ->
             response.takeIf { it.isSuccessful }?.body?.string()
         }
     } catch (e: Exception) {
-        Timber.e(e, "ManifestRepository: fetch failed")
+        Timber.e(e, "ManifestRepository: fetch failed for $url")
         null
     }
 }

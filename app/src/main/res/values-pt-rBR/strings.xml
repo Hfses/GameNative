@@ -730,6 +730,9 @@
 
     <!-- Contents Manager -->
     <string name="contents_manager">Gerenciador de Conteúdos</string>
+    <string name="custom_download_source">Fonte extra de download</string>
+    <string name="custom_download_source_hint">URL do manifesto (adiciona versões de Box64/Wine/driver/DXVK)</string>
+    <string name="custom_download_source_saved">Fonte de download salva</string>
     <string name="import_wcp_from_device">Importar .wcp do dispositivo</string>
     <string name="working">Processando...</string>
     <string name="selected">Selecionado</string>

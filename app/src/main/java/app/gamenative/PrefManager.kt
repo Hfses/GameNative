@@ -153,6 +153,23 @@ object PrefManager {
             setPref(COMPONENT_MANIFEST_FETCHED_AT, value)
         }
 
+    // Optional extra component-manifest URL (Box64/Wine/driver/DXVK...). Merged on top of the
+    // bundled + upstream catalogs so users can add their own download sources.
+    private val CUSTOM_COMPONENT_MANIFEST_URL = stringPreferencesKey("custom_component_manifest_url")
+    var customComponentManifestUrl: String
+        get() = getPref(CUSTOM_COMPONENT_MANIFEST_URL, "")
+        set(value) {
+            setPref(CUSTOM_COMPONENT_MANIFEST_URL, value)
+        }
+
+    // Cache for the merged custom-manifest JSON (keyed implicitly by the URL above).
+    private val CUSTOM_COMPONENT_MANIFEST_JSON = stringPreferencesKey("custom_component_manifest_json")
+    var customComponentManifestJson: String
+        get() = getPref(CUSTOM_COMPONENT_MANIFEST_JSON, "")
+        set(value) {
+            setPref(CUSTOM_COMPONENT_MANIFEST_JSON, value)
+        }
+
     /* PICS */
     private val LAST_PICS_CHANGE_NUMBER = intPreferencesKey("last_pics_change_number")
     var lastPICSChangeNumber: Int

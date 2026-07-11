@@ -42,6 +42,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import app.gamenative.PrefManager
 import app.gamenative.R
 import app.gamenative.service.SteamService
 import com.winlator.contents.ContentProfile
@@ -199,6 +200,35 @@ fun ContentsManagerDialog(open: Boolean, onDismiss: () -> Unit) {
                     enabled = !isBusy,
                     modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
                 ) { Text(stringResource(R.string.import_wcp_from_device)) }
+
+                // Extra download source: a user-supplied manifest URL merged on top of the bundled
+                // and upstream catalogs, so more Box64/Wine/driver/DXVK versions become downloadable.
+                Divider(modifier = Modifier.padding(vertical = 4.dp))
+                Text(
+                    text = stringResource(R.string.custom_download_source),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+                var customUrl by remember { mutableStateOf(PrefManager.customComponentManifestUrl) }
+                NoExtractOutlinedTextField(
+                    value = customUrl,
+                    onValueChange = { customUrl = it },
+                    singleLine = true,
+                    placeholder = { Text(stringResource(R.string.custom_download_source_hint), style = MaterialTheme.typography.bodySmall) },
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
+                )
+                Button(
+                    onClick = {
+                        val trimmed = customUrl.trim()
+                        PrefManager.customComponentManifestUrl = trimmed
+                        // Force a refetch of the custom source next time the catalog loads.
+                        PrefManager.customComponentManifestJson = ""
+                        customUrl = trimmed
+                        SnackbarManager.show(ctx.getString(R.string.custom_download_source_saved))
+                    },
+                    enabled = !isBusy,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
+                ) { Text(stringResource(R.string.save)) }
 
                 if (isBusy) {
                     Row(
