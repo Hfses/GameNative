@@ -4744,18 +4744,21 @@ private suspend fun setupWineSystemFiles(
     // Always refresh components files
     refreshComponentsFiles(context)
 
-    // Normalize dxwrapper for state (dxvk includes version for extraction switch)
+    // Normalize dxwrapper for state (dxvk includes version for extraction switch).
+    // Fall back to the default version when the config key is missing, otherwise the name becomes
+    // "dxvk-null"/"vkd3d-null" — a component that doesn't exist, so nothing extracts and the guest
+    // fails at launch (e.g. a D3D12 title auto-routed to vkd3d without a vkd3dVersion set).
     if (xServerState.value.dxwrapper == "dxvk") {
-        xServerState.value = xServerState.value.copy(
-            dxwrapper = "dxvk-" + xServerState.value.dxwrapperConfig?.get("version"),
-        )
+        val v = xServerState.value.dxwrapperConfig?.get("version").orEmpty()
+            .ifEmpty { com.winlator.core.DefaultVersion.DXVK }
+        xServerState.value = xServerState.value.copy(dxwrapper = "dxvk-" + v)
     }
 
     // Also normalize VKD3D to include version like vkd3d-<version>
     if (xServerState.value.dxwrapper == "vkd3d") {
-        xServerState.value = xServerState.value.copy(
-            dxwrapper = "vkd3d-" + xServerState.value.dxwrapperConfig?.get("vkd3dVersion"),
-        )
+        val v = xServerState.value.dxwrapperConfig?.get("vkd3dVersion").orEmpty()
+            .ifEmpty { com.winlator.core.DefaultVersion.VKD3D }
+        xServerState.value = xServerState.value.copy(dxwrapper = "vkd3d-" + v)
     }
 
     // Cheap corruption guard: if any of the key D3D DLLs is missing or truncated in the
