@@ -71,20 +71,33 @@ public abstract class ImageFsInstaller {
         }
     }
 
-    public static void installWineFromDownloads(final Context context) {
+    /**
+     * Extracts every downloaded Wine/Proton archive into opt/. Returns false if a downloaded archive
+     * is present but fails to extract (truncated/corrupt) — a missing archive (a version the user
+     * didn't download) is skipped, not treated as a failure. The caller must NOT stamp the image as
+     * valid when this returns false, or the guest would later exec against a half-extracted Wine.
+     */
+    public static boolean installWineFromDownloads(final Context context) {
         String[] versions = context.getResources().getStringArray(R.array.bionic_wine_entries);
         File rootDir = ImageFs.find(context).getRootDir();
         ImageFs imageFs = ImageFs.find(context);
+        boolean allOk = true;
         for (String version : versions) {
             File downloaded = new File(imageFs.getFilesDir(), version + ".txz");
+            if (!downloaded.exists()) continue; // not downloaded (e.g. not selected) — skip
             File outFile = new File(rootDir, "/opt/" + version);
             outFile.mkdirs();
-            TarCompressorUtils.extract(
+            boolean ok = TarCompressorUtils.extract(
                 TarCompressorUtils.Type.XZ,
                 downloaded,
                 outFile
             );
+            if (!ok) {
+                Log.e("ImageFsInstaller", "Failed to extract Wine archive: " + downloaded.getPath());
+                allOk = false;
+            }
         }
+        return allOk;
     }
 
     // Modern flavor ships an additional bionic preload shipped as a flat asset
@@ -163,12 +176,24 @@ public abstract class ImageFsInstaller {
             }
 
             if (success) {
+                // The top-level imagefs extracted; now the guest runtime (Wine + redirect/extras
+                // libs). Only STAMP the image as valid when BOTH succeed — otherwise a half-installed
+                // tree (missing Box64/Wine/.so) gets marked complete and the guest launch SIGSEGVs,
+                // while the missing .variant makes it re-install (and re-wipe) on every launch.
+                boolean wineOk = installWineFromDownloads(context);
+                boolean libsOk = installGuestLibs(context);
+                success = wineOk && libsOk;
+            }
+
+            if (success) {
                 Log.d("ImageFsInstaller", "Successfully installed system files");
                 ContainerManager containerManager = new ContainerManager(context);
 
-                installWineFromDownloads(context);
-                installGuestLibs(context);
                 imageFs.createImgVersionFile(LATEST_VERSION);
+                // Write the variant here, atomically with the version, so installIfNeededFuture's
+                // variant check stops re-triggering on every launch (previously it was written only
+                // by a post-launch code path that the crash never reached).
+                imageFs.createVariantFile(containerVariant);
                 resetContainerImgVersions(context);
 
                 // Clear Steam DLL markers for all games
@@ -186,17 +211,26 @@ public abstract class ImageFsInstaller {
         });
     }
 
-    private static void installGuestLibs(Context ctx) {
+    /**
+     * Extracts the guest runtime libs (redirect.tzst → libredirect*.so) and extras.tzst into imagefs.
+     * Returns false on any essential failure so the caller does NOT stamp a half-installed image as
+     * valid — that half-install was the cause of the "installing bionic every launch" loop and the
+     * native SIGSEGV at guest launch (Box64/Wine exec against missing .so files).
+     */
+    private static boolean installGuestLibs(Context ctx) {
         final String ASSET_TAR = "redirect.tzst";          // ➊  add this to assets/
         File imagefs = new File(ctx.getFilesDir(), "imagefs");
         // ➋  Unpack straight into imagefs, preserving relative paths.
         try (InputStream in  = ctx.getAssets().open(ASSET_TAR)) {
-            TarCompressorUtils.extract(
+            if (!TarCompressorUtils.extract(
                     TarCompressorUtils.Type.ZSTD,      // you said .tzst
-                    in, imagefs);                      // helper already exists in the project
+                    in, imagefs)) {                    // helper already exists in the project
+                Log.e("ImageFsInstaller", "redirect.tzst extract failed (truncated/corrupt)");
+                return false;
+            }
         } catch (IOException e) {
             Log.e("ImageFsInstaller", "redirect deploy failed", e);
-            return;
+            return false;
         }
 
         // ➌  Make sure the new libs are world-readable / executable
@@ -221,23 +255,29 @@ public abstract class ImageFsInstaller {
                 );
 
                 if (extrasFile != null && extrasFile.exists()) {
-                    TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, extrasFile, imagefs);
+                    if (!TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, extrasFile, imagefs)) {
+                        Log.e("ImageFsInstaller", "extras.tzst extract failed (truncated/corrupt)");
+                        return false;
+                    }
                 } else {
                     Log.e("ImageFsInstaller", "Failed to download extras.tzst");
-                    return;
+                    return false;
                 }
             } catch (Exception e) {
                 Log.e("ImageFsInstaller", "extras download/extract failed", e);
-                return;
+                return false;
             }
         } else {
             // Legacy variant: use bundled assets
             final String EXTRAS_TAR = "extras.tzst";
             try (InputStream in = ctx.getAssets().open(EXTRAS_TAR)) {
-                TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, in, imagefs);
+                if (!TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, in, imagefs)) {
+                    Log.e("ImageFsInstaller", "extras.tzst (legacy) extract failed");
+                    return false;
+                }
             } catch (IOException e) {
                 Log.e("ImageFsInstaller", "extras deploy failed", e);
-                return;
+                return false;
             }
         }
 
@@ -245,6 +285,7 @@ public abstract class ImageFsInstaller {
         chmod(new File(imagefs, "generate_interfaces_file.exe"));
         chmod(new File(imagefs, "Steamless/Steamless.CLI.exe"));
         chmod(new File(imagefs, "opt/mono-gecko-offline/wine-mono-11.0.0-x86.msi"));
+        return true;
     }
 
     private static void chmod(File f) { if (f.exists()) FileUtils.chmod(f, 0755);}
