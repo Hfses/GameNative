@@ -689,6 +689,8 @@
     <string name="go_offline">Go Offline</string>
     <string name="log_out">Log Out</string>
     <string name="close">Close</string>
+    <string name="guest_launch_error_title">The game didn\'t start</string>
+    <string name="guest_launch_error_message">The emulator (box64/wine) exited with code %1$d. Screenshot this screen and send it for diagnosis.</string>
 
     <!-- System menu platform actions -->
     <string name="steam_sign_in">Sign in to Steam</string>

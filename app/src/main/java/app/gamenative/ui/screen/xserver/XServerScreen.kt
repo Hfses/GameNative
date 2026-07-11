@@ -555,6 +555,9 @@ fun XServerScreen(
     var showPhysicalControllerDialog by remember { mutableStateOf(false) }
     var showPlayingBlockedDialog by rememberSaveable { mutableStateOf(false) }
     var playingBlockedRemoteName by rememberSaveable { mutableStateOf<String?>(null) }
+    // Non-null when the guest (box64/wine) exited with a real error — drives an on-screen dialog with
+    // the exit code instead of silently closing the app (which made the crash impossible to diagnose).
+    var guestLaunchErrorStatus by rememberSaveable { mutableStateOf<Int?>(null) }
     var showTouchGestureDialog by remember { mutableStateOf(false) }
     var isTouchscreenModeActive by remember { mutableStateOf(container.isTouchscreenMode) }
     var currentGestureConfig by remember {
@@ -1607,6 +1610,10 @@ fun XServerScreen(
         Timber.i("onGuestProgramTerminated")
         exit(xServerView!!.getxServer().winHandler, frameRating, currentAppInfo, container, appId, onExit, navigateBack)
     }
+    val onGuestProgramLaunchError: (AndroidEvent.GuestProgramLaunchError) -> Unit = { event ->
+        Timber.i("onGuestProgramLaunchError status=${event.status}")
+        guestLaunchErrorStatus = event.status
+    }
     val onForceCloseApp: (SteamEvent.ForceCloseApp) -> Unit = {
         Timber.i("onForceCloseApp")
         exit(xServerView!!.getxServer().winHandler, frameRating, currentAppInfo, container, appId, onExit, navigateBack)
@@ -1629,6 +1636,7 @@ fun XServerScreen(
         PluviaApp.events.on<AndroidEvent.KeyEvent, Boolean>(onKeyEvent)
         PluviaApp.events.on<AndroidEvent.MotionEvent, Boolean>(onMotionEvent)
         PluviaApp.events.on<AndroidEvent.GuestProgramTerminated, Unit>(onGuestProgramTerminated)
+        PluviaApp.events.on<AndroidEvent.GuestProgramLaunchError, Unit>(onGuestProgramLaunchError)
         PluviaApp.events.on<SteamEvent.ForceCloseApp, Unit>(onForceCloseApp)
         PluviaApp.events.on<SteamEvent.PlayingBlocked, Unit>(onPlayingBlocked)
         ProcessHelper.addDebugCallback(debugCallback)
@@ -1638,6 +1646,7 @@ fun XServerScreen(
             PluviaApp.events.off<AndroidEvent.KeyEvent, Boolean>(onKeyEvent)
             PluviaApp.events.off<AndroidEvent.MotionEvent, Boolean>(onMotionEvent)
             PluviaApp.events.off<AndroidEvent.GuestProgramTerminated, Unit>(onGuestProgramTerminated)
+            PluviaApp.events.off<AndroidEvent.GuestProgramLaunchError, Unit>(onGuestProgramLaunchError)
             PluviaApp.events.off<SteamEvent.ForceCloseApp, Unit>(onForceCloseApp)
             PluviaApp.events.off<SteamEvent.PlayingBlocked, Unit>(onPlayingBlocked)
             ProcessHelper.removeDebugCallback(debugCallback)
@@ -2906,6 +2915,32 @@ fun XServerScreen(
         )
     }
 
+    // The guest failed to launch — show the exit code + the container's runtime versions ON SCREEN so
+    // the user can screenshot it (no adb needed) instead of the app just vanishing with a clean log.
+    guestLaunchErrorStatus?.let { st ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = {},
+            title = { Text(text = stringResource(R.string.guest_launch_error_title)) },
+            text = {
+                Text(
+                    text = stringResource(R.string.guest_launch_error_message, st) + "\n\n" +
+                        "Box64: ${container.box64Version}\n" +
+                        "Wine: ${container.wineVersion}\n" +
+                        "Box64 preset: ${container.box64Preset}\n" +
+                        "DX: ${container.dxWrapper}",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    guestLaunchErrorStatus = null
+                    exit(xServerView?.getxServer()?.winHandler, frameRating, currentAppInfo, container, appId, onExit, navigateBack)
+                }) {
+                    Text(text = stringResource(R.string.close))
+                }
+            },
+        )
+    }
+
     // Physical Controller Config Dialog
     if (showPhysicalControllerDialog) {
         // Get profile from container settings, not from InputControlsView
@@ -3662,22 +3697,29 @@ private fun setupXEnvironment(
     guestProgramLauncherComponent.envVars = envVars
 
     val gameTerminationCallback = Callback<Int> { status ->
-        if (status != 0) {
-            // Status 137 = 128 + 9 (SIGKILL). While the app is backgrounded this is almost always
-            // Android's low-memory/power management killing the paused guest, NOT a game bug —
-            // classify it separately so telemetry and the user aren't misled, and point at the
-            // real fix (battery optimization). A real in-game crash keeps the error path.
-            val killedInBackground = status == 137 && PluviaApp.isOverlayPaused
-            if (killedInBackground) {
-                Timber.w("Guest process killed by the system while backgrounded (status 137)")
-                app.gamenative.utils.SessionLogger.append(
-                    "Guest killed by system in background (137). Disable battery optimization for " +
-                        "GameNative to keep paused games alive.",
-                )
-            } else {
-                Timber.e("Guest program terminated with status: $status")
-                onGameLaunchError?.invoke("Game terminated with error status: $status")
-            }
+        // Status 137 = 128 + 9 (SIGKILL). While the app is backgrounded this is almost always
+        // Android's low-memory/power management killing the paused guest, NOT a game bug —
+        // classify it separately and close normally.
+        val killedInBackground = status == 137 && PluviaApp.isOverlayPaused
+        if (status != 0 && !killedInBackground) {
+            // A REAL failure (box64/wine couldn't run, or the game crashed). Show it on screen with
+            // the exit code instead of silently calling exit() — that silent close, with a clean
+            // logcat, is why the crash was impossible to diagnose. Persist it to the session log too.
+            Timber.e("Guest program terminated with status: $status")
+            app.gamenative.utils.SessionLogger.append(
+                "Guest exited with status $status (exe: $gameExecutable). The box64/wine guest failed " +
+                    "to run — check the container's Box64/Wine versions and DX wrapper.",
+            )
+            onGameLaunchError?.invoke("Game terminated with error status: $status")
+            PluviaApp.events.emit(AndroidEvent.GuestProgramLaunchError(status))
+            return@Callback
+        }
+        if (killedInBackground) {
+            Timber.w("Guest process killed by the system while backgrounded (status 137)")
+            app.gamenative.utils.SessionLogger.append(
+                "Guest killed by system in background (137). Disable battery optimization for " +
+                    "GameNative to keep paused games alive.",
+            )
         }
         PluviaApp.events.emit(AndroidEvent.GuestProgramTerminated)
     }

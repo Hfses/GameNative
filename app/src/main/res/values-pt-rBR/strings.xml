@@ -473,6 +473,8 @@
     <string name="go_offline">Ir offline</string>
     <string name="log_out">Sair</string>
     <string name="close">Fechar</string>
+    <string name="guest_launch_error_title">O jogo não abriu</string>
+    <string name="guest_launch_error_message">O emulador (box64/wine) encerrou com o código %1$d. Tire um print desta tela e envie para diagnóstico.</string>
 
     <!-- System menu platform actions -->
     <string name="steam_sign_in">Entrar no Steam</string>

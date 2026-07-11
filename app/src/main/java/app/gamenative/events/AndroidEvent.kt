@@ -11,6 +11,9 @@ interface AndroidEvent<T> : Event<T> {
     data object StartOrientator : AndroidEvent<Unit>
     data object ActivityDestroyed : AndroidEvent<Unit>
     data object GuestProgramTerminated : AndroidEvent<Unit>
+    // The guest (box64/wine) exited with a real error instead of a normal quit — carries the exit
+    // status so the UI can SHOW it (a code the user can screenshot) instead of silently closing.
+    data class GuestProgramLaunchError(val status: Int) : AndroidEvent<Unit>
     data class KeyEvent(val event: android.view.KeyEvent) : AndroidEvent<Boolean>
     data class MotionEvent(val event: android.view.MotionEvent?) : AndroidEvent<Boolean>
     data object EndProcess : AndroidEvent<Unit>
