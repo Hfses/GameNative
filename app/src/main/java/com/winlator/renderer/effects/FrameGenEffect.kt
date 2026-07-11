@@ -166,9 +166,21 @@ class FrameGenEffect : Effect() {
     }
 
     override fun destroy() {
-        invalidate()
+        // Delete the real GL objects directly. Do NOT route through invalidate() first: it zeroes the
+        // RenderTarget's framebuffer/texture handles WITHOUT deleting them, so the later
+        // mvBuffer.destroy() would have nothing left to free — leaking the MV FBO + its texture (and
+        // the MV shader program) on every frame-gen toggle-off.
+        if (historyTexture != 0) {
+            GLES20.glDeleteTextures(1, intArrayOf(historyTexture), 0)
+            historyTexture = 0
+        }
         mvBuffer.destroy()
+        mvMaterial?.destroy()
         mvMaterial = null
+        historyWidth = 0
+        historyHeight = 0
+        historyValid = false
+        mvValid = false
         super.destroy()
     }
 

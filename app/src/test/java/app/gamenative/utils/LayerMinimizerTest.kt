@@ -70,4 +70,13 @@ class LayerMinimizerTest {
         // UE titles import both; D3D12 wins (vkd3d branch also installs DXVK d3d11).
         assertEquals("vkd3d", LayerMinimizer.decide(facts("d3d11.dll", "d3d12.dll", "dxgi.dll")).dxwrapper)
     }
+
+    @Test fun `dxgi alone is ambiguous and stays unknown`() {
+        // dxgi is shared by D3D10/11/12; a D3D12 title that loads d3d12.dll at runtime imports only
+        // dxgi statically. It must NOT be forced to dxvk (no d3d12) — keep default so the
+        // network DX-version detection can still pick vkd3d.
+        val v = LayerMinimizer.decide(facts("dxgi.dll", "kernel32.dll"))
+        assertEquals(LayerMinimizer.Confidence.UNKNOWN, v.confidence)
+        assertNull(v.dxwrapper)
+    }
 }

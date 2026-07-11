@@ -52,8 +52,12 @@ object LayerMinimizer {
             has("d3d12.dll", "d3d12core.dll") && facts.is64Bit && vkCapsGood ->
                 Verdict("vkd3d", emptyMap(), Confidence.SURE, "$ev → D3D12 (VKD3D)")
 
-            // D3D10/11 family → DXVK.
-            has("d3d11.dll", "d3d10.dll", "d3d10_1.dll", "d3d10core.dll", "dxgi.dll") && vkCapsGood ->
+            // D3D10/11 family → DXVK. NOTE: dxgi.dll is deliberately NOT enough on its own — it is
+            // shared by D3D10/11/12, and many D3D12 titles statically import only dxgi and load
+            // d3d12.dll at runtime. Matching dxgi alone here would mislabel them "dxvk" (which has no
+            // d3d12) and, worse, mark the layer decided so the D3D12→vkd3d network detection is
+            // skipped → device-creation failure at launch. Require a concrete D3D10/11 import.
+            has("d3d11.dll", "d3d10.dll", "d3d10_1.dll", "d3d10core.dll") && vkCapsGood ->
                 Verdict("dxvk", emptyMap(), Confidence.SURE, "$ev → D3D10/11 (DXVK)")
 
             // D3D9 → DXVK d3d9 frontend.
