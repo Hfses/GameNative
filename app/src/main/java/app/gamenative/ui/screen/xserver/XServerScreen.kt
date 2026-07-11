@@ -112,6 +112,7 @@ import app.gamenative.ui.widget.PerformanceHudView
 import app.gamenative.utils.AssetUtils
 import app.gamenative.utils.ContainerUtils
 import app.gamenative.utils.TelemetryCollector
+import app.gamenative.utils.TipsAdvisor
 import app.gamenative.utils.downloader.CoreDriverDownloader
 import app.gamenative.utils.CustomGameScanner
 import app.gamenative.utils.ExecutableSelectionUtils
@@ -2665,6 +2666,30 @@ fun XServerScreen(
             )
         }
 
+        // Dicas (Tips): the game is paused while the overlay is up, so snapshot the recent FPS and
+        // compute the recommendation when the menu opens rather than polling live.
+        var dicasRecentFps by remember { mutableStateOf<List<Float>>(emptyList()) }
+        var dicasAvgFps by remember { mutableStateOf(0.0) }
+        var dicasMinFps by remember { mutableStateOf(0.0) }
+        var dicasTip by remember { mutableStateOf<TipsAdvisor.Tip?>(null) }
+        LaunchedEffect(showQuickMenu) {
+            if (showQuickMenu) {
+                dicasRecentFps = TelemetryCollector.recentFps()
+                dicasAvgFps = TelemetryCollector.liveAverageFps()
+                dicasMinFps = TelemetryCollector.liveMinFps()
+                val cap = if (fpsLimiterEnabled) fpsLimiterTarget else 0
+                dicasTip = TipsAdvisor.advise(context, appId, dicasAvgFps, cap)
+            }
+        }
+        val dicasTipText = when (dicasTip?.reason) {
+            TipsAdvisor.Reason.LOW_FPS -> stringResource(R.string.dicas_tip_low_fps)
+            TipsAdvisor.Reason.THERMAL -> stringResource(R.string.dicas_tip_thermal, dicasTip?.fpsCap ?: 0)
+            TipsAdvisor.Reason.CRASHES -> stringResource(R.string.dicas_tip_crashes)
+            TipsAdvisor.Reason.HEALTHY -> stringResource(R.string.dicas_tip_healthy)
+            null -> ""
+        }
+        val dicasCanApply = dicasTip?.let { it.box64Preset != null || it.fpsCap != null } == true
+
         QuickMenu(
             isVisible = showQuickMenu,
             onDismiss = dismissOverlayMenu,
@@ -2727,6 +2752,32 @@ fun XServerScreen(
                 app.gamenative.ui.util.SnackbarManager.show(
                     context.getString(R.string.quickmenu_max_profile_applied),
                 )
+            },
+            dicasRecentFps = dicasRecentFps,
+            dicasAvgFps = dicasAvgFps,
+            dicasMinFps = dicasMinFps,
+            dicasTipText = dicasTipText,
+            dicasCanApply = dicasCanApply,
+            onApplyDicasTip = {
+                val tip = dicasTip
+                if (tip != null) {
+                    tip.box64Preset?.let { preset ->
+                        container.box64Preset = preset
+                        // Keep the "Perfil Máximo" toggle coherent with what we just applied.
+                        maxProfileEnabled = preset == com.winlator.box86_64.Box86_64Preset.MAX_PERFORMANCE
+                        if (!maxProfileEnabled) preMaxProfilePreset = preset
+                    }
+                    tip.fpsCap?.let { cap ->
+                        if (cap > 0) {
+                            applyFpsLimiterEnabled(true)
+                            applyFpsLimiterTarget(cap)
+                        }
+                    }
+                    container.saveData()
+                    app.gamenative.ui.util.SnackbarManager.show(
+                        context.getString(R.string.dicas_applied),
+                    )
+                }
             },
             onAnimationComplete = { isMenuVisible ->
                 if (isMenuVisible) {

@@ -52,11 +52,13 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Gamepad
 import androidx.compose.material.icons.filled.Keyboard
+import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Mouse
 import androidx.compose.material.icons.filled.QueryStats
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.TouchApp
+import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -119,6 +121,7 @@ private object QuickMenuTab {
     const val EFFECTS = 2
     const val CONTROLLER = 3
     const val TOOLS = 4
+    const val DICAS = 5
 }
 
 data class QuickMenuItem(
@@ -270,6 +273,13 @@ fun QuickMenu(
     onLsfgPerformanceModeChanged: (Boolean) -> Unit = {},
     maxProfileEnabled: Boolean = false,
     onMaxProfileChanged: (Boolean) -> Unit = {},
+    // "Dicas" (Tips) tab: a snapshot of recent FPS + a one-tap recommended config.
+    dicasRecentFps: List<Float> = emptyList(),
+    dicasAvgFps: Double = 0.0,
+    dicasMinFps: Double = 0.0,
+    dicasTipText: String = "",
+    dicasCanApply: Boolean = false,
+    onApplyDicasTip: () -> Unit = {},
     onAnimationComplete: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -356,6 +366,7 @@ fun QuickMenu(
         QuickMenuTab.LSFG -> R.string.lsfg_tab_title
         QuickMenuTab.EFFECTS -> R.string.screen_effects
         QuickMenuTab.TOOLS -> R.string.task_manager
+        QuickMenuTab.DICAS -> R.string.dicas_tab_title
         else -> R.string.quick_menu_tab_controller
     }
 
@@ -368,6 +379,9 @@ fun QuickMenu(
     val hudTabFocusRequester = remember { FocusRequester() }
     val controllerTabFocusRequester = remember { FocusRequester() }
     val toolsTabFocusRequester = remember { FocusRequester() }
+    val dicasTabFocusRequester = remember { FocusRequester() }
+    val dicasItemFocusRequester = remember { FocusRequester() }
+    val dicasScrollState = rememberScrollState()
     val hudItemFocusRequester = remember { FocusRequester() }
     val effectsItemFocusRequester = remember { FocusRequester() }
     val controllerItemFocusRequester = remember { FocusRequester() }
@@ -534,6 +548,18 @@ fun QuickMenu(
                                     modifier = Modifier.width(56.dp),
                                     focusRequester = toolsTabFocusRequester,
                                 )
+                                QuickMenuTabButton(
+                                    icon = Icons.Default.Lightbulb,
+                                    contentDescriptionResId = R.string.dicas_tab_title,
+                                    selected = selectedTab == QuickMenuTab.DICAS,
+                                    accentColor = PluviaTheme.colors.accentPurple,
+                                    onSelected = {
+                                        selectedTab = QuickMenuTab.DICAS
+                                        PrefManager.quickMenuLastTab = selectedTab
+                                    },
+                                    modifier = Modifier.width(56.dp),
+                                    focusRequester = dicasTabFocusRequester,
+                                )
                             }
 
                             Box(
@@ -663,6 +689,20 @@ fun QuickMenu(
                                         )
                                     }
 
+                                    QuickMenuTab.DICAS -> {
+                                        DicasQuickMenuTab(
+                                            recentFps = dicasRecentFps,
+                                            avgFps = dicasAvgFps,
+                                            minFps = dicasMinFps,
+                                            tipText = dicasTipText,
+                                            canApply = dicasCanApply,
+                                            onApply = onApplyDicasTip,
+                                            scrollState = dicasScrollState,
+                                            focusRequester = dicasItemFocusRequester,
+                                            modifier = Modifier.fillMaxSize(),
+                                        )
+                                    }
+
                                     else -> {
                                         Column(
                                             modifier = Modifier
@@ -711,6 +751,7 @@ fun QuickMenu(
                         QuickMenuTab.LSFG -> lsfgItemFocusRequester.requestFocus()
                         QuickMenuTab.EFFECTS -> effectsItemFocusRequester.requestFocus()
                         QuickMenuTab.TOOLS -> toolsItemFocusRequester.requestFocus()
+                        QuickMenuTab.DICAS -> dicasItemFocusRequester.requestFocus()
                         else -> controllerItemFocusRequester.requestFocus()
                     }
                     return@LaunchedEffect
@@ -1229,6 +1270,117 @@ private fun LsfgQuickMenuTab(
         )
 
         Spacer(modifier = Modifier.height(12.dp))
+    }
+}
+
+@Composable
+private fun DicasQuickMenuTab(
+    recentFps: List<Float>,
+    avgFps: Double,
+    minFps: Double,
+    tipText: String,
+    canApply: Boolean,
+    onApply: () -> Unit,
+    scrollState: ScrollState,
+    focusRequester: FocusRequester,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .verticalScroll(scrollState)
+            .padding(horizontal = 8.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        QuickMenuSectionHeader(
+            title = stringResource(R.string.dicas_fps_history),
+            subtitle = stringResource(R.string.dicas_fps_history_subtitle),
+        )
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(24.dp),
+        ) {
+            DicasStat(
+                label = stringResource(R.string.dicas_avg_fps),
+                value = if (avgFps > 0.0) avgFps.roundToInt().toString() else "—",
+            )
+            DicasStat(
+                label = stringResource(R.string.dicas_min_fps),
+                value = if (minFps > 0.0) minFps.roundToInt().toString() else "—",
+            )
+        }
+
+        if (recentFps.isEmpty()) {
+            Text(
+                text = stringResource(R.string.dicas_no_data),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 8.dp),
+            )
+        } else {
+            val barColor = MaterialTheme.colorScheme.primary
+            val maxFps = (recentFps.maxOrNull() ?: 1f).coerceAtLeast(1f)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+                    .padding(horizontal = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                verticalAlignment = Alignment.Bottom,
+            ) {
+                recentFps.takeLast(40).forEach { fps ->
+                    val frac = (fps / maxFps).coerceIn(0.05f, 1f)
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight(frac)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(barColor),
+                    )
+                }
+            }
+        }
+
+        HorizontalDivider(
+            modifier = Modifier.padding(horizontal = 8.dp),
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
+        )
+
+        QuickMenuSectionHeader(title = stringResource(R.string.dicas_recommendation))
+        Text(
+            text = tipText.ifBlank { stringResource(R.string.dicas_no_data) },
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(horizontal = 8.dp),
+        )
+        Button(
+            onClick = onApply,
+            enabled = canApply,
+            modifier = Modifier
+                .padding(horizontal = 8.dp)
+                .focusRequester(focusRequester),
+        ) {
+            Text(stringResource(R.string.dicas_apply))
+        }
+    }
+}
+
+@Composable
+private fun DicasStat(label: String, value: String) {
+    Column(horizontalAlignment = Alignment.Start) {
+        Text(
+            text = value,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

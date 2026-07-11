@@ -31,6 +31,8 @@ object TelemetryCollector {
     private const val LOW_FPS_THRESHOLD = 25.0
     private const val CRASHES_FOR_SUGGESTION = 2
 
+    private const val FPS_HISTORY_SIZE = 60
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var samplerJob: Job? = null
 
@@ -39,6 +41,8 @@ object TelemetryCollector {
     private var fpsSum = 0.0
     private var fpsSampleCount = 0
     private var fpsMin = Double.MAX_VALUE
+    // Bounded rolling window of the most recent FPS samples for the live "Dicas" (Tips) view.
+    private val fpsHistory = ArrayDeque<Float>()
 
     @Synchronized
     fun start(context: Context, appId: String, fpsProvider: () -> Float) {
@@ -48,6 +52,7 @@ object TelemetryCollector {
         fpsSum = 0.0
         fpsSampleCount = 0
         fpsMin = Double.MAX_VALUE
+        synchronized(this) { fpsHistory.clear() }
 
         val appContext = context.applicationContext
         scope.launch {
@@ -80,6 +85,8 @@ object TelemetryCollector {
                         fpsSum += fps
                         fpsSampleCount++
                         if (fps < fpsMin) fpsMin = fps
+                        fpsHistory.addLast(fps.toFloat())
+                        while (fpsHistory.size > FPS_HISTORY_SIZE) fpsHistory.removeFirst()
                     }
                 }
             }
@@ -208,6 +215,18 @@ object TelemetryCollector {
             null
         }
     }
+
+    /** Snapshot of the current session's recent FPS samples (oldest first), for the live Tips view. */
+    @Synchronized
+    fun recentFps(): List<Float> = fpsHistory.toList()
+
+    /** Live average FPS of the current session, or 0 if nothing sampled yet. */
+    @Synchronized
+    fun liveAverageFps(): Double = if (fpsSampleCount > 0) fpsSum / fpsSampleCount else 0.0
+
+    /** Live minimum FPS of the current session, or 0 if nothing sampled yet. */
+    @Synchronized
+    fun liveMinFps(): Double = if (fpsSampleCount > 0 && fpsMin != Double.MAX_VALUE) fpsMin else 0.0
 
     private fun telemetryDir(context: Context): File = File(context.filesDir, "telemetry")
 

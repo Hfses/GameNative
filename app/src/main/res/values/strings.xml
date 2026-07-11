@@ -1643,6 +1643,20 @@
     <string name="quickmenu_max_profile_toggle">Box64 Max Performance</string>
     <string name="quickmenu_max_profile_desc">Aggressive translation profile for CPU-bound games. Takes effect on the next game start.</string>
     <string name="quickmenu_max_profile_applied">Profile saved — applies the next time the game starts</string>
+    <!-- Dicas (Tips) tab -->
+    <string name="dicas_tab_title">Tips</string>
+    <string name="dicas_fps_history">FPS history</string>
+    <string name="dicas_fps_history_subtitle">Recent samples from this session</string>
+    <string name="dicas_avg_fps">Average</string>
+    <string name="dicas_min_fps">Minimum</string>
+    <string name="dicas_no_data">Not enough data yet — play a little longer.</string>
+    <string name="dicas_recommendation">Recommendation</string>
+    <string name="dicas_tip_low_fps">FPS is low. Try the Maximum Box64 profile for more speed on CPU-bound games.</string>
+    <string name="dicas_tip_thermal">The device is heating up. Capping FPS around %1$d keeps it stable and avoids sudden drops.</string>
+    <string name="dicas_tip_crashes">This game has crashed before. The Compatibility profile trades some speed for stability.</string>
+    <string name="dicas_tip_healthy">Performance looks healthy — no change needed.</string>
+    <string name="dicas_apply">Apply</string>
+    <string name="dicas_applied">Applied — the Box64 profile takes effect the next time the game starts</string>
     <string name="settings_launch_big_picture_title">Open Steam in Big Picture</string>
     <string name="settings_launch_big_picture_subtitle">When Launch Real Steam is on, boot into Steam\'s gamepad UI instead of auto-launching the game. Experimental: the Steam UI may render black on some devices.</string>
     <string name="lsfg_description">Generate intermediate frames using Lossless Scaling\'s Vulkan layer. Only known to work on Adreno 6xx and above.</string>

@@ -1400,6 +1400,20 @@
     <string name="quickmenu_max_profile_toggle">Box64 Máximo Desempenho</string>
     <string name="quickmenu_max_profile_desc">Perfil agressivo de tradução para jogos com CPU no talo. Vale a partir do próximo início do jogo.</string>
     <string name="quickmenu_max_profile_applied">Perfil salvo — aplica na próxima vez que o jogo abrir</string>
+    <!-- Aba Dicas -->
+    <string name="dicas_tab_title">Dicas</string>
+    <string name="dicas_fps_history">Histórico de FPS</string>
+    <string name="dicas_fps_history_subtitle">Amostras recentes desta sessão</string>
+    <string name="dicas_avg_fps">Média</string>
+    <string name="dicas_min_fps">Mínimo</string>
+    <string name="dicas_no_data">Ainda sem dados suficientes — jogue mais um pouco.</string>
+    <string name="dicas_recommendation">Recomendação</string>
+    <string name="dicas_tip_low_fps">O FPS está baixo. Experimente o perfil Máximo do Box64 para mais velocidade em jogos limitados pela CPU.</string>
+    <string name="dicas_tip_thermal">O aparelho está esquentando. Limitar o FPS em torno de %1$d mantém a estabilidade e evita quedas repentinas.</string>
+    <string name="dicas_tip_crashes">Este jogo já travou antes. O perfil Compatibilidade troca um pouco de velocidade por estabilidade.</string>
+    <string name="dicas_tip_healthy">O desempenho parece saudável — nenhuma mudança necessária.</string>
+    <string name="dicas_apply">Aplicar</string>
+    <string name="dicas_applied">Aplicado — o perfil do Box64 vale a partir do próximo início do jogo</string>
     <string name="settings_launch_big_picture_title">Abrir Steam em Big Picture</string>
     <string name="settings_launch_big_picture_subtitle">Com o Steam real ativado, abre a interface de controle da Steam em vez de iniciar o jogo direto. Experimental: a interface pode ficar preta em alguns aparelhos.</string>
     <string name="lsfg_description">Gerar quadros intermediários usando a camada Vulkan do Lossless Scaling. Funciona apenas em Adreno 6xx e posteriores, conforme se sabe.</string>
