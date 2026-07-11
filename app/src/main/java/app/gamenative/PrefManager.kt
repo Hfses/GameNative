@@ -170,6 +170,16 @@ object PrefManager {
             setPref(CUSTOM_COMPONENT_MANIFEST_JSON, value)
         }
 
+    // Auto-detect the minimal DX translation layer from the game's PE imports at container creation.
+    // Default OFF: it can pick a wrong wrapper for a new game (e.g. D3D12 → dxvk) and there's no
+    // simple undo once the container is made, so it's opt-in for power users.
+    private val LAYER_MINIMIZER_ENABLED = booleanPreferencesKey("layer_minimizer_enabled")
+    var layerMinimizerEnabled: Boolean
+        get() = getPref(LAYER_MINIMIZER_ENABLED, false)
+        set(value) {
+            setPref(LAYER_MINIMIZER_ENABLED, value)
+        }
+
     /* PICS */
     private val LAST_PICS_CHANGE_NUMBER = intPreferencesKey("last_pics_change_number")
     var lastPICSChangeNumber: Int

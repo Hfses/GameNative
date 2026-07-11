@@ -995,7 +995,10 @@ object ContainerUtils {
         // overrides when it's SURE — otherwise we fall back to the network/default below.
         var layerDecided = false
         try {
-            val exeFile = resolveGameExeFile(context, appId, gameSource, containerData)
+            // Opt-in only (default OFF): auto-picking the DX wrapper can choose wrong for some games
+            // and there's no easy undo once the container exists, so leave the default/network path
+            // in control unless the user explicitly enabled it.
+            val exeFile = if (PrefManager.layerMinimizerEnabled) resolveGameExeFile(context, appId, gameSource, containerData) else null
             if (exeFile != null && exeFile.isFile) {
                 val verdict = LayerMinimizer.analyze(exeFile)
                 if (verdict.confidence == LayerMinimizer.Confidence.SURE && verdict.dxwrapper != null) {

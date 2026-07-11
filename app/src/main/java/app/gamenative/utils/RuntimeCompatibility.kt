@@ -186,11 +186,23 @@ object RuntimeCompatibility {
         val wineLibc = detectWineLibc(wineDir)
         if (wineLibc != Libc.UNKNOWN && wineLibc != needLibc) {
             val fallback = if (needLibc == Libc.BIONIC) FALLBACK_WINE_BIONIC else FALLBACK_WINE_GLIBC
-            messages += context.getString(
-                app.gamenative.R.string.runtime_compat_wine_libc_fixed,
-                wineId, wineLibc.name.lowercase(), variant, fallback,
-            )
-            container.wineVersion = fallback
+            // Only swap to the fallback if it is ACTUALLY installed on disk. Otherwise we'd move the
+            // container onto a Wine that has no files and the guest can't start at all — worse than
+            // the mismatch, and a silent "worked before, closes now" regression. If missing, leave
+            // the container's Wine untouched.
+            val fallbackInstalled = runCatching {
+                WineInfo.fromIdentifier(context, contentsManager, fallback)
+                    ?.path?.takeIf { it.isNotEmpty() }?.let { File(it).isDirectory }
+            }.getOrNull() == true
+            if (fallbackInstalled) {
+                messages += context.getString(
+                    app.gamenative.R.string.runtime_compat_wine_libc_fixed,
+                    wineId, wineLibc.name.lowercase(), variant, fallback,
+                )
+                container.wineVersion = fallback
+            } else {
+                Timber.w("RuntimeCompatibility: wine libc mismatch but fallback $fallback not installed — leaving container Wine unchanged")
+            }
         }
 
         // 2. Box64 minimum for the (possibly corrected) wine series.
