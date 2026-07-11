@@ -604,6 +604,18 @@ fun XServerScreen(
     var maxProfileEnabled by rememberSaveable(container.id) {
         mutableStateOf(container.box64Preset == com.winlator.box86_64.Box86_64Preset.MAX_PERFORMANCE)
     }
+    // The preset to fall back to when Perfil Máximo is turned OFF, so it restores the user's own
+    // choice instead of clobbering it with PERFORMANCE. If Max is already on at open time we don't
+    // know the prior preset, so default the restore target to PERFORMANCE.
+    var preMaxProfilePreset by rememberSaveable(container.id) {
+        mutableStateOf(
+            if (container.box64Preset == com.winlator.box86_64.Box86_64Preset.MAX_PERFORMANCE) {
+                com.winlator.box86_64.Box86_64Preset.PERFORMANCE
+            } else {
+                container.box64Preset
+            },
+        )
+    }
 
     fun persistFpsLimiterState() {
         container.putExtra(FPS_LIMITER_ENABLED_EXTRA, fpsLimiterEnabled)
@@ -2702,10 +2714,14 @@ fun XServerScreen(
             maxProfileEnabled = maxProfileEnabled,
             onMaxProfileChanged = { enabled ->
                 maxProfileEnabled = enabled
-                container.box64Preset = if (enabled) {
-                    com.winlator.box86_64.Box86_64Preset.MAX_PERFORMANCE
+                if (enabled) {
+                    // Remember the current preset so turning Max off restores it, not PERFORMANCE.
+                    if (container.box64Preset != com.winlator.box86_64.Box86_64Preset.MAX_PERFORMANCE) {
+                        preMaxProfilePreset = container.box64Preset
+                    }
+                    container.box64Preset = com.winlator.box86_64.Box86_64Preset.MAX_PERFORMANCE
                 } else {
-                    com.winlator.box86_64.Box86_64Preset.PERFORMANCE
+                    container.box64Preset = preMaxProfilePreset
                 }
                 container.saveData()
                 app.gamenative.ui.util.SnackbarManager.show(

@@ -127,7 +127,12 @@ fun EmulationTabContent(state: ContainerConfigState) {
         SettingsListDropdown(
             colors = settingsTileColors(),
             title = { Text(text = stringResource(R.string.box64_preset)) },
-            value = state.box64Presets.indexOfFirst { it.id == config.box64Preset }.coerceAtLeast(0),
+            // Match case-insensitively; if the stored preset isn't in the list (removed custom
+            // preset, case/spelling drift, version skew) keep it VISIBLE via fallbackDisplay instead
+            // of collapsing to index 0 — index 0 is STABILITY, and that silent collapse was the
+            // phantom "reverte para estabilidade" the user reported.
+            value = state.box64Presets.indexOfFirst { it.id.equals(config.box64Preset, ignoreCase = true) },
+            fallbackDisplay = config.box64Preset,
             items = state.box64Presets.map { it.name },
             onItemSelected = {
                 state.config.value = config.copy(box64Preset = state.box64Presets[it].id)
@@ -138,7 +143,8 @@ fun EmulationTabContent(state: ContainerConfigState) {
             SettingsListDropdown(
                 colors = settingsTileColors(),
                 title = { Text(text = stringResource(R.string.fexcore_preset)) },
-                value = state.fexcorePresets.indexOfFirst { it.id == config.fexcorePreset }.coerceAtLeast(0),
+                value = state.fexcorePresets.indexOfFirst { it.id.equals(config.fexcorePreset, ignoreCase = true) },
+                fallbackDisplay = config.fexcorePreset,
                 items = state.fexcorePresets.map { it.name },
                 onItemSelected = {
                     state.config.value = config.copy(fexcorePreset = state.fexcorePresets[it].id)

@@ -24,7 +24,12 @@ public abstract class Box86_64PresetManager {
         String ucPrefix = prefix.toUpperCase(Locale.ENGLISH);
         EnvVars envVars = new EnvVars();
 
-        if (id.equals(Box86_64Preset.STABILITY)) {
+        // Match preset ids case-insensitively (and null-safely): a stored id like "performance" or
+        // one imported from a community config must still resolve to its env vars, otherwise it
+        // falls through to an empty set and no dynarec preset is applied at launch.
+        String normId = id == null ? "" : id.toUpperCase(Locale.ENGLISH);
+
+        if (normId.equals(Box86_64Preset.STABILITY)) {
             envVars.put(ucPrefix + "_DYNAREC_SAFEFLAGS", "2");
             envVars.put(ucPrefix + "_DYNAREC_FASTNAN", "0");
             envVars.put(ucPrefix + "_DYNAREC_FASTROUND", "0");
@@ -39,7 +44,7 @@ public abstract class Box86_64PresetManager {
                 envVars.put("BOX64_UNITYPLAYER", "1");
                 envVars.put("BOX64_MMAP32", "0");
             }
-        } else if (id.equals(Box86_64Preset.COMPATIBILITY)) {
+        } else if (normId.equals(Box86_64Preset.COMPATIBILITY)) {
             envVars.put(ucPrefix + "_DYNAREC_SAFEFLAGS", "2");
             envVars.put(ucPrefix + "_DYNAREC_FASTNAN", "0");
             envVars.put(ucPrefix + "_DYNAREC_FASTROUND", "0");
@@ -54,7 +59,7 @@ public abstract class Box86_64PresetManager {
                 envVars.put("BOX64_UNITYPLAYER", "1");
                 envVars.put("BOX64_MMAP32", "0");
             }
-        } else if (id.equals(Box86_64Preset.INTERMEDIATE)) {
+        } else if (normId.equals(Box86_64Preset.INTERMEDIATE)) {
             envVars.put(ucPrefix + "_DYNAREC_SAFEFLAGS", "2");
             envVars.put(ucPrefix + "_DYNAREC_FASTNAN", "1");
             envVars.put(ucPrefix + "_DYNAREC_FASTROUND", "0");
@@ -69,7 +74,7 @@ public abstract class Box86_64PresetManager {
                 envVars.put("BOX64_UNITYPLAYER", "0");
                 envVars.put("BOX64_MMAP32", "1");
             }
-        } else if (id.equals(Box86_64Preset.PERFORMANCE)) {
+        } else if (normId.equals(Box86_64Preset.PERFORMANCE)) {
             envVars.put(ucPrefix + "_DYNAREC_SAFEFLAGS", "1");
             envVars.put(ucPrefix + "_DYNAREC_FASTNAN", "1");
             envVars.put(ucPrefix + "_DYNAREC_FASTROUND", "1");
@@ -84,7 +89,7 @@ public abstract class Box86_64PresetManager {
                 envVars.put("BOX64_UNITYPLAYER", "0");
                 envVars.put("BOX64_MMAP32", "1");
             }
-        } else if (id.equals(Box86_64Preset.MAX_PERFORMANCE)) {
+        } else if (normId.equals(Box86_64Preset.MAX_PERFORMANCE)) {
             // Aggressive profile for CPU-bound games (CPU pegged at 100%, GPU idle). Pushes the
             // dynarec knobs the PERFORMANCE preset leaves conservative — the biggest CPU relief
             // comes from SAFEFLAGS=0 (drop dead EFLAGS computation) and NATIVEFLAGS=1 (map x86
@@ -107,7 +112,7 @@ public abstract class Box86_64PresetManager {
                 envVars.put("BOX64_UNITYPLAYER", "0");
                 envVars.put("BOX64_MMAP32", "1");
             }
-        } else if (id.equals(Box86_64Preset.DENUVO)) {
+        } else if (normId.equals(Box86_64Preset.DENUVO)) {
             envVars.put(ucPrefix + "_DYNAREC_SAFEFLAGS", "2");
             envVars.put(ucPrefix + "_DYNAREC_FASTNAN", "0");
             envVars.put(ucPrefix + "_DYNAREC_FASTROUND", "0");
@@ -122,7 +127,7 @@ public abstract class Box86_64PresetManager {
                 envVars.put("BOX64_UNITYPLAYER", "1");
                 envVars.put("BOX64_MMAP32", "0");
             }
-        } else if (id.equals(Box86_64Preset.UNITY)) {
+        } else if (normId.equals(Box86_64Preset.UNITY)) {
             envVars.put(ucPrefix + "_DYNAREC_SAFEFLAGS", "1");
             envVars.put(ucPrefix + "_DYNAREC_FASTNAN", "1");
             envVars.put(ucPrefix + "_DYNAREC_FASTROUND", "1");
@@ -137,7 +142,7 @@ public abstract class Box86_64PresetManager {
                 envVars.put("BOX64_UNITYPLAYER", "0");
                 envVars.put("BOX64_MMAP32", "0");
             }
-        } else if (id.equals(Box86_64Preset.UNITY_MONO_BLEEDING_EDGE)) {
+        } else if (normId.equals(Box86_64Preset.UNITY_MONO_BLEEDING_EDGE)) {
             envVars.put(ucPrefix + "_DYNAREC_SAFEFLAGS", "1");
             envVars.put(ucPrefix + "_DYNAREC_FASTNAN", "1");
             envVars.put(ucPrefix + "_DYNAREC_FASTROUND", "1");
@@ -180,8 +185,9 @@ public abstract class Box86_64PresetManager {
     }
 
     public static Box86_64Preset getPreset(String prefix, Context context, String id) {
+        if (id == null) return null;
         for (Box86_64Preset preset : getPresets(prefix, context))
-            if (preset.id.equals(id)) return preset;
+            if (preset.id.equalsIgnoreCase(id)) return preset;
         return null;
     }
 
