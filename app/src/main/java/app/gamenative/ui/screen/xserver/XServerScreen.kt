@@ -112,7 +112,6 @@ import app.gamenative.ui.widget.PerformanceHudView
 import app.gamenative.utils.AssetUtils
 import app.gamenative.utils.ContainerUtils
 import app.gamenative.utils.TelemetryCollector
-import app.gamenative.utils.TipsAdvisor
 import app.gamenative.utils.downloader.CoreDriverDownloader
 import app.gamenative.utils.CustomGameScanner
 import app.gamenative.utils.ExecutableSelectionUtils
@@ -397,49 +396,6 @@ fun XServerScreen(
         }
     }
 
-    // Keep the CPU alive while a game session is running (ported from Winlator-Ludashi's
-    // keep-alive service): keepScreenOn stops the screen from sleeping on its own, but if the
-    // user locks the screen or switches away, Android suspends the CPU and the guest (shader
-    // compiles, LAN room hosting, in-game downloads) freezes or gets killed. A partial wakelock
-    // scoped strictly to the session keeps the guest running; released on dispose.
-    DisposableEffect(appId) {
-        val wakeLock = runCatching {
-            val pm = context.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
-            pm.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "GameNative:GameSession").apply {
-                setReferenceCounted(false)
-                acquire()
-            }
-        }.getOrNull()
-        onDispose {
-            runCatching { wakeLock?.release() }
-        }
-    }
-
-    // Ask Android for the panel's highest refresh-rate mode while a game is on screen.
-    // Many devices pin unknown apps to 60 Hz even on 90/120 Hz panels; without this the
-    // FPS limiter happily targets a rate the display was never allowed to reach. The
-    // preference is cleared on dispose so the rest of the app follows the system policy.
-    DisposableEffect(activity) {
-        val window = activity?.window ?: return@DisposableEffect onDispose { }
-        val display = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            activity.display
-        } else {
-            @Suppress("DEPRECATION")
-            activity.windowManager.defaultDisplay
-        }
-        val bestMode = display?.supportedModes?.maxByOrNull { it.refreshRate }
-        val previousModeId = window.attributes.preferredDisplayModeId
-        if (bestMode != null) {
-            window.attributes = window.attributes.apply { preferredDisplayModeId = bestMode.modeId }
-            Timber.i("Requested display mode ${bestMode.modeId} (${bestMode.refreshRate} Hz) for the game session")
-        }
-        onDispose {
-            runCatching {
-                window.attributes = window.attributes.apply { preferredDisplayModeId = previousModeId }
-            }
-        }
-    }
-
     // Session-scoped performance/network state: sustained performance keeps the
     // SoC from clocking down under long thermal load, and the multicast lock is
     // required for LAN game discovery (Android drops UDP broadcast/multicast
@@ -555,9 +511,6 @@ fun XServerScreen(
     var showPhysicalControllerDialog by remember { mutableStateOf(false) }
     var showPlayingBlockedDialog by rememberSaveable { mutableStateOf(false) }
     var playingBlockedRemoteName by rememberSaveable { mutableStateOf<String?>(null) }
-    // Non-null when the guest (box64/wine) exited with a real error — drives an on-screen dialog with
-    // the exit code instead of silently closing the app (which made the crash impossible to diagnose).
-    var guestLaunchErrorStatus by rememberSaveable { mutableStateOf<Int?>(null) }
     var showTouchGestureDialog by remember { mutableStateOf(false) }
     var isTouchscreenModeActive by remember { mutableStateOf(container.isTouchscreenMode) }
     var currentGestureConfig by remember {
@@ -603,23 +556,6 @@ fun XServerScreen(
     var lsfgMultiplier by rememberSaveable(container.id) { mutableIntStateOf(initialLsfgSettings.multiplier) }
     var lsfgFlowScale by rememberSaveable(container.id) { mutableStateOf(initialLsfgSettings.flowScale) }
     var lsfgPerformanceMode by rememberSaveable(container.id) { mutableStateOf(initialLsfgSettings.performanceMode) }
-    // "Perfil Máximo": Box64 MAX_PERFORMANCE preset, toggleable from the in-game sidebar.
-    // Dynarec env vars are read at guest launch, so changes apply on the NEXT game start.
-    var maxProfileEnabled by rememberSaveable(container.id) {
-        mutableStateOf(container.box64Preset == com.winlator.box86_64.Box86_64Preset.MAX_PERFORMANCE)
-    }
-    // The preset to fall back to when Perfil Máximo is turned OFF, so it restores the user's own
-    // choice instead of clobbering it with PERFORMANCE. If Max is already on at open time we don't
-    // know the prior preset, so default the restore target to PERFORMANCE.
-    var preMaxProfilePreset by rememberSaveable(container.id) {
-        mutableStateOf(
-            if (container.box64Preset == com.winlator.box86_64.Box86_64Preset.MAX_PERFORMANCE) {
-                com.winlator.box86_64.Box86_64Preset.PERFORMANCE
-            } else {
-                container.box64Preset
-            },
-        )
-    }
 
     fun persistFpsLimiterState() {
         container.putExtra(FPS_LIMITER_ENABLED_EXTRA, fpsLimiterEnabled)
@@ -734,9 +670,6 @@ fun XServerScreen(
         lsfgMultiplier = LsfgQuickMenuHelper.sanitizeMultiplier(mult)
         applyLsfgSettings()
         applyFpsLimiterToEngines(effectiveFpsLimit())
-        // GameNative frame-gen engine (our own, GL display renderer): drive it with the same
-        // Normal/Turbo/High/Max mode so frame generation works without any external DLL.
-        (xServerView?.renderer as? GLRenderer)?.setFrameGenMultiplier(lsfgMultiplier)
     }
 
     fun applyLsfgFlowScale(scale: Float) {
@@ -1610,10 +1543,6 @@ fun XServerScreen(
         Timber.i("onGuestProgramTerminated")
         exit(xServerView!!.getxServer().winHandler, frameRating, currentAppInfo, container, appId, onExit, navigateBack)
     }
-    val onGuestProgramLaunchError: (AndroidEvent.GuestProgramLaunchError) -> Unit = { event ->
-        Timber.i("onGuestProgramLaunchError status=${event.status}")
-        guestLaunchErrorStatus = event.status
-    }
     val onForceCloseApp: (SteamEvent.ForceCloseApp) -> Unit = {
         Timber.i("onForceCloseApp")
         exit(xServerView!!.getxServer().winHandler, frameRating, currentAppInfo, container, appId, onExit, navigateBack)
@@ -1636,7 +1565,6 @@ fun XServerScreen(
         PluviaApp.events.on<AndroidEvent.KeyEvent, Boolean>(onKeyEvent)
         PluviaApp.events.on<AndroidEvent.MotionEvent, Boolean>(onMotionEvent)
         PluviaApp.events.on<AndroidEvent.GuestProgramTerminated, Unit>(onGuestProgramTerminated)
-        PluviaApp.events.on<AndroidEvent.GuestProgramLaunchError, Unit>(onGuestProgramLaunchError)
         PluviaApp.events.on<SteamEvent.ForceCloseApp, Unit>(onForceCloseApp)
         PluviaApp.events.on<SteamEvent.PlayingBlocked, Unit>(onPlayingBlocked)
         ProcessHelper.addDebugCallback(debugCallback)
@@ -1646,7 +1574,6 @@ fun XServerScreen(
             PluviaApp.events.off<AndroidEvent.KeyEvent, Boolean>(onKeyEvent)
             PluviaApp.events.off<AndroidEvent.MotionEvent, Boolean>(onMotionEvent)
             PluviaApp.events.off<AndroidEvent.GuestProgramTerminated, Unit>(onGuestProgramTerminated)
-            PluviaApp.events.off<AndroidEvent.GuestProgramLaunchError, Unit>(onGuestProgramLaunchError)
             PluviaApp.events.off<SteamEvent.ForceCloseApp, Unit>(onForceCloseApp)
             PluviaApp.events.off<SteamEvent.PlayingBlocked, Unit>(onPlayingBlocked)
             ProcessHelper.removeDebugCallback(debugCallback)
@@ -2135,20 +2062,6 @@ fun XServerScreen(
                             taskAffinityMask = ProcessHelper.getAffinityMask(container.getCPUList(true))
                             taskAffinityMaskWoW64 = ProcessHelper.getAffinityMask(container.getCPUListWoW64(true))
                             win32AppWorkarounds?.setTaskAffinityMasks(taskAffinityMask, taskAffinityMaskWoW64)
-                            val contentsManager = ContentsManager(context)
-                            contentsManager.syncContents()
-                            // Pre-launch runtime guard: fixes wine↔libc mismatches (the
-                            // "Symbol __libc_init not found" loader crash) and too-old Box64
-                            // for the selected Wine series BEFORE the guest starts, and tells
-                            // the user what was applied and why. Must run BEFORE the
-                            // appliedWineVersion mismatch markers below so an auto-switched
-                            // Wine correctly triggers prefix re-extraction.
-                            val compatFix = app.gamenative.utils.RuntimeCompatibility
-                                .checkAndAutoFix(context, container, contentsManager)
-                            if (compatFix.changed) {
-                                compatFix.message?.let { app.gamenative.ui.util.SnackbarManager.show(it) }
-                            }
-
                             val appliedVariantSeen = container.getExtra("appliedContainerVariant")
                             val appliedWineVersionSeen = container.getExtra("appliedWineVersion")
                             val markersAvail = appliedVariantSeen.isNotEmpty() && appliedWineVersionSeen.isNotEmpty()
@@ -2162,6 +2075,8 @@ fun XServerScreen(
 
                             val wineVersion = container.wineVersion
                             Timber.i("Wine version is: $wineVersion")
+                            val contentsManager = ContentsManager(context)
+                            contentsManager.syncContents()
                             Timber.i("Wine info is: " + WineInfo.fromIdentifier(context, contentsManager, wineVersion))
                             xServerState.value = xServerState.value.copy(
                                 wineInfo = WineInfo.fromIdentifier(context, contentsManager, wineVersion),
@@ -2675,30 +2590,6 @@ fun XServerScreen(
             )
         }
 
-        // Dicas (Tips): the game is paused while the overlay is up, so snapshot the recent FPS and
-        // compute the recommendation when the menu opens rather than polling live.
-        var dicasRecentFps by remember { mutableStateOf<List<Float>>(emptyList()) }
-        var dicasAvgFps by remember { mutableStateOf(0.0) }
-        var dicasMinFps by remember { mutableStateOf(0.0) }
-        var dicasTip by remember { mutableStateOf<TipsAdvisor.Tip?>(null) }
-        LaunchedEffect(showQuickMenu) {
-            if (showQuickMenu) {
-                dicasRecentFps = TelemetryCollector.recentFps()
-                dicasAvgFps = TelemetryCollector.liveAverageFps()
-                dicasMinFps = TelemetryCollector.liveMinFps()
-                val cap = if (fpsLimiterEnabled) fpsLimiterTarget else 0
-                dicasTip = TipsAdvisor.advise(context, appId, dicasAvgFps, cap)
-            }
-        }
-        val dicasTipText = when (dicasTip?.reason) {
-            TipsAdvisor.Reason.LOW_FPS -> stringResource(R.string.dicas_tip_low_fps)
-            TipsAdvisor.Reason.THERMAL -> stringResource(R.string.dicas_tip_thermal, dicasTip?.fpsCap ?: 0)
-            TipsAdvisor.Reason.CRASHES -> stringResource(R.string.dicas_tip_crashes)
-            TipsAdvisor.Reason.HEALTHY -> stringResource(R.string.dicas_tip_healthy)
-            null -> ""
-        }
-        val dicasCanApply = dicasTip?.let { it.box64Preset != null || it.fpsCap != null } == true
-
         QuickMenu(
             isVisible = showQuickMenu,
             onDismiss = dismissOverlayMenu,
@@ -2738,56 +2629,13 @@ fun XServerScreen(
                 if (isDisableMouseInput) add(QuickMenuAction.DISABLE_MOUSE)
             },
             // LSFG hot-reload (tab only visible when enabled in container settings)
-            isLsfgAvailable = isLsfgAvailable || (xServerView?.renderer is GLRenderer),
+            isLsfgAvailable = isLsfgAvailable,
             lsfgMultiplier = lsfgMultiplier,
             lsfgFlowScale = lsfgFlowScale,
             lsfgPerformanceMode = lsfgPerformanceMode,
             onLsfgMultiplierChanged = ::applyLsfgMultiplier,
             onLsfgFlowScaleChanged = ::applyLsfgFlowScale,
             onLsfgPerformanceModeChanged = ::applyLsfgPerformanceMode,
-            maxProfileEnabled = maxProfileEnabled,
-            onMaxProfileChanged = { enabled ->
-                maxProfileEnabled = enabled
-                if (enabled) {
-                    // Remember the current preset so turning Max off restores it, not PERFORMANCE.
-                    if (container.box64Preset != com.winlator.box86_64.Box86_64Preset.MAX_PERFORMANCE) {
-                        preMaxProfilePreset = container.box64Preset
-                    }
-                    container.box64Preset = com.winlator.box86_64.Box86_64Preset.MAX_PERFORMANCE
-                } else {
-                    container.box64Preset = preMaxProfilePreset
-                }
-                container.saveData()
-                app.gamenative.ui.util.SnackbarManager.show(
-                    context.getString(R.string.quickmenu_max_profile_applied),
-                )
-            },
-            dicasRecentFps = dicasRecentFps,
-            dicasAvgFps = dicasAvgFps,
-            dicasMinFps = dicasMinFps,
-            dicasTipText = dicasTipText,
-            dicasCanApply = dicasCanApply,
-            onApplyDicasTip = {
-                val tip = dicasTip
-                if (tip != null) {
-                    tip.box64Preset?.let { preset ->
-                        container.box64Preset = preset
-                        // Keep the "Perfil Máximo" toggle coherent with what we just applied.
-                        maxProfileEnabled = preset == com.winlator.box86_64.Box86_64Preset.MAX_PERFORMANCE
-                        if (!maxProfileEnabled) preMaxProfilePreset = preset
-                    }
-                    tip.fpsCap?.let { cap ->
-                        if (cap > 0) {
-                            applyFpsLimiterEnabled(true)
-                            applyFpsLimiterTarget(cap)
-                        }
-                    }
-                    container.saveData()
-                    app.gamenative.ui.util.SnackbarManager.show(
-                        context.getString(R.string.dicas_applied),
-                    )
-                }
-            },
             onAnimationComplete = { isMenuVisible ->
                 if (isMenuVisible) {
                     pauseForOverlayIfAllowed()
@@ -2910,32 +2758,6 @@ fun XServerScreen(
                     exit(xServerView?.getxServer()?.winHandler, frameRating, currentAppInfo, container, appId, onExit, navigateBack)
                 }) {
                     Text(text = stringResource(R.string.cancel))
-                }
-            },
-        )
-    }
-
-    // The guest failed to launch — show the exit code + the container's runtime versions ON SCREEN so
-    // the user can screenshot it (no adb needed) instead of the app just vanishing with a clean log.
-    guestLaunchErrorStatus?.let { st ->
-        androidx.compose.material3.AlertDialog(
-            onDismissRequest = {},
-            title = { Text(text = stringResource(R.string.guest_launch_error_title)) },
-            text = {
-                Text(
-                    text = stringResource(R.string.guest_launch_error_message, st) + "\n\n" +
-                        "Box64: ${container.box64Version}\n" +
-                        "Wine: ${container.wineVersion}\n" +
-                        "Box64 preset: ${container.box64Preset}\n" +
-                        "DX: ${container.dxWrapper}",
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    guestLaunchErrorStatus = null
-                    exit(xServerView?.getxServer()?.winHandler, frameRating, currentAppInfo, container, appId, onExit, navigateBack)
-                }) {
-                    Text(text = stringResource(R.string.close))
                 }
             },
         )
@@ -3468,26 +3290,9 @@ private fun setupXEnvironment(
         if (logFile.exists()) logFile.delete()
     }
 
-    // Diagnoses already surfaced this session, so a repeated error line doesn't spam the user.
-    val shownDiagnoses = java.util.Collections.synchronizedSet(mutableSetOf<String>())
     ProcessHelper.addDebugCallback { line ->
         if (captureLogs) {
             logFile?.appendText(line + "\n")
-        }
-        // Cheap pre-filter: only run the signature analyzer on error-ish lines, and only feed the
-        // (bounded) session log the same lines, so a known failure becomes a friendly, one-shot
-        // explanation instead of a cryptic loader dump the user has to decode.
-        val lower = line.lowercase()
-        if (lower.contains("error") || lower.contains("fail") || lower.contains("could not") ||
-            lower.contains("not found") || lower.contains("assert") || lower.contains("c0000") ||
-            lower.contains("__libc_init") || lower.contains("device lost")
-        ) {
-            val diagnosis = app.gamenative.utils.SessionLogger.logGuestOutput("guest", line)
-            if (diagnosis != null && shownDiagnoses.add(diagnosis.id)) {
-                (context as? Activity)?.runOnUiThread {
-                    app.gamenative.ui.util.SnackbarManager.show(diagnosis.message)
-                }
-            }
         }
     }
 
@@ -3697,29 +3502,9 @@ private fun setupXEnvironment(
     guestProgramLauncherComponent.envVars = envVars
 
     val gameTerminationCallback = Callback<Int> { status ->
-        // Status 137 = 128 + 9 (SIGKILL). While the app is backgrounded this is almost always
-        // Android's low-memory/power management killing the paused guest, NOT a game bug —
-        // classify it separately and close normally.
-        val killedInBackground = status == 137 && PluviaApp.isOverlayPaused
-        if (status != 0 && !killedInBackground) {
-            // A REAL failure (box64/wine couldn't run, or the game crashed). Show it on screen with
-            // the exit code instead of silently calling exit() — that silent close, with a clean
-            // logcat, is why the crash was impossible to diagnose. Persist it to the session log too.
+        if (status != 0) {
             Timber.e("Guest program terminated with status: $status")
-            app.gamenative.utils.SessionLogger.append(
-                "Guest exited with status $status (exe: $gameExecutable). The box64/wine guest failed " +
-                    "to run — check the container's Box64/Wine versions and DX wrapper.",
-            )
             onGameLaunchError?.invoke("Game terminated with error status: $status")
-            PluviaApp.events.emit(AndroidEvent.GuestProgramLaunchError(status))
-            return@Callback
-        }
-        if (killedInBackground) {
-            Timber.w("Guest process killed by the system while backgrounded (status 137)")
-            app.gamenative.utils.SessionLogger.append(
-                "Guest killed by system in background (137). Disable battery optimization for " +
-                    "GameNative to keep paused games alive.",
-            )
         }
         PluviaApp.events.emit(AndroidEvent.GuestProgramTerminated)
     }
@@ -4276,17 +4061,9 @@ private fun getWineStartCommand(
             val gameFolderName = appDirPath.substringAfterLast('/').ifEmpty { gameId.toString() }
             "\"C:\\\\Program Files (x86)\\\\Steam\\\\steamapps\\\\common\\\\$gameFolderName\\\\$normalizedExe\""
         } else if (container.isLaunchRealSteam) {
-            if (PrefManager.launchSteamBigPicture) {
-                // Boot Steam straight into Big Picture (gamepad UI); do NOT auto-launch a game —
-                // the user picks from the UI. The steam:// relay is the currently supported way
-                // to force Big Picture; -no-cef-sandbox avoids the CEF black screen under Wine.
-                "\"C:\\\\Program Files (x86)\\\\Steam\\\\steam.exe\" -no-cef-sandbox -vgui -tcp " +
-                        "-start steam://open/bigpicture"
-            } else {
-                // Launch Steam with the applaunch parameter to start the game
-                "\"C:\\\\Program Files (x86)\\\\Steam\\\\steam.exe\" -silent -vgui -tcp " +
-                        "-nobigpicture -nofriendsui -nochatui -nointro -applaunch $gameId"
-            }
+            // Launch Steam with the applaunch parameter to start the game
+            "\"C:\\\\Program Files (x86)\\\\Steam\\\\steam.exe\" -silent -vgui -tcp " +
+                    "-nobigpicture -nofriendsui -nochatui -nointro -applaunch $gameId"
         } else {
             var executablePath = ""
             if (container.executablePath.isNotEmpty()) {
@@ -4786,21 +4563,18 @@ private suspend fun setupWineSystemFiles(
     // Always refresh components files
     refreshComponentsFiles(context)
 
-    // Normalize dxwrapper for state (dxvk includes version for extraction switch).
-    // Fall back to the default version when the config key is missing, otherwise the name becomes
-    // "dxvk-null"/"vkd3d-null" — a component that doesn't exist, so nothing extracts and the guest
-    // fails at launch (e.g. a D3D12 title auto-routed to vkd3d without a vkd3dVersion set).
+    // Normalize dxwrapper for state (dxvk includes version for extraction switch)
     if (xServerState.value.dxwrapper == "dxvk") {
-        val v = xServerState.value.dxwrapperConfig?.get("version").orEmpty()
-            .ifEmpty { com.winlator.core.DefaultVersion.DXVK }
-        xServerState.value = xServerState.value.copy(dxwrapper = "dxvk-" + v)
+        xServerState.value = xServerState.value.copy(
+            dxwrapper = "dxvk-" + xServerState.value.dxwrapperConfig?.get("version"),
+        )
     }
 
     // Also normalize VKD3D to include version like vkd3d-<version>
     if (xServerState.value.dxwrapper == "vkd3d") {
-        val v = xServerState.value.dxwrapperConfig?.get("vkd3dVersion").orEmpty()
-            .ifEmpty { com.winlator.core.DefaultVersion.VKD3D }
-        xServerState.value = xServerState.value.copy(dxwrapper = "vkd3d-" + v)
+        xServerState.value = xServerState.value.copy(
+            dxwrapper = "vkd3d-" + xServerState.value.dxwrapperConfig?.get("vkd3dVersion"),
+        )
     }
 
     // Cheap corruption guard: if any of the key D3D DLLs is missing or truncated in the
@@ -5586,17 +5360,10 @@ private suspend fun extractGraphicsDriverFiles(
         if (presentMode.contains("immediate")) {
             envVars.put("WRAPPER_MAX_IMAGE_COUNT", "1")
         }
-        // Only export a present mode when the container actually specifies one. Exporting an
-        // empty MESA_VK_WSI_PRESENT_MODE makes the Turnip/Mesa WSI ignore it or fall back to a
-        // slow default and, worse, overrides the "mailbox" default set earlier — a real FPS hit.
-        if (presentMode.isNotEmpty()) {
-            envVars.put("MESA_VK_WSI_PRESENT_MODE", presentMode)
-        }
+        envVars.put("MESA_VK_WSI_PRESENT_MODE", presentMode)
 
         val resourceType = graphicsDriverConfig.get("resourceType")
-        if (resourceType.isNotEmpty()) {
-            envVars.put("WRAPPER_RESOURCE_TYPE", resourceType)
-        }
+        envVars.put("WRAPPER_RESOURCE_TYPE", resourceType)
 
         val syncFrame = graphicsDriverConfig.get("syncFrame")
         if (syncFrame == "1") envVars.put("MESA_VK_WSI_DEBUG", "forcesync")
