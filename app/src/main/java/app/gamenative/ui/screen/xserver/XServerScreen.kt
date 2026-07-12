@@ -312,12 +312,13 @@ private fun buildEssentialProcessAllowlist(): Set<String> {
 
 // TODO logs in composables are 'unstable' which can cause recomposition (performance issues)
 
-// "More FPS" (lowGraphicsMode): render the game at ~0.67x its configured resolution so the GPU/CPU
-// pixel load drops (a real 20-50% FPS win), then let the renderer's FSR upscaler bring it back up to
-// the panel so it still looks sharp. The old toggle only set WINE_FULLSCREEN_FSR, which never
-// engages inside Wine's fixed-size virtual desktop — so it did nothing. The screen resolution is the
-// actual lever. Floors at 640x360 and rounds to even so tiny/edge resolutions stay valid.
-private const val LOW_GRAPHICS_SCALE = 0.67
+// "More FPS" (lowGraphicsMode): render the game at a lower internal resolution so the GPU/CPU pixel
+// load drops (a real FPS win), then let the renderer's FSR upscaler bring it back up to the panel.
+// IMPORTANT: snap the reduced resolution to a STANDARD height (not an arbitrary 0.67x number like
+// 856x482). D3D12 titles create their swapchain at the desktop resolution and some reject odd,
+// non-standard sizes — which can make a previously-working game fail to open. We keep the original
+// aspect ratio and pick a standard height roughly 0.67x the configured one.
+private val STANDARD_HEIGHTS = intArrayOf(360, 432, 480, 540, 576, 600, 640, 720, 768, 900, 1080)
 
 private fun perfDownscaledScreenSize(container: Container): String {
     val size = container.screenSize
@@ -326,11 +327,14 @@ private fun perfDownscaledScreenSize(container: Container): String {
     if (parts.size != 2) return size
     val w = parts[0].trim().toIntOrNull() ?: return size
     val h = parts[1].trim().toIntOrNull() ?: return size
-    fun scale(v: Int, floor: Int): Int {
-        val s = (v * LOW_GRAPHICS_SCALE).toInt().coerceAtLeast(floor)
-        return s - (s % 2)
-    }
-    return "${scale(w, 640)}x${scale(h, 360)}"
+    if (w <= 0 || h <= 0) return size
+    val targetH = (h * 0.67).toInt()
+    // Nearest standard height strictly below the configured one (so it really downscales).
+    val snappedH = STANDARD_HEIGHTS.filter { it < h }.minByOrNull { kotlin.math.abs(it - targetH) } ?: return size
+    // Derive width from the original aspect ratio, rounded to an even number.
+    var newW = (w.toDouble() * snappedH / h).toInt()
+    if (newW % 2 != 0) newW += 1
+    return "${newW}x${snappedH}"
 }
 
 @Composable
