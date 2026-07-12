@@ -1630,8 +1630,8 @@
     <string name="runtime_compat_wine_libc_fixed">O Wine %1$s foi compilado para %2$s e é incompatível com este container %3$s (causaria o erro \"Symbol __libc_init not found\"). Aplicado automaticamente: %4$s</string>
     <string name="system_menu_layout">Layout</string>
     <!-- Modo de gráficos baixos -->
-    <string name="low_graphics_mode">Modo de gráficos baixos</string>
-    <string name="low_graphics_mode_description">Renderiza em resolução interna menor e faz upscale com FSR para mais FPS em jogos pesados (Vulkan, tela cheia).</string>
+    <string name="low_graphics_mode">Mais FPS (modo desempenho)</string>
+    <string name="low_graphics_mode_description">Renderiza o jogo numa resolução interna menor (~0,67x) e faz upscale com FSR para manter a nitidez — ganho real de FPS em jogos pesados. Funciona no renderizador Vulkan, sem baixar nada extra. Reinicie o jogo após alterar.</string>
     <!-- Baixar todos os componentes -->
     <string name="settings_emulation_download_all_title">Baixar todos os componentes</string>
     <string name="settings_emulation_download_all_subtitle">Baixar todos os Wine/Proton, DXVK, VKD3D, Box64 e drivers do manifesto</string>

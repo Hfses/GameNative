@@ -72,6 +72,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import app.gamenative.R
+import app.gamenative.ui.util.ScreenEffectsConfig
 import app.gamenative.ui.util.SnackbarManager
 import app.gamenative.ui.util.applyScreenEffectsConfig
 import app.gamenative.ui.util.loadScreenEffectsConfig
@@ -311,6 +312,27 @@ private fun buildEssentialProcessAllowlist(): Set<String> {
 
 // TODO logs in composables are 'unstable' which can cause recomposition (performance issues)
 
+// "More FPS" (lowGraphicsMode): render the game at ~0.67x its configured resolution so the GPU/CPU
+// pixel load drops (a real 20-50% FPS win), then let the renderer's FSR upscaler bring it back up to
+// the panel so it still looks sharp. The old toggle only set WINE_FULLSCREEN_FSR, which never
+// engages inside Wine's fixed-size virtual desktop — so it did nothing. The screen resolution is the
+// actual lever. Floors at 640x360 and rounds to even so tiny/edge resolutions stay valid.
+private const val LOW_GRAPHICS_SCALE = 0.67
+
+private fun perfDownscaledScreenSize(container: Container): String {
+    val size = container.screenSize
+    if (!container.getLowGraphicsMode()) return size
+    val parts = size.split("x")
+    if (parts.size != 2) return size
+    val w = parts[0].trim().toIntOrNull() ?: return size
+    val h = parts[1].trim().toIntOrNull() ?: return size
+    fun scale(v: Int, floor: Int): Int {
+        val s = (v * LOW_GRAPHICS_SCALE).toInt().coerceAtLeast(floor)
+        return s - (s % 2)
+    }
+    return "${scale(w, 640)}x${scale(h, 360)}"
+}
+
 @Composable
 @OptIn(ExperimentalComposeUiApi::class)
 fun XServerScreen(
@@ -449,7 +471,8 @@ fun XServerScreen(
                 audioDriver = container.audioDriver,
                 dxwrapper = container.dxWrapper,
                 dxwrapperConfig = DXVKHelper.parseConfig(container.dxWrapperConfig),
-                screenSize = container.screenSize,
+                // "More FPS" lowers the internal render resolution here; the renderer upscales it.
+                screenSize = perfDownscaledScreenSize(container),
             ),
         )
     }
@@ -629,7 +652,14 @@ fun XServerScreen(
     }
 
     LaunchedEffect(xServerView?.renderer) {
-        val screenEffectsConfig = loadScreenEffectsConfig(container)
+        var screenEffectsConfig = loadScreenEffectsConfig(container)
+        // "More FPS": we render at a lower internal resolution, so turn on the FSR upscaler (unless
+        // the user already picked a scaling mode) to keep the upscaled image sharp instead of soft.
+        if (container.getLowGraphicsMode() &&
+            screenEffectsConfig.scalingMode == ScreenEffectsConfig.SCALING_MODE_NONE
+        ) {
+            screenEffectsConfig = screenEffectsConfig.copy(scalingMode = ScreenEffectsConfig.SCALING_MODE_FSR)
+        }
         when (val renderer = xServerView?.renderer) {
             is VulkanRenderer -> applyScreenEffectsConfig(renderer, screenEffectsConfig)
             is GLRenderer -> applyScreenEffectsConfig(renderer, screenEffectsConfig)

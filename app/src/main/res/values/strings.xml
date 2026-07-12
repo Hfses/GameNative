@@ -762,8 +762,8 @@
     <string name="display_renderer">Display Renderer</string>
     <string name="sf_compat_mode">Compatibility Mode</string>
     <string name="sf_compat_mode_description">Turn off for better performance. Keep on to fix inverted colors.</string>
-    <string name="low_graphics_mode">Low Graphics Mode</string>
-    <string name="low_graphics_mode_description">Render at a lower internal resolution and upscale with FSR for higher FPS on demanding games (Vulkan, fullscreen).</string>
+    <string name="low_graphics_mode">More FPS (performance mode)</string>
+    <string name="low_graphics_mode_description">Renders the game at a lower internal resolution (~0.67x) and upscales it with FSR to keep it sharp — a real FPS boost on demanding games. Works on the Vulkan renderer; no extra downloads needed. Restart the game after changing.</string>
     <string name="vkd3d_feature_level">VKD3D Feature Level</string>
     <string name="use_dri3">Use DRI3</string>
     <string name="use_dri3_description">Disabling may fix graphical glitches on some devices</string>
