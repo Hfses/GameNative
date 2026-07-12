@@ -84,10 +84,10 @@ public class Container {
     private String graphicsDriverConfig = DEFAULT_GRAPHICSDRIVERCONFIG;
     private String rendererPresentMode = "fifo";
     private String displayRenderer = Container.DEFAULT_DISPLAY_RENDERER;
-    // Default OFF for performance — see ASurfaceRenderer.sfCompatMode. Containers created before
-    // this key existed load this default (fast, zero-copy path); users on affected devices can
-    // re-enable it via Graphics > Compatibility Mode.
-    private boolean sfCompatMode = false;
+    // Default ON: the safe BGRA->RGBA conversion path. Turning it OFF routes to the native
+    // direct-scanout path, which crashed the app process on some devices — so keep the tested path
+    // as the default; users who want the extra FPS can turn it off via Graphics > Compatibility Mode.
+    private boolean sfCompatMode = true;
     private boolean lowGraphicsMode = false;
     private String wincomponents = DEFAULT_WINCOMPONENTS;
     private String audioDriver = DEFAULT_AUDIO_DRIVER;

@@ -46,11 +46,10 @@ public class ASurfaceRenderer implements WindowManager.OnWindowModificationListe
     public final ViewTransformation viewTransformation = new ViewTransformation();
     public int surfaceWidth;
     public int surfaceHeight;
-    // Default OFF: sfCompatMode runs a full-screen BGRA->RGBA GPU conversion blit on EVERY
-    // presented frame instead of scanning the DXVK buffer out zero-copy — a large per-frame GPU
-    // cost and the main recent FPS regression. It only fixes inverted colors on a minority of
-    // devices, so it's a user toggle (Graphics > Compatibility Mode), not a default.
-    private boolean sfCompatMode = false;
+    // Default ON: the safe BGRA->RGBA conversion path. The zero-copy direct-scanout path (OFF)
+    // crashed the app process on some devices, so the tested path stays the default; users who want
+    // the extra FPS can turn it off via Graphics > Compatibility Mode.
+    private boolean sfCompatMode = true;
     private String[] unviewableWMClasses = null;
     private String forceFullscreenWMClass = null;
     private boolean containerCursorVisible = true;
