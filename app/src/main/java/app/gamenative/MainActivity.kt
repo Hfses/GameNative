@@ -163,6 +163,23 @@ class MainActivity : ComponentActivity() {
      * we surface it: written to the session log and stored for a one-time dialog on the home screen.
      */
     private fun captureLastAbnormalExit() {
+        // First: the in-process uncaught-exception report (PluviaApp handler) — works on every
+        // Android version and carries the exact Java stack of a crash on any thread.
+        try {
+            val f = java.io.File(filesDir, "last_crash.txt")
+            if (f.exists()) {
+                val report = f.readText()
+                runCatching { f.delete() }
+                app.gamenative.utils.SessionLogger.append(report)
+                PrefManager.lastCrashReport = report
+                Timber.w("captureLastAbnormalExit: Java crash captured from last_crash.txt")
+                return
+            }
+        } catch (e: Exception) {
+            Timber.w(e, "reading last_crash.txt failed")
+        }
+
+        // Otherwise: the OS record, which covers NATIVE crashes / OOM / signals (API 30+).
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return
         try {
             val am = getSystemService(ACTIVITY_SERVICE) as? ActivityManager ?: return

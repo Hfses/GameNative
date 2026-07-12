@@ -52,6 +52,27 @@ class PluviaApp : SplitCompatApplication() {
     override fun onCreate() {
         super.onCreate()
 
+        // Catch ANY uncaught exception (a Java crash on any thread — e.g. an NPE during game launch)
+        // and write its stack trace to a file BEFORE the process dies, so the next launch can show
+        // it. This works on every Android version and catches the exact class of crash that closes
+        // the app with no dialog and a clean logcat. (A pure native SIGSEGV has no Java frame and is
+        // captured separately via ActivityManager.getHistoricalProcessExitReasons.)
+        run {
+            val previous = Thread.getDefaultUncaughtExceptionHandler()
+            Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+                try {
+                    val sw = java.io.StringWriter()
+                    throwable.printStackTrace(java.io.PrintWriter(sw))
+                    java.io.File(filesDir, "last_crash.txt").writeText(
+                        "App fechou por uma exceção não tratada (thread '${thread.name}'):\n\n$sw",
+                    )
+                } catch (_: Throwable) {
+                    // Never let the crash reporter itself throw.
+                }
+                previous?.uncaughtException(thread, throwable)
+            }
+        }
+
         preloadSystemLibraries()
 
         // Allows to find resource streams not closed within GameNative and JavaSteam
