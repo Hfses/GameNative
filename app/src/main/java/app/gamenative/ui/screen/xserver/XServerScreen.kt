@@ -2089,9 +2089,19 @@ fun XServerScreen(
                             val wineVersionMismatch = markersAvail && container.wineVersion != appliedWineVersionSeen
                             val imgVersionMismatch = container.getExtra("imgVersion") != imageFs.getVersion().toString()
                             containerVariantChanged = variantMismatch || wineVersionMismatch || imgVersionMismatch
-                            firstTimeBoot = container.getExtra("appVersion").isEmpty() || containerVariantChanged
+                            // Self-heal: a previous launch hit "could not load kernel32.dll"
+                            // (c0000135) and flagged the prefix for a rebuild. Force firstTimeBoot so
+                            // the Wine prefix is re-extracted from scratch, then consume the flag so
+                            // it only rebuilds once per failure (not on every launch).
+                            val wineRebuildRequested = container.getExtra("wineRebuildRequested") == "true"
+                            if (wineRebuildRequested) {
+                                Timber.w("Consuming wineRebuildRequested — forcing a full Wine prefix rebuild")
+                                container.putExtra("wineRebuildRequested", "")
+                                container.saveData()
+                            }
+                            firstTimeBoot = container.getExtra("appVersion").isEmpty() || containerVariantChanged || wineRebuildRequested
                             needsUnpacking = container.isNeedsUnpacking
-                            Timber.i("First time boot: $firstTimeBoot")
+                            Timber.i("First time boot: $firstTimeBoot (rebuildRequested=$wineRebuildRequested)")
 
                             val wineVersion = container.wineVersion
                             Timber.i("Wine version is: $wineVersion")
@@ -3336,6 +3346,17 @@ private fun setupXEnvironment(
             if (diagnosis != null && shownDiagnoses.add(diagnosis.id)) {
                 (context as? Activity)?.runOnUiThread {
                     app.gamenative.ui.util.SnackbarManager.show(diagnosis.message)
+                }
+                // Self-heal: "could not load kernel32.dll" (c0000135) means the Wine prefix is
+                // broken/incomplete — the game can't start at all. Flag the container so the NEXT
+                // launch does a full prefix rebuild (firstTimeBoot) instead of failing again. The
+                // flag is consumed (cleared) at boot, so it rebuilds once per failure, not forever.
+                if (diagnosis.id == "kernel32-c0000135") {
+                    runCatching {
+                        container.putExtra("wineRebuildRequested", "true")
+                        container.saveData()
+                        Timber.w("kernel32.dll c0000135 detected — flagged Wine prefix for rebuild on next launch")
+                    }
                 }
             }
         }
