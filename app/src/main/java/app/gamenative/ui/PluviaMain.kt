@@ -15,7 +15,10 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.navigationBarsIgnoringVisibility
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.res.stringResource
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -1160,6 +1163,24 @@ fun PluviaMain(
                     modifier = Modifier
                         .fillMaxSize()
                         .background(MaterialTheme.colorScheme.background.copy(alpha = 0.6f)),
+                )
+            }
+
+            // Diagnóstico: mostra a última morte ANORMAL do app (crash nativo / sinal / OOM),
+            // capturada no onCreate. Um crash nativo fecha o app sem diálogo e com log limpo, então
+            // isto é a única forma de o usuário ver/print o motivo real. Some ao tocar em Fechar.
+            var crashReport by remember { mutableStateOf(if (inAppPreview) "" else PrefManager.lastCrashReport) }
+            if (crashReport.isNotBlank()) {
+                AlertDialog(
+                    onDismissRequest = {},
+                    title = { Text(text = "Diagnóstico: última falha do app") },
+                    text = { Text(text = crashReport.take(1600), style = MaterialTheme.typography.bodySmall) },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            PrefManager.lastCrashReport = ""
+                            crashReport = ""
+                        }) { Text(text = stringResource(app.gamenative.R.string.close)) }
+                    },
                 )
             }
             LoadingDialog(

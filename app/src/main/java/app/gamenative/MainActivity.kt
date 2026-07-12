@@ -8,6 +8,8 @@ import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.graphics.Color.TRANSPARENT
+import android.app.ActivityManager
+import android.app.ApplicationExitInfo
 import android.os.Build
 import android.os.Bundle
 import android.view.KeyEvent
@@ -154,6 +156,59 @@ class MainActivity : ComponentActivity() {
         super.attachBaseContext(context)
     }
 
+    /**
+     * On startup, read WHY the app's process last died. A native crash (SIGSEGV in the renderer /
+     * X server) closes the app instantly with no dialog and a clean logcat — impossible to diagnose
+     * otherwise. ActivityManager keeps the reason (and, for native crashes, the tombstone trace), so
+     * we surface it: written to the session log and stored for a one-time dialog on the home screen.
+     */
+    private fun captureLastAbnormalExit() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return
+        try {
+            val am = getSystemService(ACTIVITY_SERVICE) as? ActivityManager ?: return
+            val infos = am.getHistoricalProcessExitReasons(packageName, 0, 5)
+            val last = infos.firstOrNull() ?: return
+            val abnormal = setOf(
+                ApplicationExitInfo.REASON_CRASH,
+                ApplicationExitInfo.REASON_CRASH_NATIVE,
+                ApplicationExitInfo.REASON_SIGNALED,
+                ApplicationExitInfo.REASON_LOW_MEMORY,
+                ApplicationExitInfo.REASON_ANR,
+            )
+            if (last.reason !in abnormal) return
+            // De-dupe: don't re-report the same death every time onCreate runs.
+            val stamp = "exit@${last.timestamp}"
+            if (PrefManager.lastCrashReportStamp == stamp) return
+            PrefManager.lastCrashReportStamp = stamp
+
+            val reasonName = when (last.reason) {
+                ApplicationExitInfo.REASON_CRASH -> "Java crash"
+                ApplicationExitInfo.REASON_CRASH_NATIVE -> "NATIVE CRASH"
+                ApplicationExitInfo.REASON_SIGNALED -> "killed by signal ${last.status}"
+                ApplicationExitInfo.REASON_LOW_MEMORY -> "LOW MEMORY (killed)"
+                ApplicationExitInfo.REASON_ANR -> "ANR"
+                else -> "reason ${last.reason}"
+            }
+            var trace = ""
+            runCatching {
+                last.traceInputStream?.use { trace = it.readBytes().decodeToString() }
+            }
+            val report = buildString {
+                append("Última saída anormal do app: ").append(reasonName)
+                last.description?.let { append(" — ").append(it) }
+                append(" (status=").append(last.status).append(", importance=").append(last.importance).append(")")
+                if (trace.isNotBlank()) {
+                    append("\n\n").append(trace.take(6000))
+                }
+            }
+            app.gamenative.utils.SessionLogger.append(report)
+            PrefManager.lastCrashReport = report
+            Timber.w("captureLastAbnormalExit: $reasonName ${last.description}")
+        } catch (e: Exception) {
+            Timber.w(e, "captureLastAbnormalExit failed")
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         // Full immersive mode - transparent system bars for console-like experience
         enableEdgeToEdge(
@@ -161,6 +216,8 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.dark(TRANSPARENT),
         )
         super.onCreate(savedInstanceState)
+
+        captureLastAbnormalExit()
 
         app.gamenative.launch.installLaunchReadiness(applicationContext, lifecycleScope)
 

@@ -180,6 +180,24 @@ object PrefManager {
             setPref(LAYER_MINIMIZER_ENABLED, value)
         }
 
+    // Human-readable report of the app's last ABNORMAL process death (native crash / signal / OOM),
+    // captured on next launch from ActivityManager.getHistoricalProcessExitReasons so a native crash
+    // (which shows no dialog and leaves a clean logcat) can still be seen and screenshotted in-app.
+    private val LAST_CRASH_REPORT = stringPreferencesKey("last_crash_report")
+    var lastCrashReport: String
+        get() = getPref(LAST_CRASH_REPORT, "")
+        set(value) {
+            setPref(LAST_CRASH_REPORT, value)
+        }
+
+    // Identity of the last captured death, so the same one isn't re-reported on every onCreate.
+    private val LAST_CRASH_REPORT_STAMP = stringPreferencesKey("last_crash_report_stamp")
+    var lastCrashReportStamp: String
+        get() = getPref(LAST_CRASH_REPORT_STAMP, "")
+        set(value) {
+            setPref(LAST_CRASH_REPORT_STAMP, value)
+        }
+
     /* PICS */
     private val LAST_PICS_CHANGE_NUMBER = intPreferencesKey("last_pics_change_number")
     var lastPICSChangeNumber: Int
