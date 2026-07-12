@@ -101,7 +101,6 @@ import app.gamenative.service.AchievementWatcher
 import app.gamenative.service.SteamService
 import app.gamenative.service.epic.EpicService
 import app.gamenative.service.gog.GOGService
-import app.gamenative.ui.component.QuickMenu
 import app.gamenative.ui.component.QuickMenuAction
 import app.gamenative.ui.component.parseBooleanExtra
 import app.gamenative.ui.component.parsePositiveFpsLimit
@@ -396,6 +395,11 @@ fun XServerScreen(
         }
     }
 
+    // Keep the CPU alive + request the panel's highest refresh rate while the game runs. Kept in a
+    // separate composable so the XServerScreen function stays small enough for the on-device
+    // bytecode verifier (a too-large composable = VerifyError at class load = app closes on launch).
+    GameSessionEffects(appId = appId, activity = activity)
+
     // Session-scoped performance/network state: sustained performance keeps the
     // SoC from clocking down under long thermal load, and the multicast lock is
     // required for LAN game discovery (Android drops UDP broadcast/multicast
@@ -670,6 +674,9 @@ fun XServerScreen(
         lsfgMultiplier = LsfgQuickMenuHelper.sanitizeMultiplier(mult)
         applyLsfgSettings()
         applyFpsLimiterToEngines(effectiveFpsLimit())
+        // GameNative frame-gen engine (our own, on the GL display renderer): drive it with the same
+        // Normal/Turbo/High/Max multiplier so frame generation works without any external DLL.
+        (xServerView?.renderer as? GLRenderer)?.setFrameGenMultiplier(lsfgMultiplier)
     }
 
     fun applyLsfgFlowScale(scale: Float) {
@@ -2062,6 +2069,19 @@ fun XServerScreen(
                             taskAffinityMask = ProcessHelper.getAffinityMask(container.getCPUList(true))
                             taskAffinityMaskWoW64 = ProcessHelper.getAffinityMask(container.getCPUListWoW64(true))
                             win32AppWorkarounds?.setTaskAffinityMasks(taskAffinityMask, taskAffinityMaskWoW64)
+                            val contentsManager = ContentsManager(context)
+                            contentsManager.syncContents()
+                            // Pre-launch runtime guard: fixes wine↔libc mismatches (the
+                            // "Symbol __libc_init not found" loader crash) and a too-old Box64 for
+                            // the selected Wine series BEFORE the guest starts, and tells the user
+                            // what was applied and why. Must run BEFORE the appliedWineVersion
+                            // mismatch markers below so an auto-switched Wine correctly triggers
+                            // prefix re-extraction.
+                            val compatFix = app.gamenative.utils.RuntimeCompatibility
+                                .checkAndAutoFix(context, container, contentsManager)
+                            if (compatFix.changed) {
+                                compatFix.message?.let { app.gamenative.ui.util.SnackbarManager.show(it) }
+                            }
                             val appliedVariantSeen = container.getExtra("appliedContainerVariant")
                             val appliedWineVersionSeen = container.getExtra("appliedWineVersion")
                             val markersAvail = appliedVariantSeen.isNotEmpty() && appliedWineVersionSeen.isNotEmpty()
@@ -2075,8 +2095,6 @@ fun XServerScreen(
 
                             val wineVersion = container.wineVersion
                             Timber.i("Wine version is: $wineVersion")
-                            val contentsManager = ContentsManager(context)
-                            contentsManager.syncContents()
                             Timber.i("Wine info is: " + WineInfo.fromIdentifier(context, contentsManager, wineVersion))
                             xServerState.value = xServerState.value.copy(
                                 wineInfo = WineInfo.fromIdentifier(context, contentsManager, wineVersion),
@@ -2590,10 +2608,11 @@ fun XServerScreen(
             )
         }
 
-        QuickMenu(
+        GameQuickMenu(
             isVisible = showQuickMenu,
             onDismiss = dismissOverlayMenu,
             onItemSelected = onQuickMenuItemSelected,
+            appId = appId,
             renderer = xServerView?.renderer as? VulkanRenderer,
             glRenderer = xServerView?.renderer as? GLRenderer,
             container = container,
@@ -2647,6 +2666,15 @@ fun XServerScreen(
                         resumeIfAllowedAfterOverlay()
                     }
                 }
+            },
+        )
+
+        // The guest failed to launch — show the exit code ON SCREEN (screenshot-able, no adb) instead
+        // of the app silently vanishing. Own composable to keep XServerScreen small (verifier limit).
+        GuestLaunchErrorDialog(
+            container = container,
+            onDismissAndExit = {
+                exit(xServerView?.getxServer()?.winHandler, frameRating, currentAppInfo, container, appId, onExit, navigateBack)
             },
         )
 
@@ -3290,9 +3318,26 @@ private fun setupXEnvironment(
         if (logFile.exists()) logFile.delete()
     }
 
+    // Diagnoses already surfaced this session, so a repeated error line doesn't spam the user.
+    val shownDiagnoses = java.util.Collections.synchronizedSet(mutableSetOf<String>())
     ProcessHelper.addDebugCallback { line ->
         if (captureLogs) {
             logFile?.appendText(line + "\n")
+        }
+        // Cheap pre-filter: only run the signature analyzer on error-ish lines, and feed the
+        // (bounded) session log the same lines, so a known failure becomes a friendly, one-shot
+        // explanation instead of a cryptic loader dump the user has to decode.
+        val lower = line.lowercase()
+        if (lower.contains("error") || lower.contains("fail") || lower.contains("could not") ||
+            lower.contains("not found") || lower.contains("assert") || lower.contains("c0000") ||
+            lower.contains("__libc_init") || lower.contains("device lost")
+        ) {
+            val diagnosis = app.gamenative.utils.SessionLogger.logGuestOutput("guest", line)
+            if (diagnosis != null && shownDiagnoses.add(diagnosis.id)) {
+                (context as? Activity)?.runOnUiThread {
+                    app.gamenative.ui.util.SnackbarManager.show(diagnosis.message)
+                }
+            }
         }
     }
 
@@ -3502,9 +3547,29 @@ private fun setupXEnvironment(
     guestProgramLauncherComponent.envVars = envVars
 
     val gameTerminationCallback = Callback<Int> { status ->
-        if (status != 0) {
+        // Status 137 = 128 + 9 (SIGKILL). While the app is backgrounded this is almost always
+        // Android's low-memory/power management killing the paused guest, NOT a game bug —
+        // classify it separately and close normally.
+        val killedInBackground = status == 137 && PluviaApp.isOverlayPaused
+        if (status != 0 && !killedInBackground) {
+            // A REAL failure (box64/wine couldn't run, or the game crashed). Surface the exit code
+            // on screen (GuestLaunchErrorDialog) instead of the app silently vanishing with a clean
+            // logcat — that silent close is what made the crash impossible to diagnose.
             Timber.e("Guest program terminated with status: $status")
+            app.gamenative.utils.SessionLogger.append(
+                "Guest exited with status $status (exe: $gameExecutable). The box64/wine guest failed " +
+                    "to run — check the container's Box64/Wine versions and DX wrapper.",
+            )
             onGameLaunchError?.invoke("Game terminated with error status: $status")
+            PluviaApp.events.emit(AndroidEvent.GuestProgramLaunchError(status))
+            return@Callback
+        }
+        if (killedInBackground) {
+            Timber.w("Guest process killed by the system while backgrounded (status 137)")
+            app.gamenative.utils.SessionLogger.append(
+                "Guest killed by system in background (137). Disable battery optimization for " +
+                    "GameNative to keep paused games alive.",
+            )
         }
         PluviaApp.events.emit(AndroidEvent.GuestProgramTerminated)
     }
@@ -4061,9 +4126,17 @@ private fun getWineStartCommand(
             val gameFolderName = appDirPath.substringAfterLast('/').ifEmpty { gameId.toString() }
             "\"C:\\\\Program Files (x86)\\\\Steam\\\\steamapps\\\\common\\\\$gameFolderName\\\\$normalizedExe\""
         } else if (container.isLaunchRealSteam) {
-            // Launch Steam with the applaunch parameter to start the game
-            "\"C:\\\\Program Files (x86)\\\\Steam\\\\steam.exe\" -silent -vgui -tcp " +
-                    "-nobigpicture -nofriendsui -nochatui -nointro -applaunch $gameId"
+            if (PrefManager.launchSteamBigPicture) {
+                // Boot Steam straight into Big Picture (gamepad UI); do NOT auto-launch a game —
+                // the user picks from the UI. The steam:// relay is the currently supported way to
+                // force Big Picture; -no-cef-sandbox avoids the CEF black screen under Wine.
+                "\"C:\\\\Program Files (x86)\\\\Steam\\\\steam.exe\" -no-cef-sandbox -vgui -tcp " +
+                        "-start steam://open/bigpicture"
+            } else {
+                // Launch Steam with the applaunch parameter to start the game
+                "\"C:\\\\Program Files (x86)\\\\Steam\\\\steam.exe\" -silent -vgui -tcp " +
+                        "-nobigpicture -nofriendsui -nochatui -nointro -applaunch $gameId"
+            }
         } else {
             var executablePath = ""
             if (container.executablePath.isNotEmpty()) {
@@ -4563,18 +4636,21 @@ private suspend fun setupWineSystemFiles(
     // Always refresh components files
     refreshComponentsFiles(context)
 
-    // Normalize dxwrapper for state (dxvk includes version for extraction switch)
+    // Normalize dxwrapper for state (dxvk includes version for extraction switch).
+    // Fall back to the default version when the config key is missing, otherwise the name becomes
+    // "dxvk-null"/"vkd3d-null" — a component that doesn't exist, so nothing extracts and the guest
+    // fails at launch (e.g. a D3D12 title auto-routed to vkd3d without a vkd3dVersion set).
     if (xServerState.value.dxwrapper == "dxvk") {
-        xServerState.value = xServerState.value.copy(
-            dxwrapper = "dxvk-" + xServerState.value.dxwrapperConfig?.get("version"),
-        )
+        val v = xServerState.value.dxwrapperConfig?.get("version").orEmpty()
+            .ifEmpty { com.winlator.core.DefaultVersion.DXVK }
+        xServerState.value = xServerState.value.copy(dxwrapper = "dxvk-" + v)
     }
 
     // Also normalize VKD3D to include version like vkd3d-<version>
     if (xServerState.value.dxwrapper == "vkd3d") {
-        xServerState.value = xServerState.value.copy(
-            dxwrapper = "vkd3d-" + xServerState.value.dxwrapperConfig?.get("vkd3dVersion"),
-        )
+        val v = xServerState.value.dxwrapperConfig?.get("vkd3dVersion").orEmpty()
+            .ifEmpty { com.winlator.core.DefaultVersion.VKD3D }
+        xServerState.value = xServerState.value.copy(dxwrapper = "vkd3d-" + v)
     }
 
     // Cheap corruption guard: if any of the key D3D DLLs is missing or truncated in the
@@ -5360,10 +5436,17 @@ private suspend fun extractGraphicsDriverFiles(
         if (presentMode.contains("immediate")) {
             envVars.put("WRAPPER_MAX_IMAGE_COUNT", "1")
         }
-        envVars.put("MESA_VK_WSI_PRESENT_MODE", presentMode)
+        // Only export a present mode when the container actually specifies one. Exporting an
+        // empty MESA_VK_WSI_PRESENT_MODE makes the Turnip/Mesa WSI ignore it or fall back to a
+        // slow default and, worse, overrides the "mailbox" default set earlier — a real FPS hit.
+        if (presentMode.isNotEmpty()) {
+            envVars.put("MESA_VK_WSI_PRESENT_MODE", presentMode)
+        }
 
         val resourceType = graphicsDriverConfig.get("resourceType")
-        envVars.put("WRAPPER_RESOURCE_TYPE", resourceType)
+        if (resourceType.isNotEmpty()) {
+            envVars.put("WRAPPER_RESOURCE_TYPE", resourceType)
+        }
 
         val syncFrame = graphicsDriverConfig.get("syncFrame")
         if (syncFrame == "1") envVars.put("MESA_VK_WSI_DEBUG", "forcesync")
