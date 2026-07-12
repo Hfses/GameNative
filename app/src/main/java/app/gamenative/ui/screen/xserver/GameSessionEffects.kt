@@ -24,7 +24,7 @@ import timber.log.Timber
  *    the display was never allowed to reach. The preference is cleared on dispose.
  */
 @Composable
-fun GameSessionEffects(appId: Int, activity: Activity?) {
+fun GameSessionEffects(appId: String, activity: Activity?) {
     val context = LocalContext.current
 
     DisposableEffect(appId) {
