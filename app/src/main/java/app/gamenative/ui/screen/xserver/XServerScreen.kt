@@ -1790,6 +1790,8 @@ fun XServerScreen(
                 PluviaApp.xEnvironment
                     ?.getComponent<XServerComponent>(XServerComponent::class.java)
                     ?.xServer
+            // [PERF] Boot timeline starts here: XServer creation is the first step of a launch.
+            com.winlator.widget.FrameRating.markBootStart()
             val xServerToUse = existingXServer ?: XServer(ScreenInfo(xServerState.value.screenSize), usrGlibc)
             // VirGL containers always need GL (shared EGL context for the
             // VirGL passthrough). Default to the legacy GL renderer for all
@@ -1820,6 +1822,8 @@ fun XServerScreen(
                 }
                 applyMouseCursorVisibility()
                 renderer.setOnFrameRenderedListener {
+                    // [PERF] Cheap after the first call (static guard short-circuits).
+                    com.winlator.widget.FrameRating.markFirstFrame()
                     if (shouldTrackDisplayedFrames.get()) {
                         (context as? Activity)?.runOnUiThread {
                             frameRating?.update()
@@ -3616,6 +3620,9 @@ private fun setupXEnvironment(
 
     try {
         environment.startEnvironmentComponents()
+        // [PERF] All environment components (XServer connection, guest program launcher, etc.)
+        // are up; the guest boot proceeds from here until the first rendered frame.
+        com.winlator.widget.FrameRating.markXServerReady()
     } catch (e: Exception) {
         Timber.e(e, "Failed to start environment components, cleaning up")
         try {
@@ -5135,7 +5142,7 @@ private suspend fun extractGraphicsDriverFiles(
             envVars.put("GALLIUM_DRIVER", "zink")
             envVars.put("TU_OVERRIDE_HEAP_SIZE", "4096")
             if (!envVars.has("MESA_VK_WSI_PRESENT_MODE")) envVars.put("MESA_VK_WSI_PRESENT_MODE", "mailbox")
-            envVars.put("vblank_mode", "0")
+            // vblank_mode=0 already set globally above for all drivers.
 
             if (!GPUInformation.isAdreno6xx(context) && !GPUInformation.isAdreno710_720_732(context)) {
                 val userEnvVars = EnvVars(container.envVars)
@@ -5154,7 +5161,6 @@ private suspend fun extractGraphicsDriverFiles(
             envVars.put("VIRGL_SERVER_PATH", imageFs.getRootDir().getPath() + UnixSocketConfig.VIRGL_SERVER_PATH)
             envVars.put("MESA_EXTENSION_OVERRIDE", "-GL_EXT_vertex_array_bgra")
             envVars.put("MESA_GL_VERSION_OVERRIDE", "3.1")
-            envVars.put("vblank_mode", "0")
             if (changed) {
                 extractGraphicsDriverComponent(context, "virgl-$virglVersion", rootDir)
             }

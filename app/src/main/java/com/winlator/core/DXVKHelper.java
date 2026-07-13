@@ -62,6 +62,11 @@ public class DXVKHelper {
         String maxFrameLatency = config.get("maxFrameLatency");
         if (!maxFrameLatency.isEmpty() && !maxFrameLatency.equals("0")) {
             content += "dxvk.maxFrameLatency = " + maxFrameLatency + "\n";
+        } else {
+            // Aggressive default: 1 frame in flight. DXVK's default (usually 2-3) adds 1-2 frames
+            // of input latency, which is very noticeable with touch controls on top of the
+            // Wine/Box64 stack. Explicitly configurable via the container's maxFrameLatency knob.
+            content += "dxvk.maxFrameLatency = 1\n";
         }
 
         // numCompilerThreads: cap pipeline-compilation threads so they don't steal the

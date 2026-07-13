@@ -74,6 +74,10 @@ public class Texture {
         }
         else if (needsUpdate) {
             int[] dirty = partialUploadsEnabled ? drawable.consumeDirtyRect() : null;
+            // Safety: only take the partial path when the buffer layout matches the expected
+            // tightly-packed BGRA surface (stride >= width). Shared/native buffers with unusual
+            // layouts fall back to the full-frame upload.
+            if (dirty != null && data.capacity() / (drawable.height * 4) < drawable.width) dirty = null;
             GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textureId);
             if (dirty != null) {
                 // Upload only the damaged sub-rectangle. GL_UNPACK_ROW_LENGTH (GLES3) lets the GL
