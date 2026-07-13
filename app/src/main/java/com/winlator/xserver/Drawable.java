@@ -25,6 +25,15 @@ public class Drawable extends XResource {
     public final Visual visual;
     public final short width;
 
+    // Damage-rect tracking for partial texture uploads (GL path). Drawing operations record the
+    // affected region; the renderer consumes it in Texture.updateFromDrawable() to upload only the
+    // dirty sub-rectangle instead of the whole frame. Guarded by dirtyLock because drawing happens
+    // on the X server thread while consumption happens on the GL thread.
+    private final Object dirtyLock = new Object();
+    private boolean hasDirtyRect = false;
+    private boolean fullDirty = false;
+    private int dirtyLeft, dirtyTop, dirtyRight, dirtyBottom;
+
     private static native void copyArea(short s, short s2, short s3, short s4, short s5, short s6, short s7, short s8, ByteBuffer byteBuffer, ByteBuffer byteBuffer2);
 
     private static native void copyAreaOp(short s, short s2, short s3, short s4, short s5, short s6, short s7, short s8, ByteBuffer byteBuffer, ByteBuffer byteBuffer2, int i);
@@ -136,6 +145,7 @@ public class Drawable extends XResource {
         if (byteBuffer == null) {
             return;
         }
+        int damageX = 0, damageY = 0, damageW = 0, damageH = 0;
         if (depth == 1) {
             // Clamp to the destination: drawBitmap writes width*height ints into byteBuffer with no
             // native bounds check, so an oversized width/height from a malicious client would write
@@ -144,6 +154,8 @@ public class Drawable extends XResource {
             int w = Math.max(0, Math.min((int) width, this.width));
             int h = Math.max(0, Math.min((int) height, this.height));
             if (w > 0 && h > 0) drawBitmap((short) w, (short) h, data, byteBuffer);
+            damageW = w;
+            damageH = h;
         }
         else {
             if (depth == 24 || depth == 32) {
@@ -153,6 +165,10 @@ public class Drawable extends XResource {
                 if ((dstY + height) > this.height) height = (short)((this.height - dstY));
 
                 copyArea(srcX, srcY, dstX, dstY, width, height, totalWidth, this.getStride(), data, this.data);
+                damageX = dstX;
+                damageY = dstY;
+                damageW = width;
+                damageH = height;
             }
         }
         // Single native submit for the whole image. This path (X_PutImage / MIT-SHM) is the hottest
@@ -160,7 +176,7 @@ public class Drawable extends XResource {
         // submitting every frame to the native scanout — and doing the full JNI upload — twice.
         this.data.rewind();
         data.rewind();
-        forceUpdate();
+        forceUpdate(damageX, damageY, damageW, damageH);
     }
 
     public ByteBuffer getImage(short x, short y, short width, short height) {
@@ -211,7 +227,7 @@ public class Drawable extends XResource {
 
             this.data.rewind();
             drawable.data.rewind();
-            forceUpdate();
+            forceUpdate(dstX, dstY, width, height);
         }
     }
 
@@ -230,7 +246,7 @@ public class Drawable extends XResource {
 
         fillRect((short)x, (short)y, (short)width, (short)height, color, this.getStride(), this.data);
         this.data.rewind();
-        forceUpdate();
+        forceUpdate(x, y, width, height);
     }
 
     public void drawLines(int color, int lineWidth, short... points) {
@@ -251,7 +267,10 @@ public class Drawable extends XResource {
         drawLine((short)x0, (short)y0, (short)x1, (short)y1, color, (short)lineWidth, this.getStride(), this.data);
 
         this.data.rewind();
-        forceUpdate();
+        // Damage = bounding box of the line, expanded by the stroke width.
+        int minX = Math.min(x0, x1);
+        int minY = Math.min(y0, y1);
+        forceUpdate(minX, minY, Math.abs(x1 - x0) + lineWidth, Math.abs(y1 - y0) + lineWidth);
     }
 
     public void drawAlphaMaskedBitmap(byte foreRed, byte foreGreen, byte foreBlue, byte backRed, byte backGreen, byte backBlue, Drawable srcDrawable, Drawable maskDrawable) {
@@ -269,12 +288,80 @@ public class Drawable extends XResource {
     }
 
     public void forceUpdate() {
+        markAllDirty();
+        submitUpdate();
+    }
+
+    /**
+     * Partial-damage variant of {@link #forceUpdate()}: records only the affected rectangle so the
+     * GL renderer can upload just that region ({@code glTexSubImage2D} with
+     * {@code GL_UNPACK_ROW_LENGTH}) instead of the full frame.
+     */
+    public void forceUpdate(int x, int y, int rectWidth, int rectHeight) {
+        markDirtyRect(x, y, rectWidth, rectHeight);
+        submitUpdate();
+    }
+
+    private void submitUpdate() {
         if (!this.offscreenStorage) {
             this.texture.setNeedsUpdate(true);
             Runnable runnable = this.onDrawListener;
             if (runnable != null) {
                 runnable.run();
             }
+        }
+    }
+
+    private void markAllDirty() {
+        synchronized (dirtyLock) {
+            hasDirtyRect = true;
+            fullDirty = true;
+        }
+    }
+
+    private void markDirtyRect(int x, int y, int rectWidth, int rectHeight) {
+        int left = Math.max(0, x);
+        int top = Math.max(0, y);
+        int right = Math.min(this.width, x + rectWidth);
+        int bottom = Math.min(this.height, y + rectHeight);
+        if (right <= left || bottom <= top) return;
+        synchronized (dirtyLock) {
+            if (fullDirty) return;
+            if (hasDirtyRect) {
+                dirtyLeft = Math.min(dirtyLeft, left);
+                dirtyTop = Math.min(dirtyTop, top);
+                dirtyRight = Math.max(dirtyRight, right);
+                dirtyBottom = Math.max(dirtyBottom, bottom);
+            }
+            else {
+                hasDirtyRect = true;
+                dirtyLeft = left;
+                dirtyTop = top;
+                dirtyRight = right;
+                dirtyBottom = bottom;
+            }
+            // If the union covers (almost) everything, promote to a full update to skip the
+            // row-by-row partial upload overhead.
+            if (dirtyLeft == 0 && dirtyTop == 0 && dirtyRight >= this.width && dirtyBottom >= this.height) {
+                fullDirty = true;
+            }
+        }
+    }
+
+    /**
+     * Consumes the accumulated damage region. Returns {@code null} when the whole surface must be
+     * uploaded (full damage, or no region was recorded — e.g. external components that only call
+     * {@code texture.setNeedsUpdate(true)}). Otherwise returns {@code [x, y, width, height]}.
+     */
+    public int[] consumeDirtyRect() {
+        synchronized (dirtyLock) {
+            if (!hasDirtyRect || fullDirty) {
+                hasDirtyRect = false;
+                fullDirty = false;
+                return null;
+            }
+            hasDirtyRect = false;
+            return new int[]{dirtyLeft, dirtyTop, dirtyRight - dirtyLeft, dirtyBottom - dirtyTop};
         }
     }
 

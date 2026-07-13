@@ -3,16 +3,21 @@ package com.winlator.renderer;
 import com.winlator.xserver.Drawable;
 
 class RenderableWindow {
-    final Drawable content;
+    Drawable content;
     short rootX;
     short rootY;
-    final boolean forceFullscreen;
+    boolean forceFullscreen;
 
     public RenderableWindow(Drawable content, int rootX, int rootY) {
         this(content, rootX, rootY, false);
     }
 
     public RenderableWindow(Drawable content, int rootX, int rootY, boolean forceFullscreen) {
+        set(content, rootX, rootY, forceFullscreen);
+    }
+
+    /** Reinitializes a pooled instance, avoiding per-scene-update allocations. */
+    public void set(Drawable content, int rootX, int rootY, boolean forceFullscreen) {
         this.content = content;
         this.rootX = (short)rootX;
         this.rootY = (short)rootY;

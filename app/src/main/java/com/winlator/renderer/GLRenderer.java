@@ -45,6 +45,12 @@ public class GLRenderer implements GLSurfaceView.Renderer, WindowManager.OnWindo
     public final ViewTransformation viewTransformation = new ViewTransformation();
     private final Drawable rootCursorDrawable;
     private final ArrayList<RenderableWindow> renderableWindows = new ArrayList<>();
+    // Pool to avoid re-allocating RenderableWindow objects on every window map/unmap/z-order event.
+    private final ArrayList<RenderableWindow> renderableWindowPool = new ArrayList<>();
+    private static final int MAX_POOL_SIZE = 64;
+    // Uniform locations resolved once per pass instead of a string-keyed map lookup per drawable.
+    private int uniTextureLocation = -1;
+    private int uniXFormLocation = -1;
     private String forceFullscreenWMClass = null;
     private boolean fullscreen = false;
     private boolean toggleFullscreen = false;
@@ -276,31 +282,38 @@ public class GLRenderer implements GLSurfaceView.Renderer, WindowManager.OnWindo
 
     private void renderDrawable(Drawable drawable, int x, int y, ShaderMaterial material, boolean forceFullscreen) {
         if (drawable == null) return;
+        // Hold renderLock only for the texture upload: the X client thread blocks on this lock to
+        // draw, so keeping the GL draw call outside of it reduces contention. Once the upload has
+        // been submitted, drawing no longer touches the drawable's CPU buffer.
+        Texture texture;
         synchronized (drawable.renderLock) {
-            Texture texture = drawable.getTexture();
+            texture = drawable.getTexture();
             texture.updateFromDrawable(drawable);
-
-            if (forceFullscreen) {
-                short newHeight = (short)Math.min(xServer.screenInfo.height, ((float)xServer.screenInfo.width / drawable.width) * drawable.height);
-                short newWidth = (short)(((float)newHeight / drawable.height) * drawable.width);
-                XForm.set(tmpXForm1, (xServer.screenInfo.width - newWidth) * 0.5f, (xServer.screenInfo.height - newHeight) * 0.5f, newWidth, newHeight);
-            }
-            else XForm.set(tmpXForm1, x, y, drawable.width, drawable.height);
-
-            XForm.multiply(tmpXForm1, tmpXForm1, tmpXForm2);
-
-            GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
-            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, texture.getTextureId());
-            GLES20.glUniform1i(material.getUniformLocation("texture"), 0);
-            GLES20.glUniform1fv(material.getUniformLocation("xform"), tmpXForm1.length, tmpXForm1, 0);
-            GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, quadVertices.count());
-            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0);
         }
+
+        if (forceFullscreen) {
+            short newHeight = (short)Math.min(xServer.screenInfo.height, ((float)xServer.screenInfo.width / drawable.width) * drawable.height);
+            short newWidth = (short)(((float)newHeight / drawable.height) * drawable.width);
+            XForm.set(tmpXForm1, (xServer.screenInfo.width - newWidth) * 0.5f, (xServer.screenInfo.height - newHeight) * 0.5f, newWidth, newHeight);
+        }
+        else XForm.set(tmpXForm1, x, y, drawable.width, drawable.height);
+
+        XForm.multiply(tmpXForm1, tmpXForm1, tmpXForm2);
+
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, texture.getTextureId());
+        GLES20.glUniform1i(uniTextureLocation, 0);
+        GLES20.glUniform1fv(uniXFormLocation, tmpXForm1.length, tmpXForm1, 0);
+        GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, quadVertices.count());
+        // No per-drawable unbind: the next drawable binds its own texture, and each pass unbinds
+        // once at the end. This removes a redundant GL state change per window per frame.
     }
 
     private void renderWindows() {
         windowMaterial.use();
         GLES20.glUniform2f(windowMaterial.getUniformLocation("viewSize"), xServer.screenInfo.width, xServer.screenInfo.height);
+        uniTextureLocation = windowMaterial.getUniformLocation("texture");
+        uniXFormLocation = windowMaterial.getUniformLocation("xform");
         quadVertices.bind(windowMaterial.programId);
 
         try (XLock lock = xServer.lock(XServer.Lockable.DRAWABLE_MANAGER)) {
@@ -309,12 +322,15 @@ public class GLRenderer implements GLSurfaceView.Renderer, WindowManager.OnWindo
             }
         }
 
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0);
         quadVertices.disable();
     }
 
     private void renderCursor() {
         cursorMaterial.use();
         GLES20.glUniform2f(cursorMaterial.getUniformLocation("viewSize"), xServer.screenInfo.width, xServer.screenInfo.height);
+        uniTextureLocation = cursorMaterial.getUniformLocation("texture");
+        uniXFormLocation = cursorMaterial.getUniformLocation("xform");
         quadVertices.bind(cursorMaterial.programId);
 
         try (XLock lock = xServer.lock(XServer.Lockable.DRAWABLE_MANAGER)) {
@@ -329,6 +345,7 @@ public class GLRenderer implements GLSurfaceView.Renderer, WindowManager.OnWindo
             else renderDrawable(rootCursorDrawable, x, y, cursorMaterial);
         }
 
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0);
         quadVertices.disable();
     }
 
@@ -351,9 +368,26 @@ public class GLRenderer implements GLSurfaceView.Renderer, WindowManager.OnWindo
 
     private void updateScene() {
         try (XLock lock = xServer.lock(XServer.Lockable.WINDOW_MANAGER, XServer.Lockable.DRAWABLE_MANAGER)) {
+            // Recycle instead of discarding: window map/unmap/z-order events fire frequently during
+            // gameplay (tooltips, popups) and this method used to reallocate the whole list.
+            for (RenderableWindow window : renderableWindows) {
+                if (renderableWindowPool.size() >= MAX_POOL_SIZE) break;
+                window.content = null;
+                renderableWindowPool.add(window);
+            }
             renderableWindows.clear();
             collectRenderableWindows(xServer.windowManager.rootWindow, xServer.windowManager.rootWindow.getX(), xServer.windowManager.rootWindow.getY());
         }
+    }
+
+    private RenderableWindow obtainRenderableWindow(Drawable content, int x, int y, boolean forceFullscreen) {
+        int last = renderableWindowPool.size() - 1;
+        if (last >= 0) {
+            RenderableWindow window = renderableWindowPool.remove(last);
+            window.set(content, x, y, forceFullscreen);
+            return window;
+        }
+        return new RenderableWindow(content, x, y, forceFullscreen);
     }
 
     private void collectRenderableWindows(Window window, int x, int y) {
@@ -395,9 +429,9 @@ public class GLRenderer implements GLSurfaceView.Renderer, WindowManager.OnWindo
                         }
                     }
 
-                    renderableWindows.add(new RenderableWindow(window.getContent(), x, y, forceFullscreen));
+                    renderableWindows.add(obtainRenderableWindow(window.getContent(), x, y, forceFullscreen));
                 }
-                else renderableWindows.add(new RenderableWindow(window.getContent(), x, y));
+                else renderableWindows.add(obtainRenderableWindow(window.getContent(), x, y, false));
             }
         }
 

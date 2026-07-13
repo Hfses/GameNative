@@ -82,7 +82,9 @@ public class Container {
     private String dxwrapper = DEFAULT_DXWRAPPER;
     private String dxwrapperConfig = DEFAULT_DXWRAPPERCONFIG;
     private String graphicsDriverConfig = DEFAULT_GRAPHICSDRIVERCONFIG;
-    private String rendererPresentMode = "fifo";
+    // Mailbox = lowest latency without tearing. Safe as a default: the native side falls back to
+    // FIFO automatically when the device doesn't support it (VulkanRendererContext::setPresentMode).
+    private String rendererPresentMode = "mailbox";
     private String displayRenderer = Container.DEFAULT_DISPLAY_RENDERER;
     private boolean sfCompatMode = true;
     private boolean lowGraphicsMode = false;
@@ -266,7 +268,7 @@ public class Container {
 
     public String getRendererPresentMode() { return rendererPresentMode; }
 
-    public void setRendererPresentMode(String v) { this.rendererPresentMode = v != null ? v : "fifo"; }
+    public void setRendererPresentMode(String v) { this.rendererPresentMode = v != null ? v : "mailbox"; }
 
     public String getDisplayRenderer() { return displayRenderer; }
 

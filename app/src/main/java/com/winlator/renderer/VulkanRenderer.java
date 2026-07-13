@@ -816,9 +816,14 @@ public class VulkanRenderer implements WindowManager.OnWindowModificationListene
             float targetFps = limit > 0 ? (float)limit
                 : xServerView.getDisplay() != null
                     ? xServerView.getDisplay().getRefreshRate() : 60f;
+            // FIXED_SOURCE when the game has an explicit, stable target rate: tells SurfaceFlinger
+            // this content genuinely runs at targetFps, letting it switch the display mode (e.g.
+            // 120Hz panel down to 60Hz) for smoother pacing and lower power.
+            int compat = limit > 0
+                ? android.view.Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE
+                : android.view.Surface.FRAME_RATE_COMPATIBILITY_DEFAULT;
             new android.view.SurfaceControl.Transaction()
-                .setFrameRate(scanoutGameSC, targetFps,
-                    android.view.Surface.FRAME_RATE_COMPATIBILITY_DEFAULT)
+                .setFrameRate(scanoutGameSC, targetFps, compat)
                 .apply();
         }
     }
@@ -833,9 +838,11 @@ public class VulkanRenderer implements WindowManager.OnWindowModificationListene
         float targetFps = refreshRateLimit > 0 ? (float)refreshRateLimit
             : xServerView.getDisplay() != null
                 ? xServerView.getDisplay().getRefreshRate() : 60f;
+        int compat = refreshRateLimit > 0
+            ? android.view.Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE
+            : android.view.Surface.FRAME_RATE_COMPATIBILITY_DEFAULT;
         new android.view.SurfaceControl.Transaction()
-            .setFrameRate(scanoutGameSC, targetFps,
-                android.view.Surface.FRAME_RATE_COMPATIBILITY_DEFAULT)
+            .setFrameRate(scanoutGameSC, targetFps, compat)
             .apply();
     }
     private static class RenderableWindow {

@@ -713,8 +713,8 @@ fun ContainerConfigDialog(
             presentModeIndex =
                 presentModes.indexOfFirst { it.equals(presentMode, true) }.let { if (it >= 0) it else defaultPresentIdx }
 
-            val storedRendererPm = config.rendererPresentMode.ifEmpty { "fifo" }
-            val defaultRendererPresentIdx = rendererPresentModes.indexOfFirst { it.equals("fifo", true) }.takeIf { it >= 0 } ?: 0
+            val storedRendererPm = config.rendererPresentMode.ifEmpty { "mailbox" }
+            val defaultRendererPresentIdx = rendererPresentModes.indexOfFirst { it.equals("mailbox", true) }.takeIf { it >= 0 } ?: 0
             rendererPresentModeIndex =
                 rendererPresentModes.indexOfFirst { it.equals(storedRendererPm, true) }.let { if (it >= 0) it else defaultRendererPresentIdx }
 

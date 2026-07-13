@@ -199,7 +199,7 @@ object PrefManager {
 
     private val RENDERER_PRESENT_MODE = stringPreferencesKey("renderer_present_mode")
     var rendererPresentMode: String
-        get() = getPref(RENDERER_PRESENT_MODE, "fifo")
+        get() = getPref(RENDERER_PRESENT_MODE, "mailbox")
         set(value) {
             setPref(RENDERER_PRESENT_MODE, value)
         }

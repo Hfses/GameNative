@@ -2,6 +2,7 @@ package com.winlator.renderer;
 
 import android.opengl.GLES11Ext;
 import android.opengl.GLES20;
+import android.opengl.GLES30;
 
 // import com.winlator.XrActivity;
 import com.winlator.xserver.Drawable;
@@ -59,16 +60,36 @@ public class Texture {
         this.needsUpdate = needsUpdate;
     }
 
+    // Kill switch for the partial (damage-rect) upload path. Set to false to force full-frame
+    // uploads again — useful for bisecting rendering regressions on-device.
+    public static boolean partialUploadsEnabled = true;
+
     public void updateFromDrawable(Drawable drawable) {
         ByteBuffer data = drawable.getData();
         if (data == null) return;
 
         if (!isAllocated()) {
+            drawable.consumeDirtyRect();
             allocateTexture(drawable.width, drawable.height, data);
         }
         else if (needsUpdate) {
+            int[] dirty = partialUploadsEnabled ? drawable.consumeDirtyRect() : null;
             GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textureId);
-            GLES20.glTexSubImage2D(GLES20.GL_TEXTURE_2D, 0, 0, 0, drawable.width, drawable.height, format, GLES20.GL_UNSIGNED_BYTE, data);
+            if (dirty != null) {
+                // Upload only the damaged sub-rectangle. GL_UNPACK_ROW_LENGTH (GLES3) lets the GL
+                // read rows with the full-surface stride while we point the buffer at the first
+                // dirty pixel. For a small damage region this replaces a multi-MB full-frame
+                // upload with a few KB.
+                int stride = data.capacity() / (drawable.height * 4);
+                GLES30.glPixelStorei(GLES30.GL_UNPACK_ROW_LENGTH, stride);
+                data.position((dirty[1] * stride + dirty[0]) * 4);
+                GLES20.glTexSubImage2D(GLES20.GL_TEXTURE_2D, 0, dirty[0], dirty[1], dirty[2], dirty[3], format, GLES20.GL_UNSIGNED_BYTE, data);
+                GLES30.glPixelStorei(GLES30.GL_UNPACK_ROW_LENGTH, 0);
+                data.rewind();
+            }
+            else {
+                GLES20.glTexSubImage2D(GLES20.GL_TEXTURE_2D, 0, 0, 0, drawable.width, drawable.height, format, GLES20.GL_UNSIGNED_BYTE, data);
+            }
             GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0);
             needsUpdate = false;
         }
