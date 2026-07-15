@@ -26,8 +26,15 @@ public class CursorManager extends XResourceManager {
     }
 
     public void freeCursor(int id) {
-        triggerOnFreeResourceListener(cursors.get(id));
+        Cursor cursor = cursors.get(id);
+        // Null guard: freeing an unknown/already-freed cursor id used to pass null into the
+        // lifecycle listeners (potential NPE on the X server thread).
+        if (cursor == null) return;
+        triggerOnFreeResourceListener(cursor);
         cursors.remove(id);
+        // The cursor image drawable is created with id 0 (untracked), so DrawableManager never
+        // destroys its GL texture — release it here to avoid leaking one texture per cursor change.
+        drawableManager.destroyUntrackedDrawable(cursor.cursorImage);
     }
 
     private static boolean isEmptyMaskImage(Drawable maskImage) {

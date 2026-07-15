@@ -2,6 +2,7 @@ package com.winlator.container;
 
 import android.content.Context;
 import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 
 // import com.winlator.R;
@@ -86,10 +87,19 @@ public class ContainerManager {
     }
 
     public void createContainerAsync(String containerId, final JSONObject data, Callback<Container> callback) {
-        final Handler handler = new Handler();
-        Executors.newSingleThreadExecutor().execute(() -> {
-            final Container container = createContainer(containerId, data);
-            handler.post(() -> callback.call(container));
+        // Main-looper handler: `new Handler()` bound to the calling thread and crashed with
+        // "Can't create handler inside thread that has not called Looper.prepare()" when these
+        // async methods were invoked off the UI thread. The executor is also shut down after the
+        // task, otherwise each call leaked an idle (non-daemon) worker thread forever.
+        final Handler handler = new Handler(Looper.getMainLooper());
+        final java.util.concurrent.ExecutorService executor = Executors.newSingleThreadExecutor();
+        executor.execute(() -> {
+            try {
+                final Container container = createContainer(containerId, data);
+                handler.post(() -> callback.call(container));
+            } finally {
+                executor.shutdown();
+            }
         });
     }
     public Future<Container> createContainerFuture(String containerId, final JSONObject data) {
@@ -146,18 +156,28 @@ public class ContainerManager {
     }
 
     public void duplicateContainerAsync(Container container, Runnable callback) {
-        final Handler handler = new Handler();
-        Executors.newSingleThreadExecutor().execute(() -> {
-            duplicateContainer(container);
-            handler.post(callback);
+        final Handler handler = new Handler(Looper.getMainLooper());
+        final java.util.concurrent.ExecutorService executor = Executors.newSingleThreadExecutor();
+        executor.execute(() -> {
+            try {
+                duplicateContainer(container);
+                handler.post(callback);
+            } finally {
+                executor.shutdown();
+            }
         });
     }
 
     public void removeContainerAsync(Container container, Runnable callback) {
-        final Handler handler = new Handler();
-        Executors.newSingleThreadExecutor().execute(() -> {
-            removeContainer(container);
-            handler.post(callback);
+        final Handler handler = new Handler(Looper.getMainLooper());
+        final java.util.concurrent.ExecutorService executor = Executors.newSingleThreadExecutor();
+        executor.execute(() -> {
+            try {
+                removeContainer(container);
+                handler.post(callback);
+            } finally {
+                executor.shutdown();
+            }
         });
     }
 

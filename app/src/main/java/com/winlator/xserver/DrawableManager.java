@@ -60,6 +60,17 @@ public class DrawableManager extends XResourceManager implements XResourceManage
         if (resource instanceof Pixmap) removeDrawable(((Pixmap)resource).drawable.id);
     }
 
+    /**
+     * Destroys the GL texture of a drawable that is NOT tracked in the id map (e.g. cursor images,
+     * which are created with id 0). Without this, every cursor change leaked one GPU texture.
+     */
+    public void destroyUntrackedDrawable(Drawable drawable) {
+        if (drawable == null) return;
+        final Texture texture = drawable.getTexture();
+        if (texture != null) xServer.getRenderer().getRendererView().queueEvent(texture::destroy);
+        drawable.setOnDrawListener(null);
+    }
+
     public Visual getVisual() {
         return xServer.pixmapManager.visual;
     }

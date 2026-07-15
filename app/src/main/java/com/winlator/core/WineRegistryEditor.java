@@ -328,12 +328,14 @@ public class WineRegistryEditor implements Closeable {
         char[] buffer = new char[65536];
         boolean success = false;
         File tempFile = FileUtils.createTempFile(this.file.getParentFile(), FileUtils.getBasename(this.file.getPath()));
-        try {
-            BufferedReader reader = new BufferedReader(new FileReader(this.cloneFile), 65536);
-            try {
-                BufferedWriter writer = new BufferedWriter(new FileWriter(tempFile), 65536);
-                int position = 0;
-                try {
+        // try-with-resources: the previous manual pattern had empty finally blocks, so an
+        // IOException mid-write leaked both file descriptors (reader + writer). Registry edits
+        // happen on every container boot and game install, so leaked fds accumulated quickly.
+        try (BufferedReader reader = new BufferedReader(new FileReader(this.cloneFile), 65536);
+             BufferedWriter writer = new BufferedWriter(new FileWriter(tempFile), 65536)) {
+            int position = 0;
+            {
+                {
                     Iterator<Location> it = valueLocations.iterator();
                     while (it.hasNext()) {
                         Location valueLocation2 = it.next();
@@ -394,11 +396,7 @@ public class WineRegistryEditor implements Closeable {
                         }
                     }
                     success = true;
-                    writer.close();
-                    reader.close();
-                } finally {
                 }
-            } finally {
             }
         } catch (IOException e) {
         }
