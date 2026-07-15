@@ -1043,24 +1043,23 @@ public class WinHandler {
         buffer.putShort(OFF_LT, (short)lAxis);
         buffer.putShort(OFF_RT, (short)rAxis);
 
-        byte[] sdlButtons = new byte[15];
-        sdlButtons[0] = state.isPressed(0) ? (byte)1 : (byte)0;  // A
-        sdlButtons[1] = state.isPressed(1) ? (byte)1 : (byte)0;  // B
-        sdlButtons[2] = state.isPressed(2) ? (byte)1 : (byte)0;  // X
-        sdlButtons[3] = state.isPressed(3) ? (byte)1 : (byte)0;  // Y
-        sdlButtons[9] = state.isPressed(4) ? (byte)1 : (byte)0;  // Left Bumper
-        sdlButtons[10] = state.isPressed(5) ? (byte)1 : (byte)0; // Right Bumper
-        sdlButtons[4] = state.isPressed(6) ? (byte)1 : (byte)0;  // Select/Back
-        sdlButtons[6] = state.isPressed(7) ? (byte)1 : (byte)0;  // Start
-        sdlButtons[7] = state.isPressed(8) ? (byte)1 : (byte)0;  // Left Stick
-        sdlButtons[8] = state.isPressed(9) ? (byte)1 : (byte)0;  // Right Stick
-        sdlButtons[11] = state.dpad[0] ? (byte)1 : (byte)0;      // DPAD_UP
-        sdlButtons[12] = state.dpad[2] ? (byte)1 : (byte)0;      // DPAD_DOWN
-        sdlButtons[13] = state.dpad[3] ? (byte)1 : (byte)0;      // DPAD_LEFT
-        sdlButtons[14] = state.dpad[1] ? (byte)1 : (byte)0;      // DPAD_RIGHT
-        for (int i = 0; i < 15; i++) {
-            buffer.put(OFF_BTN + i, sdlButtons[i]);
-        }
+        // Write button states directly at fixed offsets — this runs for every controller poll
+        // (hundreds of times/sec), so avoid allocating a temp array per event (GC churn = input jitter).
+        buffer.put(OFF_BTN,      state.isPressed(0) ? (byte)1 : (byte)0);  // A
+        buffer.put(OFF_BTN + 1,  state.isPressed(1) ? (byte)1 : (byte)0);  // B
+        buffer.put(OFF_BTN + 2,  state.isPressed(2) ? (byte)1 : (byte)0);  // X
+        buffer.put(OFF_BTN + 3,  state.isPressed(3) ? (byte)1 : (byte)0);  // Y
+        buffer.put(OFF_BTN + 4,  state.isPressed(6) ? (byte)1 : (byte)0);  // Select/Back
+        buffer.put(OFF_BTN + 5,  (byte)0);
+        buffer.put(OFF_BTN + 6,  state.isPressed(7) ? (byte)1 : (byte)0);  // Start
+        buffer.put(OFF_BTN + 7,  state.isPressed(8) ? (byte)1 : (byte)0);  // Left Stick
+        buffer.put(OFF_BTN + 8,  state.isPressed(9) ? (byte)1 : (byte)0);  // Right Stick
+        buffer.put(OFF_BTN + 9,  state.isPressed(4) ? (byte)1 : (byte)0);  // Left Bumper
+        buffer.put(OFF_BTN + 10, state.isPressed(5) ? (byte)1 : (byte)0);  // Right Bumper
+        buffer.put(OFF_BTN + 11, state.dpad[0] ? (byte)1 : (byte)0);       // DPAD_UP
+        buffer.put(OFF_BTN + 12, state.dpad[2] ? (byte)1 : (byte)0);       // DPAD_DOWN
+        buffer.put(OFF_BTN + 13, state.dpad[3] ? (byte)1 : (byte)0);       // DPAD_LEFT
+        buffer.put(OFF_BTN + 14, state.dpad[1] ? (byte)1 : (byte)0);       // DPAD_RIGHT
         buffer.put(OFF_HAT, (byte)0);
 
         notifyStateChanged(playerIndex);
@@ -1090,26 +1089,22 @@ public class WinHandler {
         gamepadBuffer.putShort(OFF_LT, (short) lAxis);
         gamepadBuffer.putShort(OFF_RT, (short) rAxis);
 
-        // Buttons: 15 bytes starting at offset 16
-        byte[] sdlButtons = new byte[15];
-        sdlButtons[0]  = state.isPressed(0) ? (byte) 1 : 0;   // A
-        sdlButtons[1]  = state.isPressed(1) ? (byte) 1 : 0;   // B
-        sdlButtons[2]  = state.isPressed(2) ? (byte) 1 : 0;   // X
-        sdlButtons[3]  = state.isPressed(3) ? (byte) 1 : 0;   // Y
-        sdlButtons[9]  = state.isPressed(4) ? (byte) 1 : 0;   // LB
-        sdlButtons[10] = state.isPressed(5) ? (byte) 1 : 0;   // RB
-        sdlButtons[4]  = state.isPressed(6) ? (byte) 1 : 0;   // Back / Select
-        sdlButtons[6]  = state.isPressed(7) ? (byte) 1 : 0;   // Start
-        sdlButtons[7]  = state.isPressed(8) ? (byte) 1 : 0;   // L3
-        sdlButtons[8]  = state.isPressed(9) ? (byte) 1 : 0;   // R3
-        sdlButtons[11] = state.dpad[0] ? (byte) 1 : 0;        // Up
-        sdlButtons[12] = state.dpad[2] ? (byte) 1 : 0;        // Down
-        sdlButtons[13] = state.dpad[3] ? (byte) 1 : 0;        // Left
-        sdlButtons[14] = state.dpad[1] ? (byte) 1 : 0;        // Right
-
-        for (int i = 0; i < 15; i++) {
-            gamepadBuffer.put(OFF_BTN + i, sdlButtons[i]);
-        }
+        // Buttons: direct writes at fixed offsets — no temp array per input event (hot path).
+        gamepadBuffer.put(OFF_BTN,      state.isPressed(0) ? (byte)1 : (byte)0);  // A
+        gamepadBuffer.put(OFF_BTN + 1,  state.isPressed(1) ? (byte)1 : (byte)0);  // B
+        gamepadBuffer.put(OFF_BTN + 2,  state.isPressed(2) ? (byte)1 : (byte)0);  // X
+        gamepadBuffer.put(OFF_BTN + 3,  state.isPressed(3) ? (byte)1 : (byte)0);  // Y
+        gamepadBuffer.put(OFF_BTN + 4,  state.isPressed(6) ? (byte)1 : (byte)0);  // Back / Select
+        gamepadBuffer.put(OFF_BTN + 5,  (byte)0);
+        gamepadBuffer.put(OFF_BTN + 6,  state.isPressed(7) ? (byte)1 : (byte)0);  // Start
+        gamepadBuffer.put(OFF_BTN + 7,  state.isPressed(8) ? (byte)1 : (byte)0);  // L3
+        gamepadBuffer.put(OFF_BTN + 8,  state.isPressed(9) ? (byte)1 : (byte)0);  // R3
+        gamepadBuffer.put(OFF_BTN + 9,  state.isPressed(4) ? (byte)1 : (byte)0);  // LB
+        gamepadBuffer.put(OFF_BTN + 10, state.isPressed(5) ? (byte)1 : (byte)0);  // RB
+        gamepadBuffer.put(OFF_BTN + 11, state.dpad[0] ? (byte)1 : (byte)0);       // Up
+        gamepadBuffer.put(OFF_BTN + 12, state.dpad[2] ? (byte)1 : (byte)0);       // Down
+        gamepadBuffer.put(OFF_BTN + 13, state.dpad[3] ? (byte)1 : (byte)0);       // Left
+        gamepadBuffer.put(OFF_BTN + 14, state.dpad[1] ? (byte)1 : (byte)0);       // Right
 
         // Hat at offset 31
         gamepadBuffer.put(OFF_HAT, (byte) 0);

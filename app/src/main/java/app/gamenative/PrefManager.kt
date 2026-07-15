@@ -53,8 +53,18 @@ object PrefManager {
 
     private lateinit var dataStore: DataStore<Preferences>
 
+    // Hot in-memory snapshot of the preferences. Every getPref() used to do
+    // runBlocking { dataStore.data.first() } — a blocking disk read per call, frequently from the
+    // main thread (ANR risk + frame drops during gameplay). The collector below keeps this
+    // snapshot current; reads become a simple volatile field access after the first load.
+    @Volatile
+    private var cachedPrefs: Preferences? = null
+
     fun init(context: Context) {
         dataStore = context.datastore
+        scope.launch {
+            dataStore.data.collect { prefs -> cachedPrefs = prefs }
+        }
 
         // Note: Should remove after a few release versions. we've moved to encrypted values.
         val oldPassword = stringPreferencesKey("password")
@@ -79,6 +89,7 @@ object PrefManager {
     }
 
     fun clearPreferences() {
+        cachedPrefs = emptyPreferences()
         scope.launch {
             dataStore.edit { it.clear() }
         }
@@ -121,18 +132,35 @@ object PrefManager {
         setPref(floatPreferencesKey(key), value)
 
     @Suppress("SameParameterValue")
-    private fun <T> getPref(key: Preferences.Key<T>, defaultValue: T): T = runBlocking {
-        dataStore.data.first()[key] ?: defaultValue
+    private fun <T> getPref(key: Preferences.Key<T>, defaultValue: T): T {
+        // Fast path: lock-free read from the in-memory snapshot.
+        cachedPrefs?.let { return it[key] ?: defaultValue }
+        // Slow path: only before the collector delivers the first snapshot (early app startup).
+        return runBlocking {
+            dataStore.data.first().also { cachedPrefs = it }[key] ?: defaultValue
+        }
     }
 
     @Suppress("SameParameterValue")
     private fun <T> setPref(key: Preferences.Key<T>, value: T) {
+        // Update the snapshot synchronously so a read right after a write observes the new value
+        // (the async collector would otherwise race with immediate readers).
+        cachedPrefs?.let { current ->
+            val mutable = current.toMutablePreferences()
+            mutable[key] = value
+            cachedPrefs = mutable
+        }
         scope.launch {
             dataStore.edit { pref -> pref[key] = value }
         }
     }
 
     private fun <T> removePref(key: Preferences.Key<T>) {
+        cachedPrefs?.let { current ->
+            val mutable = current.toMutablePreferences()
+            mutable.remove(key)
+            cachedPrefs = mutable
+        }
         scope.launch {
             dataStore.edit { pref -> pref.remove(key) }
         }

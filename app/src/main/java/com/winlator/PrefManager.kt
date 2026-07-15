@@ -15,6 +15,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.future.future
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import timber.log.Timber
 
@@ -35,16 +36,25 @@ object PrefManager {
 
     private var dataStore: DataStore<Preferences>? = null
 
+    // In-memory snapshot: avoids a blocking disk read (runBlocking + first()) on every getPref
+    // call — several of which happen on the main/render threads during gameplay.
+    @Volatile
+    private var cachedPrefs: Preferences? = null
+
     @JvmStatic
     fun init(context: Context) {
         if (dataStore == null) {
             dataStore = context.datastore
+            scope.launch {
+                dataStore?.data?.collect { prefs -> cachedPrefs = prefs }
+            }
         }
     }
 
     @JvmStatic
     fun deInit() {
         dataStore = null
+        cachedPrefs = null
     }
 
     @JvmStatic
@@ -65,11 +75,20 @@ object PrefManager {
         return setPref(booleanPreferencesKey(key), value)
     }
 
-    private fun <T> getPref(key: Preferences.Key<T>, defaultValue: T): T = runBlocking {
-        dataStore!!.data.first()[key] ?: defaultValue
+    private fun <T> getPref(key: Preferences.Key<T>, defaultValue: T): T {
+        cachedPrefs?.let { return it[key] ?: defaultValue }
+        return runBlocking {
+            dataStore!!.data.first().also { cachedPrefs = it }[key] ?: defaultValue
+        }
     }
 
     private fun <T> setPref(key: Preferences.Key<T>, value: T): CompletableFuture<Unit> {
+        // Keep the snapshot coherent for immediate read-after-write.
+        cachedPrefs?.let { current ->
+            val mutable = current.toMutablePreferences()
+            mutable[key] = value
+            cachedPrefs = mutable
+        }
         return scope.future {
             dataStore!!.edit { pref -> pref[key] = value }
         }

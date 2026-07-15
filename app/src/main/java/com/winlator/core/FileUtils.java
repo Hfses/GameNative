@@ -331,11 +331,25 @@ public abstract class FileUtils {
     public static boolean contentEquals(File origin, File target) {
         if (origin.length() != target.length()) return false;
 
-        try (InputStream inStream1 = new BufferedInputStream(new FileInputStream(origin));
-             InputStream inStream2 = new BufferedInputStream(new FileInputStream(target))) {
-            int data;
-            while ((data = inStream1.read()) != -1) {
-                if (data != inStream2.read()) return false;
+        // Block-based comparison (64 KB chunks). The previous byte-by-byte loop made two virtual
+        // calls per byte — ~100x slower on the multi-MB DLLs compared during container setup.
+        try (InputStream inStream1 = new FileInputStream(origin);
+             InputStream inStream2 = new FileInputStream(target)) {
+            byte[] buffer1 = new byte[65536];
+            byte[] buffer2 = new byte[65536];
+            int read1;
+            while ((read1 = inStream1.read(buffer1)) != -1) {
+                int offset = 0;
+                while (offset < read1) {
+                    int read2 = inStream2.read(buffer2, offset, read1 - offset);
+                    if (read2 == -1) return false;
+                    offset += read2;
+                }
+                // Manual range compare: Arrays.equals(a, from, to, b, from, to) is Java 9+ and not
+                // guaranteed by Android desugaring on older API levels.
+                for (int i = 0; i < read1; i++) {
+                    if (buffer1[i] != buffer2[i]) return false;
+                }
             }
             return true;
         }

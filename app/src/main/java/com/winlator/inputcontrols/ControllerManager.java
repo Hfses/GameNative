@@ -72,6 +72,9 @@ public class ControllerManager {
      */
     public void scanForDevices() {
         detectedDevices.clear();
+        // Guard: if init() was never called (e.g. process restored by the system straight into a
+        // deep activity), inputManager is null and this would crash instead of degrading gracefully.
+        if (inputManager == null) return;
         int[] deviceIds = inputManager.getInputDeviceIds();
         for (int deviceId : deviceIds) {
             InputDevice device = inputManager.getInputDevice(deviceId);
@@ -235,6 +238,7 @@ public class ControllerManager {
      * @return The player slot index (0-3), or -1 if the device is not assigned.
      */
     public int getSlotForDevice(int deviceId) {
+        if (inputManager == null) return -1;
         InputDevice device = inputManager.getInputDevice(deviceId);
         String deviceIdentifier = getDeviceIdentifier(device);
         if (deviceIdentifier == null) return -1;

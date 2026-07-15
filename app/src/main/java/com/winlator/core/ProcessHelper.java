@@ -407,16 +407,21 @@ public abstract class ProcessHelper {
                 while ((line = reader.readLine()) != null) {
                     String[] parts = line.trim().split("\\s+", 9);
                     if (parts.length >= 9) {
-                        String user = parts[0];
-                        int pid = Integer.parseInt(parts[1]);
-                        int ppid = Integer.parseInt(parts[2]);
-                        long rssKb = Long.parseLong(parts[4]);
-                        String processName = parts[8];
+                        // Per-line tolerance: OEM ps variants (Samsung/MediaTek ROMs) occasionally
+                        // emit repeated headers or malformed rows; a single bad line must not
+                        // abort the whole process listing.
+                        try {
+                            String user = parts[0];
+                            int pid = Integer.parseInt(parts[1]);
+                            int ppid = Integer.parseInt(parts[2]);
+                            long rssKb = Long.parseLong(parts[4]);
+                            String processName = parts[8];
 
-                        if (user.equals(myUser) && pid != Process.myPid()) {
-                            ProcessInfo info = new ProcessInfo(pid, ppid, processName, rssKb * 1024L);
-                            processes.add(info);
-                        }
+                            if (user.equals(myUser) && pid != Process.myPid()) {
+                                ProcessInfo info = new ProcessInfo(pid, ppid, processName, rssKb * 1024L);
+                                processes.add(info);
+                            }
+                        } catch (NumberFormatException ignored) {}
                     }
                 }
             }
