@@ -35,6 +35,10 @@ public class DrawableManager extends XResourceManager implements XResourceManage
 
     public void removeDrawable(int id) {
         Drawable drawable = drawables.get(id);
+        // Guard against double-removal: onFreeResource() (pixmap free) can race with a direct
+        // removeDrawable() for the same id; the second call used to NPE on the X server thread,
+        // killing the whole session.
+        if (drawable == null) return;
 
         final Texture texture = drawable.getTexture();
 //        if (texture != null) {

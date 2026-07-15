@@ -475,6 +475,10 @@ public class BionicProgramLauncherComponent extends GuestProgramLauncherComponen
         ImageFs imageFs = ImageFs.find(context);
         envVars.put("BOX64_NOBANNER", ProcessHelper.PRINT_DEBUG && enableLogs ? "0" : "1");
         envVars.put("BOX64_DYNAREC", "1");
+        // Baseline AVX exposure (parity with GuestProgramLauncherComponent): many modern games
+        // hard-require AVX in their CPU check. Presets and per-game fixes can still override
+        // this since they are applied after (putAll below / container env vars later).
+        envVars.put("BOX64_AVX", "1");
 
         if (enableLogs) {
             envVars.put("BOX64_LOG", "1");
