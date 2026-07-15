@@ -2,7 +2,7 @@ name: Build Debug APK
 
 on:
   push:
-    branches: [ main, master, 'claude/**' ]
+    branches: [ main, master, 'claude/**', 'auditoria-do-gamenative' ]
     paths-ignore:
       - '**.md'
       - '.gitignore'
@@ -66,7 +66,7 @@ jobs:
   # runs so it never touches main's releases.
   release:
     needs: build
-    if: startsWith(github.ref_name, 'claude/') || github.event_name == 'workflow_dispatch'
+    if: startsWith(github.ref_name, 'claude/') || github.ref_name == 'auditoria-do-gamenative' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: write   # create/update the Release
