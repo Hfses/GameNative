@@ -47,6 +47,10 @@
         android:allowAudioPlaybackCapture="true"
         android:appCategory="game"
         tools:targetApi="29">
+        <!-- Opt in to the system PERFORMANCE game mode (see res/xml/game_mode_config.xml). -->
+        <meta-data
+            android:name="android.game_mode_config"
+            android:resource="@xml/game_mode_config" />
         <!--
          android:windowSoftInputMode must always be in the activity block.
          IME padding with composables like 'Scaffold' will have terrible resizing consequences, if in the activity tag.

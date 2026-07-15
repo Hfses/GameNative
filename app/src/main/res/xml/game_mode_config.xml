@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Game Mode config (Android 13+/API 33): declares support for the system PERFORMANCE game mode.
+  With this, OEM game dashboards (Samsung Game Booster, Xiaomi Game Turbo, etc.) can raise
+  CPU/GPU clocks and thermal budgets for the emulator - the legitimate equivalent of what
+  package-name-spoofing forks achieve. Battery mode stays supported for user choice; we opt out
+  of downscaling/FPS-override since the emulator manages its own resolution and pacing.
+-->
+<game-mode-config
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:supportsPerformanceGameMode="true"
+    android:supportsBatteryGameMode="true"
+    android:allowGameDownscaling="false"
+    android:allowGameFpsOverride="false" />

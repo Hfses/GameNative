@@ -17,6 +17,11 @@ private val TLOU_PART1_ENV_VARS = mapOf(
     "BOX64_DYNAREC_BIGBLOCK" to "0",
     "BOX64_DYNAREC_STRONGMEM" to "2",
     "BOX64_DYNAREC_SAFEFLAGS" to "2",
+    // The game's CPU check requires AVX/AVX2; Box64 only exposes them via CPUID when
+    // BOX64_AVX=2. Without this the launcher aborts with an "unsupported CPU" error
+    // before ever reaching the renderer. (The vkd3d shader cache path is already pinned
+    // globally by DXVKHelper.setVKD3DEnvVars, so first-run shader builds are reused.)
+    "BOX64_AVX" to "2",
 )
 
 /** Steam install (appId 1888930). */

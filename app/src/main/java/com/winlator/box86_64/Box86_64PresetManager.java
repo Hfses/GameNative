@@ -80,7 +80,10 @@ public abstract class Box86_64PresetManager {
             envVars.put(ucPrefix + "_DYNAREC_CALLRET", "1");
             envVars.put(ucPrefix + "_DYNAREC_WAIT", "1");
             if (ucPrefix.equals("BOX64")) {
-                envVars.put("BOX64_AVX", "0");
+                // Expose AVX/AVX2 through CPUID. Modern AAA titles (TLOU, RE4R, Hogwarts, etc.)
+                // hard-require AVX and refuse to boot without it; Box64 0.4.x translates AVX well
+                // enough that leaving it hidden only reduces compatibility, not crashes.
+                envVars.put("BOX64_AVX", "2");
                 envVars.put("BOX64_UNITYPLAYER", "0");
                 envVars.put("BOX64_MMAP32", "1");
             }
