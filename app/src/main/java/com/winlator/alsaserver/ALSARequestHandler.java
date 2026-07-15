@@ -19,7 +19,6 @@ public class ALSARequestHandler implements RequestHandler {
 
     @Override // com.winlator.xconnector.RequestHandler
     public boolean handleRequest(Client client) throws IOException {
-        XStreamLock lock;
         ALSAClient alsaClient = (ALSAClient) client.getTag();
         XInputStream inputStream = client.getInputStream();
         XOutputStream outputStream = client.getOutputStream();
@@ -82,31 +81,22 @@ public class ALSARequestHandler implements RequestHandler {
                 alsaClient.drain();
                 return true;
             case RequestCodes.POINTER:
-                lock = outputStream.lock();
-                try {
+                // try-with-resources: the previous manual pattern had an empty finally block, so
+                // an IOException in writeInt() leaked the output stream lock forever — deadlocking
+                // every subsequent audio reply for this client.
+                try (XStreamLock l = outputStream.lock()) {
                     outputStream.writeInt(alsaClient.pointer());
-                    if (lock != null) {
-                        lock.close();
-                        return true;
-                    }
-                    return true;
-                } finally {
                 }
+                return true;
             case RequestCodes.MIN_BUFFER_SIZE:
                 byte channels = inputStream.readByte();
                 ALSAClient.DataType dataType = ALSAClient.DataType.values()[inputStream.readByte()];
                 int sampleRate = inputStream.readInt();
                 int minBufferSize = ALSAClient.latencyMillisToBufferSize(alsaClient.options.latencyMillis, channels, dataType, sampleRate);
-                lock = outputStream.lock();
-                try {
+                try (XStreamLock l = outputStream.lock()) {
                     outputStream.writeInt(minBufferSize);
-                    if (lock != null) {
-                        lock.close();
-                        return true;
-                    }
-                    return true;
-                } finally {
                 }
+                return true;
             default:
                 return true;
         }
@@ -136,14 +126,11 @@ public class ALSARequestHandler implements RequestHandler {
             alsaClient.setSharedBuffer(buffer);
         }
         try {
-            XStreamLock lock = outputStream.lock();
-            try {
+            // try-with-resources guarantees the lock is released even if the write fails
+            // (the old empty-finally pattern leaked the lock on exception).
+            try (XStreamLock lock = outputStream.lock()) {
                 outputStream.writeByte((byte) 0);
                 outputStream.setAncillaryFd(fd);
-                if (lock != null) {
-                    lock.close();
-                }
-            } finally {
             }
         } finally {
             if (fd >= 0) {

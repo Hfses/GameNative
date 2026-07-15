@@ -116,14 +116,23 @@ public class XOutputStream {
         }
     }
 
+    // Single reusable lock wrapper: lock() runs for every X11 reply/event sent to every client
+    // (thousands of times/sec during gameplay), so allocating a new object per call caused
+    // constant GC pressure. ReentrantLock keeps nested acquisitions safe.
+    private final OutputStreamLock streamLock = new OutputStreamLock();
+
     public XStreamLock lock() {
-        return new OutputStreamLock();
+        lock.lock();
+        return streamLock;
     }
 
     private void ensureSpaceIsAvailable(int length) {
         int position = buffer.position();
         if ((buffer.capacity() - position) >= length) return;
-        ByteBuffer newBuffer = ByteBuffer.allocateDirect(buffer.capacity() + length).order(buffer.order());
+        // Geometric growth: growing by exactly `length` caused O(n²) reallocation+copy for
+        // sequences of small writes (common when many events are batched in one flush).
+        int newCapacity = Math.max(buffer.capacity() * 2, buffer.capacity() + length);
+        ByteBuffer newBuffer = ByteBuffer.allocateDirect(newCapacity).order(buffer.order());
         buffer.rewind();
         newBuffer.put(buffer).position(position);
         buffer = newBuffer;
@@ -140,10 +149,7 @@ public class XOutputStream {
     }
 
     private class OutputStreamLock implements XStreamLock {
-        public OutputStreamLock() {
-            lock.lock();
-        }
-
+        // Locking happens in XOutputStream.lock() so this instance can be shared.
         @Override
         public void close() throws IOException {
             try {

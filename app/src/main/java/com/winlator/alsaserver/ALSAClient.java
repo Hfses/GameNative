@@ -123,15 +123,27 @@ public class ALSAClient {
         this.frameBytes = (byte) (this.channels * this.dataType.byteCount);
         release();
         if (isValidBufferSize()) {
-            AudioFormat format = new AudioFormat.Builder().setEncoding(getPCMEncoding(this.dataType)).setSampleRate(this.sampleRate).setChannelMask(getChannelConfig(this.channels)).build();
-            AudioTrack build = new AudioTrack.Builder().setPerformanceMode(this.options.performanceMode).setAudioFormat(format).setBufferSizeInBytes(getBufferSizeInBytes()).build();
-            this.audioTrack = build;
-            this.bufferCapacity = build.getBufferCapacityInFrames();
-            float f = this.options.volume;
-            if (f != 1.0f) {
-                this.audioTrack.setVolume(f);
+            // AudioTrack.Builder.build()/play() can throw on some devices (unsupported
+            // sample rate/encoding combos, exhausted AudioFlinger tracks). A game asking for an
+            // exotic format must degrade to silence, not crash the whole ALSA server thread.
+            try {
+                AudioFormat format = new AudioFormat.Builder().setEncoding(getPCMEncoding(this.dataType)).setSampleRate(this.sampleRate).setChannelMask(getChannelConfig(this.channels)).build();
+                AudioTrack build = new AudioTrack.Builder().setPerformanceMode(this.options.performanceMode).setAudioFormat(format).setBufferSizeInBytes(getBufferSizeInBytes()).build();
+                this.audioTrack = build;
+                this.bufferCapacity = build.getBufferCapacityInFrames();
+                float f = this.options.volume;
+                if (f != 1.0f) {
+                    this.audioTrack.setVolume(f);
+                }
+                this.audioTrack.play();
+            } catch (Exception e) {
+                Log.e("ALSAClient", "Failed to create AudioTrack (sampleRate=" + this.sampleRate
+                    + ", channels=" + this.channels + ", dataType=" + this.dataType + ")", e);
+                if (this.audioTrack != null) {
+                    try { this.audioTrack.release(); } catch (Exception ignored) {}
+                    this.audioTrack = null;
+                }
             }
-            this.audioTrack.play();
         }
     }
 
@@ -221,7 +233,9 @@ public class ALSAClient {
     }
 
     public boolean isGlibc() {
-        return containerVariant.equals(Container.GLIBC);
+        // containerVariant may legitimately be null (client created before the container config
+        // arrives); equals() on the constant avoids a latent NPE on the audio thread.
+        return Container.GLIBC.equals(containerVariant);
     }
 
     public void setChannels(int channels) {
