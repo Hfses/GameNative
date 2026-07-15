@@ -248,6 +248,10 @@ public class WinHandler {
             if (size == 0) {
                 return false;
             }
+            // Transmit only the bytes actually written: `size` was computed but never applied,
+            // so every datagram carried the full 64-byte buffer including stale trailing bytes
+            // from previous (potentially longer) messages.
+            this.sendPacket.setLength(size);
             this.sendPacket.setAddress(this.localhost);
             this.sendPacket.setPort(port);
             this.socket.send(this.sendPacket);
@@ -280,6 +284,21 @@ public class WinHandler {
         addAction(() -> {
             byte[] filenameBytes = filename.getBytes();
             byte[] parametersBytes = parameters.getBytes();
+            int payloadSize = 13 + filenameBytes.length + parametersBytes.length;
+            if (payloadSize > this.sendData.capacity()) {
+                // Long command lines (Windows paths easily exceed 51 chars) used to overflow the
+                // fixed 64-byte sendData buffer with a BufferOverflowException. Build a right-sized
+                // packet instead of silently failing to launch the program.
+                ByteBuffer big = ByteBuffer.allocate(payloadSize).order(ByteOrder.LITTLE_ENDIAN);
+                big.put(RequestCodes.EXEC);
+                big.putInt(filenameBytes.length + parametersBytes.length + 8);
+                big.putInt(filenameBytes.length);
+                big.putInt(parametersBytes.length);
+                big.put(filenameBytes);
+                big.put(parametersBytes);
+                sendPacket(CLIENT_PORT, big.array());
+                return;
+            }
             this.sendData.rewind();
             this.sendData.put(RequestCodes.EXEC);
             this.sendData.putInt(filenameBytes.length + parametersBytes.length + 8);
@@ -679,7 +698,15 @@ public class WinHandler {
                     synchronized (this.actions) {
                         this.receiveData.rewind();
                         byte requestCode = this.receiveData.get();
-                        handleRequest(requestCode, this.receivePacket.getPort());
+                        // Per-request tolerance: a malformed/truncated packet used to throw
+                        // BufferUnderflowException past the IOException catch below, silently
+                        // killing this receive thread — and with it ALL game input (gamepad,
+                        // mouse feedback, process control) until the session was restarted.
+                        try {
+                            handleRequest(requestCode, this.receivePacket.getPort());
+                        } catch (Exception e) {
+                            Log.e(TAG, "Error handling request code " + requestCode, e);
+                        }
                     }
                 }
             } catch (IOException ignored) {

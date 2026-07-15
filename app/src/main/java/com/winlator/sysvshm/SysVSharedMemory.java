@@ -65,7 +65,9 @@ public class SysVSharedMemory {
 
     public int get(long size) {
         synchronized (shmemories) {
-            int index = shmemories.size();
+            // Use a monotonically increasing name index: shmemories.size() shrinks after
+            // delete(), so two live segments could otherwise be created with the same name.
+            int index = maxSHMemoryId + 1;
             int fd = ashmemCreateRegion(index, size);
             if (fd < 0) fd = createSharedMemory("sysvshm-"+index, (int)size);
             if (fd < 0) return -1;
@@ -80,13 +82,23 @@ public class SysVSharedMemory {
     }
 
     public void delete(int shmid) {
-        SHMemory shmemory = shmemories.get(shmid);
-        if (shmemory != null) {
-            if (SHMemory.access$000(shmemory) != -1) {
-                XConnectorEpoll.closeFd(SHMemory.access$000(shmemory));
-                SHMemory.access$002(shmemory, -1);
+        // Must hold the same lock as get()/attach()/detach(): SparseArray is not thread-safe and
+        // this method is reachable from the SHM request thread while the X server thread attaches.
+        synchronized (shmemories) {
+            SHMemory shmemory = shmemories.get(shmid);
+            if (shmemory != null) {
+                // Unmap before dropping the entry: deleting a still-attached segment used to leak
+                // the whole native mapping (often several MB per game window/pixmap).
+                if (SHMemory.access$300(shmemory) != null) {
+                    unmapSHMSegment(SHMemory.access$300(shmemory), SHMemory.access$200(shmemory));
+                    SHMemory.access$302(shmemory, null);
+                }
+                if (SHMemory.access$000(shmemory) != -1) {
+                    XConnectorEpoll.closeFd(SHMemory.access$000(shmemory));
+                    SHMemory.access$002(shmemory, -1);
+                }
+                shmemories.remove(shmid);
             }
-            shmemories.remove(shmid);
         }
     }
 
