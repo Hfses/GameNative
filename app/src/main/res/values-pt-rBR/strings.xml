@@ -1542,7 +1542,7 @@
     <string name="lan_players">Jogadores: %1$s</string>
     <string name="lan_chat_message">Mensagem</string>
     <string name="lan_open_game">Abrir o jogo</string>
-    <string name="lan_in_room_hint">Quando todos entrarem, cada um toca em Abrir o jogo e conecta pelo menu de LAN do próprio jogo. A sala e o chat continuam ativos enquanto o jogo roda.</string>
+    <string name="lan_in_room_hint">Quando todos entrarem, cada jogador toca em Abrir o jogo e conecta pelo menu LAN do próprio jogo. Em jogos da Steam, o GameNative aponta automaticamente o jogo de cada um para os outros jogadores da sala, então as partidas LAN aparecem até em hotspot do celular e VPN. A sala e o chat continuam ativos durante o jogo.</string>
     <string name="lan_leave_room">Sair da sala</string>
     <!-- Game Hub / Loja -->
     <string name="destination_game_hub">Loja</string>

@@ -1733,6 +1733,6 @@
     <string name="lan_chat_message">Message</string>
     <string name="lan_chat_title">LAN Chat</string>
     <string name="lan_open_game">Open the game</string>
-    <string name="lan_in_room_hint">When everyone is in, each player taps Open the game and connects through the game\'s own LAN menu. The room and chat stay active while the game runs.</string>
+    <string name="lan_in_room_hint">When everyone is in, each player taps Open the game and connects through the game\'s own LAN menu. For Steam games, GameNative automatically points each player\'s game at the others in the room, so LAN lobbies show up even on hotspots and VPNs. The room and chat stay active while the game runs.</string>
     <string name="lan_leave_room">Leave room</string>
 </resources>

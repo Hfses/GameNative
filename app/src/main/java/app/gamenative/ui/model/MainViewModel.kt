@@ -526,6 +526,7 @@ class MainViewModel @Inject constructor(
                         } else {
                             SteamUtils.replaceSteamclientDll(context, appId, offline)
                         }
+                        SteamUtils.syncLanCoopBroadcasts(context, appId)
                     }
                 }
             }

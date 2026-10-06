@@ -897,6 +897,23 @@ object PrefManager {
         }
 
     private val STEAM_USER_STEAM_ID_64 = longPreferencesKey("steam_user_steam_id_64")
+    private val LAN_FALLBACK_STEAM_ID_64 = longPreferencesKey("lan_fallback_steam_id_64")
+
+    /**
+     * Stable per-install SteamID used by the Steam emulator when no account is logged in.
+     * Without it every offline player reports steamid 0 and LAN co-op peers collide/ignore
+     * each other. Individual-account range: 0x0110000100000000 + random 32-bit account id.
+     */
+    val lanFallbackSteamId64: Long
+        get() {
+            val existing = getPref(LAN_FALLBACK_STEAM_ID_64, 0L)
+            if (existing != 0L) return existing
+            val accountId = (java.security.SecureRandom().nextInt().toLong() and 0x7FFFFFFFL).coerceAtLeast(1L)
+            val id = 0x0110000100000000L or accountId
+            runBlocking { dataStore.edit { it[LAN_FALLBACK_STEAM_ID_64] = id } }
+            return id
+        }
+
     var steamUserSteamId64: Long
         get() = getPref(STEAM_USER_STEAM_ID_64, 0L)
         set(value) {

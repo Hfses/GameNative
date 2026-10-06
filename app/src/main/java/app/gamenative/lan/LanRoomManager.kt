@@ -77,6 +77,14 @@ object LanRoomManager {
     private val _chat = MutableStateFlow<List<ChatMessage>>(emptyList())
     val chat: StateFlow<List<ChatMessage>> = _chat.asStateFlow()
 
+    /**
+     * IPs of the other players in the room (host + guests, never ourselves). Fed into the
+     * Steam emulator's custom_broadcasts.txt so in-game LAN lobbies find each other even where
+     * UDP broadcast doesn't reach (phone hotspot, ZeroTier/Tailscale, AP client isolation).
+     */
+    private val _peerIps = MutableStateFlow<List<String>>(emptyList())
+    val peerIps: StateFlow<List<String>> = _peerIps.asStateFlow()
+
     private val _roomInfo = MutableStateFlow<String>("")
     val roomInfo: StateFlow<String> = _roomInfo.asStateFlow()
 
@@ -318,10 +326,15 @@ object LanRoomManager {
         // Recompute inside the atomic update so concurrent join/leave coroutines can't lose an update.
         val list = listOf(selfName) + hostClients.values.toList()
         _players.update { list }
+        val guestIps = hostClients.keys.mapNotNull { it.inetAddress?.hostAddress }.distinct()
+        _peerIps.value = guestIps
+        // Guests get every player's IP (incl. the host's) so each emulator can reach every other.
+        val allIps = (listOf(_roomInfo.value) + guestIps).filter { it.isNotEmpty() }.distinct()
         broadcast(
             JSONObject()
                 .put("type", "peers")
-                .put("names", JSONArray(list)),
+                .put("names", JSONArray(list))
+                .put("ips", JSONArray(allIps)),
         )
     }
 
@@ -450,6 +463,7 @@ object LanRoomManager {
                         roomGameName = reply.optString("game").take(48)
                         _roomInfo.value = ip.trim()
                         _status.value = Status.JOINED
+                        _peerIps.value = listOf(ip.trim())
                         // Handshake done: allow indefinite idle (no heartbeat protocol) so the read
                         // loop doesn't time out a quiet room.
                         runCatching { socket.soTimeout = 0 }
@@ -474,12 +488,21 @@ object LanRoomManager {
                                     val names = msg.optJSONArray("names") ?: JSONArray()
                                     _players.value = (0 until names.length().coerceAtMost(MAX_ROSTER))
                                         .map { names.optString(it).take(32) }
+                                    val ips = msg.optJSONArray("ips")
+                                    if (ips != null) {
+                                        val own = allIpAddresses().toSet()
+                                        _peerIps.value = ((0 until ips.length().coerceAtMost(MAX_ROSTER))
+                                            .map { ips.optString(it).trim() }
+                                            .filter { isPlainIp(it) && it !in own } + ip.trim())
+                                            .distinct()
+                                    }
                                 }
                             }
                         }
                         if (_status.value == Status.JOINED) {
                             _status.value = Status.IDLE
                             _players.value = emptyList()
+                            _peerIps.value = emptyList()
                             appendSystem("A sala foi encerrada pelo anfitrião.")
                         }
                     }
@@ -556,12 +579,17 @@ object LanRoomManager {
         releaseMulticastLock()
         _status.value = Status.IDLE
         _players.value = emptyList()
+        _peerIps.value = emptyList()
         _chat.value = emptyList()
         roomName = ""
         roomGameName = ""
         selfName = ""
         _roomInfo.value = ""
     }
+
+    /** Only literal IPv4/IPv6 addresses — peer lists come from untrusted hosts. */
+    private fun isPlainIp(s: String): Boolean =
+        s.length in 3..45 && (Regex("^\\d{1,3}(\\.\\d{1,3}){3}$").matches(s) || Regex("^[0-9a-fA-F:]+$").matches(s) && s.contains(':'))
 
     private fun appendChat(from: String, text: String) {
         // Atomic read-modify-write: appends run concurrently from several client coroutines.

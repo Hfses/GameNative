@@ -202,6 +202,42 @@ object SteamUtils {
     }
 
     /**
+     * LAN co-op: points the Steam emulator straight at the other players of the active LAN room
+     * via steam_settings/custom_broadcasts.txt. Broadcast discovery alone fails on phone hotspots,
+     * VPNs (ZeroTier/Tailscale) and routers with client isolation. Removed when not in a room.
+     */
+    private fun writeLanCoopBroadcasts(settingsDir: File) {
+        val file = File(settingsDir, "custom_broadcasts.txt")
+        val peers = app.gamenative.lan.LanRoomManager.peerIps.value
+        runCatching {
+            if (peers.isNotEmpty()) {
+                file.writeText(peers.joinToString("\n", postfix = "\n"))
+            } else if (file.exists()) {
+                file.delete()
+            }
+        }.onFailure { Timber.w(it, "Failed to update ${file.absolutePath}") }
+    }
+
+    /**
+     * Refreshes custom_broadcasts.txt in every emulator steam_settings dir of this game. Runs on
+     * every launch because ensureSteamSettings is skipped once the DLLs are already replaced.
+     */
+    fun syncLanCoopBroadcasts(context: Context, appId: String) {
+        val steamAppId = ContainerUtils.extractGameIdFromContainerId(appId)
+        val dirs = mutableSetOf<File>()
+        runCatching {
+            val container = ContainerUtils.getContainer(context, appId)
+            dirs += File(container.getRootDir(), ".wine/drive_c/Program Files (x86)/Steam/steam_settings")
+        }
+        runCatching {
+            File(SteamService.getAppDirPath(steamAppId)).walkTopDown().maxDepth(10)
+                .filter { it.isDirectory && it.name == "steam_settings" && it.parentFile?.name != "steam_settings" }
+                .forEach { dirs += it }
+        }
+        dirs.filter { it.isDirectory }.forEach { writeLanCoopBroadcasts(it) }
+    }
+
+    /**
      * Replaces any existing `steam_api.dll` or `steam_api64.dll` in the app directory
      * with our pipe dll stored in assets
      */
@@ -1096,7 +1132,7 @@ object SteamUtils {
         val accountName   = SteamService.instance?.localPersona?.value?.name ?: PrefManager.username
         val accountSteamId = SteamService.userSteamId?.convertToUInt64()?.toString()
             ?: PrefManager.steamUserSteamId64.takeIf { it != 0L }?.toString()
-            ?: "0"
+            ?: PrefManager.lanFallbackSteamId64.toString()
         val accountId = SteamService.userSteamId?.accountID
             ?: PrefManager.steamUserAccountId.takeIf { it != 0 }?.toLong()
             ?: 0L
@@ -1198,6 +1234,8 @@ object SteamUtils {
 
         if (Files.notExists(mainIni)) Files.createFile(mainIni)
         mainIni.toFile().writeText(mainIniContent)
+
+        writeLanCoopBroadcasts(settingsDir.toFile())
 
         val controllerDir = settingsDir.resolve("controller")
         if (useSteamInput) {
