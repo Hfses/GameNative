@@ -35,6 +35,9 @@ val STEAM_Fix_1888930: KeyedGameFix = KeyedWineEnvVarFix(
 /** Same fix for sideloaded copies, matched by executable name. */
 internal val TLOU_PART1_EXE_FIX: GameFix = WineEnvVarFix(TLOU_PART1_ENV_VARS)
 
+/** tlou-i-l.exe is Naughty Dog's official non-AVX build: skip the AVX emulation cost there. */
+internal val TLOU_PART1_NO_AVX_EXE_FIX: GameFix = WineEnvVarFix(TLOU_PART1_ENV_VARS - "BOX64_AVX")
+
 /** The Last of Us Part II Remastered (same Naughty Dog engine). */
 val STEAM_Fix_2531310: KeyedGameFix = KeyedWineEnvVarFix(
     gameSource = GameSource.STEAM,

@@ -60,7 +60,7 @@ object GameFixesRegistry {
     // executable's file name (lowercase) since there is no store id.
     private val exeNameFixes: Map<String, GameFix> = mapOf(
         "tlou-i.exe" to TLOU_PART1_EXE_FIX,
-        "tlou-i-l.exe" to TLOU_PART1_EXE_FIX,
+        "tlou-i-l.exe" to TLOU_PART1_NO_AVX_EXE_FIX,
     )
 
     fun applyFor(context: Context, appId: String, container: Container) {
