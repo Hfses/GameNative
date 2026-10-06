@@ -1736,4 +1736,5 @@
     <string name="lan_in_room_hint">When everyone is in, each player taps Open the game and connects through the game\'s own LAN menu. For Steam games, GameNative automatically points each player\'s game at the others in the room, so LAN lobbies show up even on hotspots and VPNs. The room and chat stay active while the game runs.</string>
     <string name="lan_leave_room">Leave room</string>
     <string name="anticheat_online_warning">This game uses %1$s. Single-player should work, but online modes protected by this anti-cheat (e.g. GTA Online) are blocked by the publisher on Wine/Proton and cannot be played.</string>
+    <string name="system_menu_consoles">Consoles (PS1, PS2, PSP, Nintendo…)</string>
 </resources>

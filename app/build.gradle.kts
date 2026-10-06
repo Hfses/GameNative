@@ -331,6 +331,9 @@ dependencies {
     // Chrome Custom Tabs for GOG OAuth
     implementation("androidx.browser:browser:1.8.0")
 
+    // In-app console emulation: hosts libretro cores (downloaded on demand) in a GL view.
+    implementation("com.github.Swordfish90:LibretroDroid:0.12.0")
+
     // JavaSteam
     val localBuild = false // Change to 'true' needed when building JavaSteam manually
     if (localBuild) {

@@ -1514,6 +1514,11 @@ fun PluviaMain(
                     )
                 }
 
+                /** Console emulation (libretro) **/
+                composable(route = PluviaScreen.Consoles.route) {
+                    app.gamenative.emulation.ConsolesScreen(onBack = { navController.navigateUp() })
+                }
+
                 /** Settings **/
                 composable(route = PluviaScreen.Settings.route) {
                     SettingsScreen(

@@ -17,6 +17,11 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
         maven { url = uri("https://central.sonatype.com/repository/maven-snapshots/") } // JavaSteam
+        // LibretroDroid (in-app console emulation)
+        maven {
+            url = uri("https://jitpack.io")
+            content { includeGroup("com.github.Swordfish90") }
+        }
     }
 }
 
