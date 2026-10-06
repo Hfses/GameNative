@@ -857,6 +857,17 @@ private fun PerformanceHudQuickMenuTab(
             Spacer(modifier = Modifier.height(8.dp))
         }
 
+        // ── Picture-in-picture on Home ───────────────────────────────────
+        val pipOn by app.gamenative.utils.GamePip.enabled.collectAsState()
+        QuickMenuToggleRow(
+            title = stringResource(R.string.game_pip),
+            subtitle = stringResource(R.string.game_pip_description),
+            enabled = pipOn,
+            onToggle = { app.gamenative.utils.GamePip.setEnabled(!pipOn) },
+            accentColor = accentColor,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
         // ── GPU clock pin (Adreno, no root) ──────────────────────────────
         if (remember { app.gamenative.utils.GpuClockPin.available }) {
             val gpuPinned by app.gamenative.utils.GpuClockPin.enabled.collectAsState()

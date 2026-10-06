@@ -1755,4 +1755,6 @@
     <string name="turnip_github_none">No drivers found (%1$s)</string>
     <string name="gpu_clock_pin">Max GPU clock</string>
     <string name="gpu_clock_pin_description">Holds the Adreno GPU at its top clock: fewer stutters, more heat and battery use</string>
+    <string name="game_pip">Floating window on Home</string>
+    <string name="game_pip_description">Pressing Home keeps the game running in a small window instead of pausing it</string>
 </resources>

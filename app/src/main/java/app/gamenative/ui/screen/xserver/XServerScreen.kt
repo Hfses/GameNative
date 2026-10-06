@@ -1606,7 +1606,9 @@ fun XServerScreen(
 
                 when {
                     lifecycleOwner.lifecycle.currentState == Lifecycle.State.DESTROYED -> Unit
-                    lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) -> {
+                    lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) ||
+                        (app.gamenative.utils.GamePip.inPip.value &&
+                            lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) -> {
                         Timber.d("Synchronizing XServerView renderer to current resumed lifecycle state")
                         currentXServerView.onResume()
                     }

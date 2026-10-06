@@ -1631,4 +1631,6 @@
     <string name="turnip_github_none">Nenhum driver encontrado (%1$s)</string>
     <string name="gpu_clock_pin">GPU no clock máximo</string>
     <string name="gpu_clock_pin_description">Mantém a GPU Adreno no clock máximo: menos travadas, mais calor e consumo de bateria</string>
+    <string name="game_pip">Janela flutuante ao sair</string>
+    <string name="game_pip_description">Ao apertar Início, o jogo continua rodando numa janela pequena em vez de pausar</string>
 </resources>

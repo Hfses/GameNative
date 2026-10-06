@@ -55,9 +55,11 @@
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
+            android:supportsPictureInPicture="true"
+            android:resizeableActivity="true"
             android:screenOrientation="${screenOrientation}"
             android:windowSoftInputMode="adjustResize"
-            android:configChanges="orientation|screenSize|keyboard|keyboardHidden|navigation"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|navigation"
             android:theme="@style/Theme.Pluvia">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />

@@ -411,9 +411,22 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        // Home pressed during a game: float it in picture-in-picture if the user enabled that.
+        if (PluviaApp.xEnvironment != null) app.gamenative.utils.GamePip.tryEnter(this)
+    }
+
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        app.gamenative.utils.GamePip.onModeChanged(isInPictureInPictureMode)
+    }
+
     override fun onPause() {
         PluviaApp.isActivityInForeground = false
-        if (hasReadyGameLifecycleState("pause")) {
+        // In picture-in-picture the game stays visible and keeps running: don't suspend it.
+        val inPip = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode
+        if (!inPip && hasReadyGameLifecycleState("pause")) {
             when {
                 PluviaApp.isNeverSuspendMode() -> {
                     Timber.d("Game pause skipped due to suspend policy=never")
