@@ -139,6 +139,7 @@ fun LinuxTerminalScreen(onBack: () -> Unit) {
                     androidx.compose.material3.TabRow(selectedTabIndex = tab) {
                         androidx.compose.material3.Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("Terminal") })
                         androidx.compose.material3.Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text("Desktop") })
+                        androidx.compose.material3.Tab(selected = tab == 2, onClick = { tab = 2 }, text = { Text("Steam ARM") })
                     }
                     // Both stay composed so switching tabs doesn't kill the shell or the desktop.
                     Box(Modifier.weight(1f)) {
@@ -147,6 +148,9 @@ fun LinuxTerminalScreen(onBack: () -> Unit) {
                         }
                         Box(Modifier.fillMaxSize().zIndex(if (tab == 1) 1f else 0f).alpha(if (tab == 1) 1f else 0f)) {
                             LinuxDesktopPane()
+                        }
+                        if (tab == 2) Box(Modifier.fillMaxSize().zIndex(2f).background(MaterialTheme.colorScheme.background)) {
+                            SteamPane()
                         }
                     }
                 }
