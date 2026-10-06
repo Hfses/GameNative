@@ -45,6 +45,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.VideogameAsset
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -603,6 +604,15 @@ fun SystemMenu(
                             icon = Icons.Default.VideogameAsset,
                             onClick = {
                                 onNavigateRoute(PluviaScreen.Consoles.route)
+                                onDismiss()
+                            },
+                        )
+
+                        SystemMenuItem(
+                            text = stringResource(R.string.system_menu_linux),
+                            icon = Icons.Default.Terminal,
+                            onClick = {
+                                onNavigateRoute(PluviaScreen.Linux.route)
                                 onDismiss()
                             },
                         )

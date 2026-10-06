@@ -1767,4 +1767,5 @@
     <string name="adbfix_working">Working…</string>
     <string name="adbfix_done">Done! The child-process limit is off. You can turn Wireless debugging off again.</string>
     <string name="adbfix_failed">Failed: %1$s</string>
+    <string name="system_menu_linux">Linux (Ubuntu + Terminal)</string>
 </resources>

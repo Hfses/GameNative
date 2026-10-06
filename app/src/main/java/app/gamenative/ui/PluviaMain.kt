@@ -1569,6 +1569,11 @@ fun PluviaMain(
                     app.gamenative.emulation.ConsolesScreen(onBack = { navController.navigateUp() })
                 }
 
+                /** Linux mode (Ubuntu + terminal) **/
+                composable(route = PluviaScreen.Linux.route) {
+                    app.gamenative.linux.LinuxTerminalScreen(onBack = { navController.navigateUp() })
+                }
+
                 /** Settings **/
                 composable(route = PluviaScreen.Settings.route) {
                     SettingsScreen(

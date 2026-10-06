@@ -1643,4 +1643,5 @@
     <string name="adbfix_working">Trabalhando…</string>
     <string name="adbfix_done">Pronto! O limite de processos filhos foi desativado. Você já pode desligar a Depuração por Wi-Fi.</string>
     <string name="adbfix_failed">Falhou: %1$s</string>
+    <string name="system_menu_linux">Linux (Ubuntu + Terminal)</string>
 </resources>
