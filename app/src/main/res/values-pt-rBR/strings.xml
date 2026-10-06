@@ -1633,4 +1633,14 @@
     <string name="gpu_clock_pin_description">Mantém a GPU Adreno no clock máximo: menos travadas, mais calor e consumo de bateria</string>
     <string name="game_pip">Janela flutuante ao sair</string>
     <string name="game_pip_description">Ao apertar Início, o jogo continua rodando numa janela pequena em vez de pausar</string>
+    <string name="adbfix_button">Corrigir automaticamente</string>
+    <string name="adbfix_title">Corrigir sem PC</string>
+    <string name="adbfix_steps">1. Opções do desenvolvedor → ative a Depuração por Wi-Fi (precisa de Wi-Fi).\n2. Toque em \"Parear dispositivo com código de pareamento\" (use tela dividida ou mantenha esta janela aberta).\n3. Digite abaixo a porta (o número depois dos dois-pontos) e o código de 6 dígitos.</string>
+    <string name="adbfix_port">Porta de pareamento</string>
+    <string name="adbfix_code">Código de pareamento</string>
+    <string name="adbfix_pair_fix">Parear e corrigir</string>
+    <string name="adbfix_use_saved">Usar pareamento salvo</string>
+    <string name="adbfix_working">Trabalhando…</string>
+    <string name="adbfix_done">Pronto! O limite de processos filhos foi desativado. Você já pode desligar a Depuração por Wi-Fi.</string>
+    <string name="adbfix_failed">Falhou: %1$s</string>
 </resources>

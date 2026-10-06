@@ -334,6 +334,9 @@ dependencies {
     // In-app console emulation: hosts libretro cores (downloaded on demand) in a GL view.
     implementation("com.github.Swordfish90:LibretroDroid:0.12.0")
 
+    // Wireless-debugging ADB client: lets the app turn off Android's child-process limit itself.
+    implementation("com.flyfishxu:kadb-android:1.2.1")
+
     // JavaSteam
     val localBuild = false // Change to 'true' needed when building JavaSteam manually
     if (localBuild) {

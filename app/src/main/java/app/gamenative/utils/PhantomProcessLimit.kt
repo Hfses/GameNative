@@ -45,6 +45,20 @@ object PhantomProcessLimit {
     /** Android 14+ exposes "Disable child process restrictions" in Developer options. */
     fun hasDeveloperToggle(sdk: Int = Build.VERSION.SDK_INT) = sdk >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
 
+    /** Shell commands that turn the limit off (run over ADB). */
+    fun disableShellCommands(sdk: Int = Build.VERSION.SDK_INT): List<String> =
+        if (usesDeviceConfig(sdk)) listOf(
+            "device_config set_sync_disabled_for_tests persistent",
+            "device_config put activity_manager max_phantom_processes $MAX_PHANTOM",
+        ) else listOf("settings put global $SETTING false")
+
+    fun verifyCommand(sdk: Int = Build.VERSION.SDK_INT): String =
+        if (usesDeviceConfig(sdk)) "device_config get activity_manager max_phantom_processes"
+        else "settings get global $SETTING"
+
+    fun verifiedDisabled(output: String, sdk: Int = Build.VERSION.SDK_INT): Boolean =
+        if (usesDeviceConfig(sdk)) output.trim() == MAX_PHANTOM else output.trim() == "false"
+
     fun adbCommand(sdk: Int = Build.VERSION.SDK_INT): String =
         if (usesDeviceConfig(sdk)) {
             "adb shell device_config set_sync_disabled_for_tests persistent && " +

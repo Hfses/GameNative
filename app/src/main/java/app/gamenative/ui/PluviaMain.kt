@@ -289,6 +289,7 @@ fun PluviaMain(
 
     val state by viewModel.state.collectAsStateWithLifecycle()
 
+    var showWirelessAdbFix by remember { mutableStateOf(false) }
     var msgDialogState by rememberSaveable(stateSaver = MessageDialogState.Saver) {
         mutableStateOf(MessageDialogState(false))
     }
@@ -626,6 +627,10 @@ fun PluviaMain(
         }
     }
 
+    if (showWirelessAdbFix) {
+        app.gamenative.ui.component.dialog.WirelessAdbFixDialog(onDismiss = { showWirelessAdbFix = false })
+    }
+
     // Warn once per app run if Android's child-process killer is on: it silently kills Wine/Box64.
     LaunchedEffect(Unit) {
         if (!phantomWarningShown) {
@@ -641,7 +646,7 @@ fun PluviaMain(
                         else R.string.phantom_message_adb,
                     ),
                     confirmBtnText = context.getString(R.string.phantom_open_dev_options),
-                    dismissBtnText = context.getString(R.string.phantom_copy_adb),
+                    dismissBtnText = context.getString(R.string.adbfix_button),
                 )
             }
         }
@@ -810,10 +815,9 @@ fun PluviaMain(
                 }
             }
             onDismissClick = {
+                // "Fix automatically": pair over Wireless debugging and change it from the device.
                 setMessageDialogState(MessageDialogState(false))
-                val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                clipboard.setPrimaryClip(android.content.ClipData.newPlainText("adb", app.gamenative.utils.PhantomProcessLimit.adbCommand()))
-                android.widget.Toast.makeText(context, context.getString(R.string.phantom_adb_copied), android.widget.Toast.LENGTH_SHORT).show()
+                showWirelessAdbFix = true
             }
             onDismissRequest = {
                 setMessageDialogState(MessageDialogState(false))

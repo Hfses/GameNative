@@ -1757,4 +1757,14 @@
     <string name="gpu_clock_pin_description">Holds the Adreno GPU at its top clock: fewer stutters, more heat and battery use</string>
     <string name="game_pip">Floating window on Home</string>
     <string name="game_pip_description">Pressing Home keeps the game running in a small window instead of pausing it</string>
+    <string name="adbfix_button">Fix automatically</string>
+    <string name="adbfix_title">Fix without a PC</string>
+    <string name="adbfix_steps">1. Developer options → turn on Wireless debugging (Wi-Fi required).\n2. Tap \"Pair device with pairing code\" (use split screen or keep this open).\n3. Type the port (the number after the colon) and the 6-digit code below.</string>
+    <string name="adbfix_port">Pairing port</string>
+    <string name="adbfix_code">Pairing code</string>
+    <string name="adbfix_pair_fix">Pair and fix</string>
+    <string name="adbfix_use_saved">Use saved pairing</string>
+    <string name="adbfix_working">Working…</string>
+    <string name="adbfix_done">Done! The child-process limit is off. You can turn Wireless debugging off again.</string>
+    <string name="adbfix_failed">Failed: %1$s</string>
 </resources>
