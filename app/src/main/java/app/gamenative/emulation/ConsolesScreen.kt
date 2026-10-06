@@ -1,6 +1,5 @@
 package app.gamenative.emulation
 
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -67,8 +66,8 @@ fun ConsolesScreen(onBack: () -> Unit) {
         busy = true
         scope.launch {
             runCatching { ConsoleLibrary.import(context, system, uri) }
-                .onSuccess { Toast.makeText(context, "${it.title} adicionado", Toast.LENGTH_SHORT).show() }
-                .onFailure { Toast.makeText(context, it.message ?: "Falha ao importar", Toast.LENGTH_LONG).show() }
+                .onSuccess { app.gamenative.ui.util.SnackbarManager.show("${it.title} adicionado") }
+                .onFailure { app.gamenative.ui.util.SnackbarManager.show(it.message ?: "Falha ao importar") }
             busy = false
         }
     }
@@ -76,8 +75,8 @@ fun ConsolesScreen(onBack: () -> Unit) {
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
             runCatching { ConsoleLibrary.importBios(context, uri) }
-                .onSuccess { Toast.makeText(context, "BIOS $it instalado", Toast.LENGTH_SHORT).show() }
-                .onFailure { Toast.makeText(context, it.message ?: "Falha ao importar BIOS", Toast.LENGTH_LONG).show() }
+                .onSuccess { app.gamenative.ui.util.SnackbarManager.show("BIOS $it instalado") }
+                .onFailure { app.gamenative.ui.util.SnackbarManager.show(it.message ?: "Falha ao importar BIOS") }
         }
     }
 
@@ -133,7 +132,7 @@ fun ConsolesScreen(onBack: () -> Unit) {
                                     progress = -1f
                                     scope.launch {
                                         runCatching { CoreManager.install(context, sys) { progress = it } }
-                                            .onFailure { Toast.makeText(context, "Falha ao baixar o emulador: ${it.message}", Toast.LENGTH_LONG).show() }
+                                            .onFailure { app.gamenative.ui.util.SnackbarManager.show("Falha ao baixar o emulador: ${it.message}") }
                                         progress = null
                                         coreVersion++
                                     }

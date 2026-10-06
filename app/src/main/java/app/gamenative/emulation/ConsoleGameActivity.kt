@@ -8,7 +8,6 @@ import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.ViewGroup
 import android.widget.FrameLayout
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -83,7 +82,7 @@ class ConsoleGameActivity : ComponentActivity() {
         val path = intent.getStringExtra(EXTRA_PATH)
         val core = sys?.let { CoreManager.coreFile(this, it) }
         if (sys == null || path == null || core == null || !core.isFile || !File(path).isFile) {
-            Toast.makeText(this, "Jogo ou core não encontrado", Toast.LENGTH_LONG).show()
+            app.gamenative.ui.util.SnackbarManager.show("Jogo ou core não encontrado")
             finish()
             return
         }
@@ -113,11 +112,7 @@ class ConsoleGameActivity : ComponentActivity() {
         lifecycleScope.launch {
             view.getGLRetroErrors().collect { code ->
                 Timber.tag("ConsoleGame").e("libretro error $code for ${system.coreName}")
-                Toast.makeText(
-                    this@ConsoleGameActivity,
-                    "Erro ao iniciar ${system.displayName} (código $code). Verifique o BIOS e o formato do jogo.",
-                    Toast.LENGTH_LONG,
-                ).show()
+                app.gamenative.ui.util.SnackbarManager.show("Erro ao iniciar ${system.displayName} (código $code). Verifique o BIOS e o formato do jogo.")
                 finish()
             }
         }
@@ -164,7 +159,7 @@ class ConsoleGameActivity : ComponentActivity() {
         toast(if (ok) "Estado do slot $slot carregado" else "Falha ao carregar o estado")
     }
 
-    private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+    private fun toast(msg: String) = app.gamenative.ui.util.SnackbarManager.show(msg)
 
     // --- Physical controllers / keyboards ---
 

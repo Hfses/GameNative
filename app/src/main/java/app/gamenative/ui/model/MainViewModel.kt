@@ -763,11 +763,7 @@ class MainViewModel @Inject constructor(
         if (found.isEmpty()) return
         val names = found.joinToString(" / ") { it.displayName }
         withContext(Dispatchers.Main) {
-            android.widget.Toast.makeText(
-                context,
-                context.getString(R.string.anticheat_online_warning, names),
-                android.widget.Toast.LENGTH_LONG,
-            ).show()
+            app.gamenative.ui.util.SnackbarManager.show(context.getString(R.string.anticheat_online_warning, names))
         }
     }
 }

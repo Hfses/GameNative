@@ -272,11 +272,10 @@ private fun trackGameLaunched(appId: String) {
     )
 }
 
-@OptIn(ExperimentalLayoutApi::class)
-
 /** Child-process-limit warning shows at most once per app process. */
 private var phantomWarningShown = false
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun PluviaMain(
     viewModel: MainViewModel = hiltViewModel(),
