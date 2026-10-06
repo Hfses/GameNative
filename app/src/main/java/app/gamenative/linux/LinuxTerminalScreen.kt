@@ -64,6 +64,7 @@ fun LinuxTerminalScreen(onBack: () -> Unit) {
     var progress by remember { mutableStateOf<Float?>(null) }
     var progressText by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
+    var confirmUninstall by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -72,9 +73,27 @@ fun LinuxTerminalScreen(onBack: () -> Unit) {
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null) }
                 },
+                actions = {
+                    if (installed) TextButton(onClick = { confirmUninstall = true }) { Text("Desinstalar") }
+                },
             )
         },
     ) { padding ->
+        if (confirmUninstall) {
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { confirmUninstall = false },
+                title = { Text("Desinstalar o Linux?") },
+                text = { Text("Todos os arquivos e programas instalados no Ubuntu serão apagados.") },
+                confirmButton = {
+                    OutlinedButton(onClick = {
+                        confirmUninstall = false
+                        installed = false
+                        scope.launch { withContext(Dispatchers.IO) { LinuxEnvironment.uninstall(context) } }
+                    }) { Text("Desinstalar") }
+                },
+                dismissButton = { TextButton(onClick = { confirmUninstall = false }) { Text("Cancelar") } },
+            )
+        }
         Column(Modifier.padding(padding).fillMaxSize().imePadding()) {
             when {
                 !prootOk -> Text(
@@ -104,12 +123,8 @@ fun LinuxTerminalScreen(onBack: () -> Unit) {
                         }
                     }) { Text("Instalar Linux") }
                 }
-                else -> Terminal(onUninstall = {
-                    scope.launch {
-                        withContext(Dispatchers.IO) { LinuxEnvironment.uninstall(context) }
-                        installed = false
-                    }
-                })
+                // Real PTY terminal (stage 2). The pipe-based Terminal below stays as a fallback.
+                else -> PtyTerminal(onExit = onBack)
             }
         }
     }

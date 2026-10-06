@@ -163,14 +163,12 @@ object LinuxEnvironment {
         File(root, "etc/gamenative/empty").mkdirs()
     }
 
-    /**
-     * Starts an interactive root shell. stdin/stdout are pipes (no PTY): fine for commands,
-     * apt, curl, git, python; full-screen apps (vim, htop) need a real terminal (stage 2).
-     */
-    fun startShell(context: Context): Process {
+    /** proot command line + host environment for a guest login shell. */
+    data class ShellCommand(val executable: String, val args: List<String>, val env: Map<String, String>)
+
+    fun shellCommand(context: Context, term: String, interactiveLogin: Boolean): ShellCommand {
         val root = rootDir(context)
         val cmd = ArrayList<String>()
-        cmd += prootBinary(context).path
         cmd += listOf("--kill-on-exit", "--link2symlink", "-0", "-r", root.path, "-w", "/root")
         fun bind(spec: String) { cmd += "-b"; cmd += spec }
         bind("/dev"); bind("/proc"); bind("/sys")
@@ -191,18 +189,25 @@ object LinuxEnvironment {
         if (storage.canRead()) bind("${storage.path}:/sdcard")
         cmd += listOf(
             "/usr/bin/env", "-i",
-            "HOME=/root", "USER=root", "TERM=dumb", "LANG=C.UTF-8",
+            "HOME=/root", "USER=root", "TERM=$term", "LANG=C.UTF-8", "COLORTERM=truecolor",
             "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
             "DEBIAN_FRONTEND=noninteractive",
-            "/bin/bash", "--login", "-s",
+            "/bin/bash", "--login",
         )
-        val pb = ProcessBuilder(cmd).redirectErrorStream(true).directory(root)
-        pb.environment().apply {
-            clear()
-            put("PROOT_LOADER", prootLoader(context).path)
-            put("PROOT_TMP_DIR", context.cacheDir.path)
-            put("PATH", "/system/bin")
-        }
+        if (!interactiveLogin) cmd += "-s"
+        val env = mapOf(
+            "PROOT_LOADER" to prootLoader(context).path,
+            "PROOT_TMP_DIR" to context.cacheDir.path,
+            "PATH" to "/system/bin",
+        )
+        return ShellCommand(prootBinary(context).path, cmd, env)
+    }
+
+    /** Pipe-based shell (no PTY); kept for scripted use. */
+    fun startShell(context: Context): Process {
+        val sc = shellCommand(context, term = "dumb", interactiveLogin = false)
+        val pb = ProcessBuilder(listOf(sc.executable) + sc.args).redirectErrorStream(true).directory(rootDir(context))
+        pb.environment().apply { clear(); putAll(sc.env) }
         return pb.start()
     }
 }

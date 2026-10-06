@@ -337,6 +337,9 @@ dependencies {
     // Wireless-debugging ADB client: lets the app turn off Android's child-process limit itself.
     implementation("com.flyfishxu:kadb-android:1.2.1")
 
+    // Linux mode terminal: Termux's PTY terminal emulator + view (Apache-2.0), via JitPack.
+    implementation("com.github.termux.termux-app:terminal-view:v0.118.0")
+
     // JavaSteam
     val localBuild = false // Change to 'true' needed when building JavaSteam manually
     if (localBuild) {

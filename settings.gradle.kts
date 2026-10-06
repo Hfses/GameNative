@@ -20,7 +20,10 @@ dependencyResolutionManagement {
         // LibretroDroid (in-app console emulation) is published through JitPack
         maven {
             url = uri("https://jitpack.io")
-            content { includeGroupByRegex("(?i)com\\.github\\.swordfish90") }
+            content {
+                includeGroupByRegex("(?i)com\\.github\\.swordfish90")
+                includeGroup("com.github.termux.termux-app")
+            }
         }
     }
 }
