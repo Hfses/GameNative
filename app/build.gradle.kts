@@ -332,7 +332,7 @@ dependencies {
     implementation("androidx.browser:browser:1.8.0")
 
     // In-app console emulation: hosts libretro cores (downloaded on demand) in a GL view.
-    implementation("com.github.Swordfish90:LibretroDroid:0.12.0")
+    implementation("com.github.swordfish90:libretrodroid:0.14.0")
 
     // Wireless-debugging ADB client: lets the app turn off Android's child-process limit itself.
     implementation("com.flyfishxu:kadb-android:1.2.1")
