@@ -91,44 +91,50 @@ object LinuxEnvironment {
                         }
                     }
             }
-                        TarArchiveInputStream(GZIPInputStream(BufferedInputStream(counting, 256 * 1024))).use { tar ->
-                val hardLinks = ArrayList<Pair<File, File>>()
-                while (true) {
-                    val entry: TarArchiveEntry = tar.nextEntry ?: break
-                    val out = File(dest, entry.name)
-                    // Reject entries escaping the rootfs.
-                    // Check the entry's own path (not its link target); normalize without following links.
-                    val norm = File(dest, entry.name).toPath().normalize().toString() + File.separator
-                    if (!norm.startsWith(dest.path + File.separator)) continue
-                    when {
-                        entry.isDirectory -> {
-                            out.mkdirs()
-                            chmod(out, entry.mode or 0b111_000_000) // keep dirs owner-writable
-                        }
-                        entry.isSymbolicLink -> {
-                            out.parentFile?.mkdirs()
-                            runCatching { out.delete() }
-                            runCatching { Os.symlink(entry.linkName, out.path) }
-                        }
-                        entry.isLink -> hardLinks += out to File(dest, entry.linkName)
-                        entry.isFile -> {
-                            out.parentFile?.mkdirs()
-                            out.outputStream().use { tar.copyTo(it, 64 * 1024) }
-                            chmod(out, entry.mode or 0b110_000_000)
-                        }
-                    }
-                }
-                // Android denies hard links to apps: materialize them as copies.
-                for ((link, target) in hardLinks) {
-                    runCatching {
-                        link.parentFile?.mkdirs()
-                        target.copyTo(link, overwrite = true)
-                        chmod(link, 0b111_101_101)
-                    }
-                }
-            }
+            extractTar(TarArchiveInputStream(GZIPInputStream(BufferedInputStream(counting, 256 * 1024))), dest)
         } finally {
             conn.disconnect()
+        }
+    }
+
+    /**
+     * Unpacks a rootfs tar safely: rejects entries escaping [dest], recreates symlinks, and
+     * materializes hard links as copies (Android denies apps link()). Closes [tar].
+     */
+    internal fun extractTar(tar: TarArchiveInputStream, dest: File): Unit = tar.use {
+        val hardLinks = ArrayList<Pair<File, File>>()
+        while (true) {
+            val entry: TarArchiveEntry = tar.nextEntry ?: break
+            val out = File(dest, entry.name)
+            // Reject entries escaping the rootfs.
+            // Check the entry's own path (not its link target); normalize without following links.
+            val norm = File(dest, entry.name).toPath().normalize().toString() + File.separator
+            if (!norm.startsWith(dest.path + File.separator)) continue
+            when {
+                entry.isDirectory -> {
+                    out.mkdirs()
+                    chmod(out, entry.mode or 0b111_000_000) // keep dirs owner-writable
+                }
+                entry.isSymbolicLink -> {
+                    out.parentFile?.mkdirs()
+                    runCatching { out.delete() }
+                    runCatching { Os.symlink(entry.linkName, out.path) }
+                }
+                entry.isLink -> hardLinks += out to File(dest, entry.linkName)
+                entry.isFile -> {
+                    out.parentFile?.mkdirs()
+                    out.outputStream().use { tar.copyTo(it, 64 * 1024) }
+                    chmod(out, entry.mode or 0b110_000_000)
+                }
+            }
+        }
+        // Android denies hard links to apps: materialize them as copies.
+        for ((link, target) in hardLinks) {
+            runCatching {
+                link.parentFile?.mkdirs()
+                target.copyTo(link, overwrite = true)
+                chmod(link, 0b111_101_101)
+            }
         }
     }
 
