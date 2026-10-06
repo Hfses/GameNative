@@ -45,10 +45,12 @@ object GameSessionPerf {
                 Timber.w(t, "GameSessionPerf: game state")
             }
         }
+        GpuClockPin.start(activity)
         return Snapshot(previous)
     }
 
     fun restore(activity: Activity, snapshot: Snapshot?) {
+        GpuClockPin.stop(activity)
         try {
             activity.window.attributes = activity.window.attributes.apply {
                 preferredDisplayModeId = snapshot?.previousModeId ?: 0

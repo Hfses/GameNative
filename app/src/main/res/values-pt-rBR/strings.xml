@@ -1629,4 +1629,6 @@
     <string name="turnip_github_check">Buscar drivers novos</string>
     <string name="turnip_github_checking">Buscando…</string>
     <string name="turnip_github_none">Nenhum driver encontrado (%1$s)</string>
+    <string name="gpu_clock_pin">GPU no clock máximo</string>
+    <string name="gpu_clock_pin_description">Mantém a GPU Adreno no clock máximo: menos travadas, mais calor e consumo de bateria</string>
 </resources>

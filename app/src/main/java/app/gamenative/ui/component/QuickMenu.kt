@@ -857,6 +857,19 @@ private fun PerformanceHudQuickMenuTab(
             Spacer(modifier = Modifier.height(8.dp))
         }
 
+        // ── GPU clock pin (Adreno, no root) ──────────────────────────────
+        if (remember { app.gamenative.utils.GpuClockPin.available }) {
+            val gpuPinned by app.gamenative.utils.GpuClockPin.enabled.collectAsState()
+            QuickMenuToggleRow(
+                title = stringResource(R.string.gpu_clock_pin),
+                subtitle = stringResource(R.string.gpu_clock_pin_description),
+                enabled = gpuPinned,
+                onToggle = { app.gamenative.utils.GpuClockPin.setEnabled(gyroContext, !gpuPinned) },
+                accentColor = accentColor,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+
         // ── Performance HUD ──────────────────────────────────────────────
         QuickMenuToggleRow(
             title = stringResource(R.string.performance_hud),
