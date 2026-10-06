@@ -69,6 +69,13 @@ fun LinuxTerminalScreen(onBack: () -> Unit) {
     var error by remember { mutableStateOf<String?>(null) }
     var confirmUninstall by remember { mutableStateOf(false) }
 
+    // Long apt installs and desktop sessions shouldn't be cut by the screen timeout.
+    DisposableEffect(Unit) {
+        val window = (context as? android.app.Activity)?.window
+        window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        onDispose { window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(

@@ -202,7 +202,19 @@ fun LinuxDesktopPane(modifier: Modifier = Modifier) {
                 LogView(log, Modifier.weight(1f))
             }
             else -> Column(Modifier.fillMaxSize()) {
+                var web by remember { mutableStateOf<WebView?>(null) }
                 Row {
+                    // noVNC's own keyboard button is tiny on a phone: expose it, plus common keys.
+                    TextButton(onClick = {
+                        web?.evaluateJavascript("document.getElementById('noVNC_keyboard_button')?.click()", null)
+                    }) { Text("Teclado") }
+                    TextButton(onClick = {
+                        web?.evaluateJavascript("UI.rfb && UI.rfb.sendCtrlAltDel()", null)
+                    }) { Text("Ctrl+Alt+Del") }
+                    TextButton(onClick = {
+                        web?.evaluateJavascript("UI.rfb && (UI.rfb.sendKey(0xFF1B,'Escape'))", null)
+                    }) { Text("Esc") }
+                    TextButton(onClick = { web?.reload() }) { Text("Reconectar") }
                     TextButton(onClick = {
                         running?.destroy()
                         running = null
@@ -210,7 +222,7 @@ fun LinuxDesktopPane(modifier: Modifier = Modifier) {
                         LinuxDesktop.run(context, "tigervncserver -kill :1")
                     }) { Text("Parar desktop") }
                 }
-                NoVncView(Modifier.weight(1f).fillMaxWidth())
+                NoVncView(Modifier.weight(1f).fillMaxWidth()) { web = it }
             }
         }
     }
@@ -227,7 +239,7 @@ private fun LogView(lines: List<String>, modifier: Modifier) {
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-private fun NoVncView(modifier: Modifier) {
+private fun NoVncView(modifier: Modifier, onCreated: (WebView) -> Unit = {}) {
     AndroidView(
         modifier = modifier,
         factory = { ctx ->
@@ -239,6 +251,7 @@ private fun NoVncView(modifier: Modifier) {
                 settings.useWideViewPort = true
                 settings.loadWithOverviewMode = true
                 webViewClient = WebViewClient()
+                onCreated(this)
                 loadUrl(
                     "http://127.0.0.1:${LinuxDesktop.NOVNC_PORT}/vnc.html" +
                         "?autoconnect=true&resize=remote&reconnect=true&show_dot=true",
