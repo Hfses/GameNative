@@ -1,6 +1,9 @@
 package app.gamenative.linux
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.zIndex
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -124,7 +127,22 @@ fun LinuxTerminalScreen(onBack: () -> Unit) {
                     }) { Text("Instalar Linux") }
                 }
                 // Real PTY terminal (stage 2). The pipe-based Terminal below stays as a fallback.
-                else -> PtyTerminal(onExit = onBack)
+                else -> {
+                    var tab by remember { mutableIntStateOf(0) }
+                    androidx.compose.material3.TabRow(selectedTabIndex = tab) {
+                        androidx.compose.material3.Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("Terminal") })
+                        androidx.compose.material3.Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text("Desktop") })
+                    }
+                    // Both stay composed so switching tabs doesn't kill the shell or the desktop.
+                    Box(Modifier.weight(1f)) {
+                        Box(Modifier.fillMaxSize().zIndex(if (tab == 0) 1f else 0f).alpha(if (tab == 0) 1f else 0f)) {
+                            PtyTerminal(onExit = onBack)
+                        }
+                        Box(Modifier.fillMaxSize().zIndex(if (tab == 1) 1f else 0f).alpha(if (tab == 1) 1f else 0f)) {
+                            LinuxDesktopPane()
+                        }
+                    }
+                }
             }
         }
     }
