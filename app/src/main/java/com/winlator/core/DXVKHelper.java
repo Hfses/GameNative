@@ -28,7 +28,7 @@ public class DXVKHelper {
         File rootDir = ImageFs.find(context).getRootDir();
         File dxvkConfigFile = new File(imageFs.config_path+"/dxvk.conf");
 
-        String content = "\"";
+        String content = "";
         String maxDeviceMemory = config.get("maxDeviceMemory");
         if (!maxDeviceMemory.isEmpty() && !maxDeviceMemory.equals("0")) {
             content += "dxgi.maxDeviceMemory = "+maxDeviceMemory+"\n";
@@ -94,11 +94,22 @@ public class DXVKHelper {
         String asyncCache = config.get("asyncCache");
         if (!asyncCache.isEmpty() && !asyncCache.equals("0"))
             envVars.put("DXVK_GPLASYNCCACHE", "1");
-        content = content + '\"';
-
+        // DXVK reads DXVK_CONFIG as ';'-separated "key = value" entries, with no surrounding quotes.
+        // The old form (leading '"' + newline separators) made DXVK drop every option (memory
+        // cap, compiler threads, frame latency, custom device). Also write the same lines to
+        // dxvk.conf so builds that only honour DXVK_CONFIG_FILE get them too.
+        File configDir = dxvkConfigFile.getParentFile();
+        if (configDir != null && !configDir.exists()) configDir.mkdirs();
+        try (java.io.FileWriter writer = new java.io.FileWriter(dxvkConfigFile, false)) {
+            writer.write(content);
+        } catch (java.io.IOException e) {
+            android.util.Log.w("DXVKHelper", "Failed to write dxvk.conf", e);
+        }
 
         envVars.put("DXVK_CONFIG_FILE", rootDir + ImageFs.CONFIG_PATH+"/dxvk.conf");
-        envVars.put("DXVK_CONFIG", content);
+        String inlineConfig = content.trim().replace("\n", "; ");
+        if (!inlineConfig.isEmpty()) envVars.put("DXVK_CONFIG", inlineConfig);
+        else envVars.remove("DXVK_CONFIG");
     }
 
     public static void setVKD3DEnvVars(Context context, KeyValueSet config, EnvVars envVars) {
