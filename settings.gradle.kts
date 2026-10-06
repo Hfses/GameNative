@@ -23,6 +23,7 @@ dependencyResolutionManagement {
             content {
                 includeGroupByRegex("(?i)com\\.github\\.swordfish90")
                 includeGroup("com.github.termux.termux-app")
+                includeGroupByRegex("com\\.github\\.flyfishxu.*") // Kadb's spake2
             }
         }
     }

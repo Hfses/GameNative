@@ -4,6 +4,7 @@
 # Usage: NDK=/path/to/android-ndk tools/linux-proot/build.sh app/src/modern/jniLibs/arm64-v8a
 # Output: libprootlinux.so + libprootlinux-loader.so (distinct names from Winlator's reduced proot).
 set -euo pipefail
+command -v gawk >/dev/null || { echo "gawk is required (proot loader-info.awk uses strtonum)" >&2; exit 1; }
 OUTDIR=$(mkdir -p "$1" && cd "$1" && pwd)
 : "${NDK:?set NDK to the Android NDK root}"
 API=26
@@ -32,7 +33,13 @@ fetch() {
   mkdir -p "$WORK/${1%%.*}"
   tar -xzf "$WORK/$1" -C "$WORK/${1%%.*}" --strip-components=1
 }
-fetch proot.tar.gz "https://github.com/termux/proot/archive/${PROOT_COMMIT}.tar.gz" "$PROOT_SHA256"
+if [[ -n "${PROOT_SRC_DIR:-}" ]]; then
+  # Pre-cloned source (git checkout of $PROOT_COMMIT), for hosts where GitHub archives are blocked.
+  [[ "$(git -C "$PROOT_SRC_DIR" rev-parse HEAD)" == "$PROOT_COMMIT" ]] || { echo "PROOT_SRC_DIR is not at $PROOT_COMMIT" >&2; exit 1; }
+  mkdir -p "$WORK/proot" && cp -a "$PROOT_SRC_DIR"/. "$WORK/proot/" && rm -rf "$WORK/proot/.git"
+else
+  fetch proot.tar.gz "https://github.com/termux/proot/archive/${PROOT_COMMIT}.tar.gz" "$PROOT_SHA256"
+fi
 fetch talloc.tar.gz "https://www.samba.org/ftp/talloc/talloc-${TALLOC_VERSION}.tar.gz" "$TALLOC_SHA256"
 for patch in "$HERE"/patches/*.patch; do
   patch -d "$WORK/proot" -p1 --forward --quiet < "$patch"
