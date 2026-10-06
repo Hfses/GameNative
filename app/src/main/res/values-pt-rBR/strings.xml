@@ -1625,4 +1625,8 @@
     <string name="texture_anisotropy">Filtro de textura (anisotrópico)</string>
     <string name="texture_lod_bias">Nitidez de textura (LOD bias)</string>
     <string name="texture_filter_game_default">Padrão do jogo</string>
+    <string name="turnip_github_title">Turnip mais recente do GitHub</string>
+    <string name="turnip_github_check">Buscar drivers novos</string>
+    <string name="turnip_github_checking">Buscando…</string>
+    <string name="turnip_github_none">Nenhum driver encontrado (%1$s)</string>
 </resources>

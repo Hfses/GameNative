@@ -117,6 +117,9 @@ fun DriverManagerDialog(open: Boolean, onDismiss: () -> Unit) {
         } catch (_: Exception) {}
     }
 
+    var githubAssets by remember { mutableStateOf<List<app.gamenative.utils.TurnipReleases.Asset>>(emptyList()) }
+    var githubChecking by remember { mutableStateOf(false) }
+
     // Load driver manifest from the remote URL
     LaunchedEffect(Unit) {
         refreshDriverList()
@@ -392,6 +395,62 @@ fun DriverManagerDialog(open: Boolean, onDismiss: () -> Unit) {
                                 }
                             }
                         }
+                    }
+                }
+
+                Divider(modifier = Modifier.padding(vertical = 16.dp))
+
+                // Latest Turnip builds straight from GitHub (adapted from DroidDeck).
+                Text(
+                    text = stringResource(R.string.turnip_github_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(bottom = 4.dp),
+                )
+                Button(
+                    onClick = {
+                        scope.launch {
+                            githubChecking = true
+                            val (assets, failed) = app.gamenative.utils.TurnipReleases.check()
+                            githubAssets = assets
+                            githubChecking = false
+                            if (assets.isEmpty()) {
+                                SnackbarManager.show(ctx.getString(R.string.turnip_github_none, failed.joinToString()))
+                            }
+                        }
+                    },
+                    enabled = !githubChecking && !isDownloading && !isImporting,
+                ) {
+                    Text(stringResource(if (githubChecking) R.string.turnip_github_checking else R.string.turnip_github_check))
+                }
+                githubAssets.forEach { asset ->
+                    androidx.compose.material3.OutlinedButton(
+                        onClick = {
+                            scope.launch {
+                                isDownloading = true
+                                downloadProgress = 0f
+                                try {
+                                    val zip = app.gamenative.utils.TurnipReleases.download(asset, ctx.cacheDir) { p ->
+                                        scope.launch(Dispatchers.Main) { downloadProgress = p }
+                                    }
+                                    isDownloading = false
+                                    isInstalling = true
+                                    val res = withContext(Dispatchers.IO) { handlePickedUri(ctx, Uri.fromFile(zip)) }
+                                    withContext(Dispatchers.IO) { zip.delete() }
+                                    lastMessage = res
+                                    if (res.startsWith("Installed driver:")) refreshDriverList()
+                                    SnackbarManager.show(res)
+                                } catch (e: Exception) {
+                                    SnackbarManager.show(ctx.getString(R.string.driver_network_error, e.message ?: ""))
+                                } finally {
+                                    isDownloading = false
+                                    isInstalling = false
+                                }
+                            }
+                        },
+                        enabled = !isDownloading && !isImporting,
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                    ) {
+                        Text("${asset.label} — ${asset.source} ${asset.tag} (${formatBytes(asset.size)})")
                     }
                 }
 

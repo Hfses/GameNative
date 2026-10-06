@@ -1749,4 +1749,8 @@
     <string name="texture_anisotropy">Texture filtering (anisotropic)</string>
     <string name="texture_lod_bias">Texture sharpness (LOD bias)</string>
     <string name="texture_filter_game_default">Game default</string>
+    <string name="turnip_github_title">Latest Turnip from GitHub</string>
+    <string name="turnip_github_check">Check for new drivers</string>
+    <string name="turnip_github_checking">Checking…</string>
+    <string name="turnip_github_none">No drivers found (%1$s)</string>
 </resources>
