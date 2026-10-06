@@ -1580,6 +1580,25 @@ fun XServerScreen(
         }
     }
 
+    // Gyro aiming: feed device rotation into the right stick while this game is on screen.
+    DisposableEffect(lifecycleOwner, xServerView) {
+        val handler = xServerView?.getxServer()?.winHandler
+        app.gamenative.input.GyroAim.onUpdate = handler?.let { h -> { h.refreshGyro() } }
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_PAUSE -> app.gamenative.input.GyroAim.pause()
+                Lifecycle.Event.ON_RESUME -> app.gamenative.input.GyroAim.resume(context)
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            app.gamenative.input.GyroAim.setEnabled(context, false)
+            app.gamenative.input.GyroAim.onUpdate = null
+        }
+    }
+
     DisposableEffect(lifecycleOwner, xServerView) {
         val currentXServerView = xServerView
         val currentXServerViewAsView = currentXServerView as? View

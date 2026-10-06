@@ -1031,8 +1031,8 @@ public class WinHandler {
 
         buffer.putShort(OFF_LX, (short)(state.thumbLX * 32767));
         buffer.putShort(OFF_LY, (short)(state.thumbLY * 32767));
-        buffer.putShort(OFF_RX, (short)(state.thumbRX * 32767));
-        buffer.putShort(OFF_RY, (short)(state.thumbRY * 32767));
+        buffer.putShort(OFF_RX, (short)(app.gamenative.input.GyroAim.combineX(state.thumbRX) * 32767));
+        buffer.putShort(OFF_RY, (short)(app.gamenative.input.GyroAim.combineY(state.thumbRY) * 32767));
         // Clamp the raw value first – some firmwares report 1.00–1.02 at the top end
         float rawL = Math.max(0f, Math.min(1f, state.triggerL));
         float rawR = Math.max(0f, Math.min(1f, state.triggerR));
@@ -1066,16 +1066,31 @@ public class WinHandler {
         notifyStateChanged(playerIndex);
     }
 
+    /** Last on-screen gamepad state, so gyro updates can be re-sent without a touch event. */
+    private volatile GamepadState lastVirtualState;
+
+    /** Re-sends the active controller state (called on each gyro sample). */
+    public void refreshGyro() {
+        if (currentController != null) {
+            sendMemoryFileState();
+        } else if (lastVirtualState != null) {
+            sendVirtualGamepadState(lastVirtualState);
+        } else {
+            sendVirtualGamepadState(new GamepadState());
+        }
+    }
+
     public void sendVirtualGamepadState(GamepadState state) {
         if (gamepadBuffer == null || state == null) {
             return;
         }
+        lastVirtualState = state;
 
         // Axes: write by fixed offsets, not sequential position
         gamepadBuffer.putShort(OFF_LX, (short) (state.thumbLX * 32767));
         gamepadBuffer.putShort(OFF_LY, (short) (state.thumbLY * 32767));
-        gamepadBuffer.putShort(OFF_RX, (short) (state.thumbRX * 32767));
-        gamepadBuffer.putShort(OFF_RY, (short) (state.thumbRY * 32767));
+        gamepadBuffer.putShort(OFF_RX, (short) (app.gamenative.input.GyroAim.combineX(state.thumbRX) * 32767));
+        gamepadBuffer.putShort(OFF_RY, (short) (app.gamenative.input.GyroAim.combineY(state.thumbRY) * 32767));
 
         // Triggers: curve and map to signed short range like your current code
         float rawL = Math.max(0f, Math.min(1f, state.triggerL));

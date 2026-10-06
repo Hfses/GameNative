@@ -1737,4 +1737,7 @@
     <string name="lan_leave_room">Leave room</string>
     <string name="anticheat_online_warning">This game uses %1$s. Single-player should work, but online modes protected by this anti-cheat (e.g. GTA Online) are blocked by the publisher on Wine/Proton and cannot be played.</string>
     <string name="system_menu_consoles">Consoles (PS1, PS2, PSP, Nintendo…)</string>
+    <string name="gyro_aim">Gyro aiming</string>
+    <string name="gyro_aim_description">Move the device to aim (adds to the right stick)</string>
+    <string name="gyro_aim_sensitivity">Gyro sensitivity</string>
 </resources>

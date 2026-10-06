@@ -1613,4 +1613,7 @@
     <string name="wine_proton_url_empty">Insira uma URL válida.</string>
     <string name="anticheat_online_warning">Este jogo usa %1$s. O modo single-player deve funcionar, mas os modos online protegidos por esse anti-cheat (ex.: GTA Online) são bloqueados pela desenvolvedora no Wine/Proton e não podem ser jogados.</string>
     <string name="system_menu_consoles">Consoles (PS1, PS2, PSP, Nintendo…)</string>
+    <string name="gyro_aim">Mira por giroscópio</string>
+    <string name="gyro_aim_description">Mova o aparelho para mirar (soma ao analógico direito)</string>
+    <string name="gyro_aim_sensitivity">Sensibilidade do giroscópio</string>
 </resources>
