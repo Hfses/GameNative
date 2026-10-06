@@ -273,6 +273,10 @@ private fun trackGameLaunched(appId: String) {
 }
 
 @OptIn(ExperimentalLayoutApi::class)
+
+/** Child-process-limit warning shows at most once per app process. */
+private var phantomWarningShown = false
+
 @Composable
 fun PluviaMain(
     viewModel: MainViewModel = hiltViewModel(),
@@ -622,6 +626,27 @@ fun PluviaMain(
         }
     }
 
+    // Warn once per app run if Android's child-process killer is on: it silently kills Wine/Box64.
+    LaunchedEffect(Unit) {
+        if (!phantomWarningShown) {
+            phantomWarningShown = true
+            val status = app.gamenative.utils.PhantomProcessLimit.read(context)
+            if (app.gamenative.utils.PhantomProcessLimit.shouldWarn(status)) {
+                msgDialogState = MessageDialogState(
+                    visible = true,
+                    type = DialogType.PHANTOM_PROCESS,
+                    title = context.getString(R.string.phantom_title),
+                    message = context.getString(
+                        if (app.gamenative.utils.PhantomProcessLimit.hasDeveloperToggle()) R.string.phantom_message_toggle
+                        else R.string.phantom_message_adb,
+                    ),
+                    confirmBtnText = context.getString(R.string.phantom_open_dev_options),
+                    dismissBtnText = context.getString(R.string.phantom_copy_adb),
+                )
+            }
+        }
+    }
+
     LaunchedEffect(navController) {
         Timber.i("navController changed")
 
@@ -774,6 +799,27 @@ fun PluviaMain(
     val onConfirmClick: (() -> Unit)?
     var onActionClick: (() -> Unit)? = null
     when (msgDialogState.type) {
+        DialogType.PHANTOM_PROCESS -> {
+            onConfirmClick = {
+                setMessageDialogState(MessageDialogState(false))
+                runCatching {
+                    context.startActivity(
+                        android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)
+                            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+                    )
+                }
+            }
+            onDismissClick = {
+                setMessageDialogState(MessageDialogState(false))
+                val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                clipboard.setPrimaryClip(android.content.ClipData.newPlainText("adb", app.gamenative.utils.PhantomProcessLimit.adbCommand()))
+                android.widget.Toast.makeText(context, context.getString(R.string.phantom_adb_copied), android.widget.Toast.LENGTH_SHORT).show()
+            }
+            onDismissRequest = {
+                setMessageDialogState(MessageDialogState(false))
+            }
+        }
+
         DialogType.DISCORD -> {
             onConfirmClick = {
                 setMessageDialogState(MessageDialogState(false))

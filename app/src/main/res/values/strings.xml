@@ -1740,4 +1740,10 @@
     <string name="gyro_aim">Gyro aiming</string>
     <string name="gyro_aim_description">Move the device to aim (adds to the right stick)</string>
     <string name="gyro_aim_sensitivity">Gyro sensitivity</string>
+    <string name="phantom_title">Android may close your games</string>
+    <string name="phantom_message_toggle">Android\'s child-process limit is on. It can kill Wine/Box64 mid-game with no error. Turn on \"Disable child process restrictions\" in Developer options.</string>
+    <string name="phantom_message_adb">Android\'s child-process limit is on. It can kill Wine/Box64 mid-game with no error. This Android version has no switch for it: run the ADB command (tap Copy) from a PC or a wireless-debugging app.</string>
+    <string name="phantom_open_dev_options">Developer options</string>
+    <string name="phantom_copy_adb">Copy ADB command</string>
+    <string name="phantom_adb_copied">ADB command copied</string>
 </resources>

@@ -1616,4 +1616,10 @@
     <string name="gyro_aim">Mira por giroscópio</string>
     <string name="gyro_aim_description">Mova o aparelho para mirar (soma ao analógico direito)</string>
     <string name="gyro_aim_sensitivity">Sensibilidade do giroscópio</string>
+    <string name="phantom_title">O Android pode fechar seus jogos</string>
+    <string name="phantom_message_toggle">O limite de processos filhos do Android está ativo. Ele pode encerrar o Wine/Box64 no meio do jogo sem mostrar erro. Ative \"Desativar restrições de processos filhos\" nas Opções do desenvolvedor.</string>
+    <string name="phantom_message_adb">O limite de processos filhos do Android está ativo. Ele pode encerrar o Wine/Box64 no meio do jogo sem mostrar erro. Esta versão do Android não tem opção para isso: execute o comando ADB (toque em Copiar) num PC ou num app de depuração sem fio.</string>
+    <string name="phantom_open_dev_options">Opções do desenvolvedor</string>
+    <string name="phantom_copy_adb">Copiar comando ADB</string>
+    <string name="phantom_adb_copied">Comando ADB copiado</string>
 </resources>
