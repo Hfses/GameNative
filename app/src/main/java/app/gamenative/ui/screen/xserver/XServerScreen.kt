@@ -396,18 +396,14 @@ fun XServerScreen(
         }
     }
 
-    // Session-scoped performance/network state: sustained performance keeps the
-    // SoC from clocking down under long thermal load, and the multicast lock is
-    // required for LAN game discovery (Android drops UDP broadcast/multicast
-    // packets without it, so games like CS 1.6 never see local servers).
+    // Session-scoped performance/network state. NOT sustained performance mode: on Qualcomm and
+    // Pixel power HALs it caps CPU/GPU at a level the device can hold indefinitely, costing games
+    // their peak clocks (measured by WinNative/DroidDeck). Instead tell Android we're in gameplay
+    // and use the panel's fastest refresh rate (see GameSessionPerf, adapted from DroidDeck).
+    // The multicast lock is required for LAN game discovery (Android drops UDP
+    // broadcast/multicast packets without it, so games like CS 1.6 never see local servers).
     DisposableEffect(activity) {
-        val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
-        val sustainedApplied = activity != null &&
-            powerManager?.isSustainedPerformanceModeSupported == true
-        if (sustainedApplied) {
-            activity!!.window.setSustainedPerformanceMode(true)
-            Timber.i("Sustained performance mode enabled for game session")
-        }
+        val perfSnapshot = activity?.let { app.gamenative.utils.GameSessionPerf.apply(it) }
 
         val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
         val multicastLock = wifiManager?.createMulticastLock("gamenative-lan")?.apply {
@@ -417,7 +413,7 @@ fun XServerScreen(
         }
 
         onDispose {
-            if (sustainedApplied) activity!!.window.setSustainedPerformanceMode(false)
+            activity?.let { app.gamenative.utils.GameSessionPerf.restore(it, perfSnapshot) }
             multicastLock?.let { if (it.isHeld) it.release() }
         }
     }
@@ -1580,6 +1576,25 @@ fun XServerScreen(
         }
     }
 
+    // Gyro aiming: feed device rotation into the right stick while this game is on screen.
+    DisposableEffect(lifecycleOwner, xServerView) {
+        val handler = xServerView?.getxServer()?.winHandler
+        app.gamenative.input.GyroAim.onUpdate = handler?.let { h -> { h.refreshGyro() } }
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_PAUSE -> app.gamenative.input.GyroAim.pause()
+                Lifecycle.Event.ON_RESUME -> app.gamenative.input.GyroAim.resume(context)
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            app.gamenative.input.GyroAim.setEnabled(context, false)
+            app.gamenative.input.GyroAim.onUpdate = null
+        }
+    }
+
     DisposableEffect(lifecycleOwner, xServerView) {
         val currentXServerView = xServerView
         val currentXServerViewAsView = currentXServerView as? View
@@ -1591,7 +1606,9 @@ fun XServerScreen(
 
                 when {
                     lifecycleOwner.lifecycle.currentState == Lifecycle.State.DESTROYED -> Unit
-                    lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) -> {
+                    lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) ||
+                        (app.gamenative.utils.GamePip.inPip.value &&
+                            lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) -> {
                         Timber.d("Synchronizing XServerView renderer to current resumed lifecycle state")
                         currentXServerView.onResume()
                     }

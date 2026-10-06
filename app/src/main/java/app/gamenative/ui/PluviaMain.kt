@@ -272,6 +272,9 @@ private fun trackGameLaunched(appId: String) {
     )
 }
 
+/** Child-process-limit warning shows at most once per app process. */
+private var phantomWarningShown = false
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun PluviaMain(
@@ -285,6 +288,7 @@ fun PluviaMain(
 
     val state by viewModel.state.collectAsStateWithLifecycle()
 
+    var showWirelessAdbFix by remember { mutableStateOf(false) }
     var msgDialogState by rememberSaveable(stateSaver = MessageDialogState.Saver) {
         mutableStateOf(MessageDialogState(false))
     }
@@ -622,6 +626,31 @@ fun PluviaMain(
         }
     }
 
+    if (showWirelessAdbFix) {
+        app.gamenative.ui.component.dialog.WirelessAdbFixDialog(onDismiss = { showWirelessAdbFix = false })
+    }
+
+    // Warn once per app run if Android's child-process killer is on: it silently kills Wine/Box64.
+    LaunchedEffect(Unit) {
+        if (!phantomWarningShown) {
+            phantomWarningShown = true
+            val status = app.gamenative.utils.PhantomProcessLimit.read(context)
+            if (app.gamenative.utils.PhantomProcessLimit.shouldWarn(status)) {
+                msgDialogState = MessageDialogState(
+                    visible = true,
+                    type = DialogType.PHANTOM_PROCESS,
+                    title = context.getString(R.string.phantom_title),
+                    message = context.getString(
+                        if (app.gamenative.utils.PhantomProcessLimit.hasDeveloperToggle()) R.string.phantom_message_toggle
+                        else R.string.phantom_message_adb,
+                    ),
+                    confirmBtnText = context.getString(R.string.phantom_open_dev_options),
+                    dismissBtnText = context.getString(R.string.adbfix_button),
+                )
+            }
+        }
+    }
+
     LaunchedEffect(navController) {
         Timber.i("navController changed")
 
@@ -774,6 +803,26 @@ fun PluviaMain(
     val onConfirmClick: (() -> Unit)?
     var onActionClick: (() -> Unit)? = null
     when (msgDialogState.type) {
+        DialogType.PHANTOM_PROCESS -> {
+            onConfirmClick = {
+                setMessageDialogState(MessageDialogState(false))
+                runCatching {
+                    context.startActivity(
+                        android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)
+                            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+                    )
+                }
+            }
+            onDismissClick = {
+                // "Fix automatically": pair over Wireless debugging and change it from the device.
+                setMessageDialogState(MessageDialogState(false))
+                showWirelessAdbFix = true
+            }
+            onDismissRequest = {
+                setMessageDialogState(MessageDialogState(false))
+            }
+        }
+
         DialogType.DISCORD -> {
             onConfirmClick = {
                 setMessageDialogState(MessageDialogState(false))
@@ -1512,6 +1561,16 @@ fun PluviaMain(
                             viewModel.onGameLaunchError(error)
                         },
                     )
+                }
+
+                /** Console emulation (libretro) **/
+                composable(route = PluviaScreen.Consoles.route) {
+                    app.gamenative.emulation.ConsolesScreen(onBack = { navController.navigateUp() })
+                }
+
+                /** Linux mode (Ubuntu + terminal) **/
+                composable(route = PluviaScreen.Linux.route) {
+                    app.gamenative.linux.LinuxTerminalScreen(onBack = { navController.navigateUp() })
                 }
 
                 /** Settings **/

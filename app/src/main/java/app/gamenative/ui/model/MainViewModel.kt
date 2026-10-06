@@ -23,12 +23,14 @@ import app.gamenative.service.ActiveGameRegistry
 import app.gamenative.service.SteamService
 import app.gamenative.service.amazon.AmazonService
 import app.gamenative.service.epic.EpicCloudSavesManager
+import app.gamenative.R
 import app.gamenative.service.epic.EpicService
 import app.gamenative.service.gog.GOGService
 import app.gamenative.utils.CustomGameScanner
 import app.gamenative.ui.data.MainState
 import app.gamenative.ui.enums.ConnectionState
 import app.gamenative.ui.screen.PluviaScreen
+import app.gamenative.utils.AntiCheatDetector
 import app.gamenative.utils.ContainerUtils
 import app.gamenative.utils.IntentLaunchManager
 import app.gamenative.utils.SteamUtils
@@ -526,6 +528,7 @@ class MainViewModel @Inject constructor(
                         } else {
                             SteamUtils.replaceSteamclientDll(context, appId, offline)
                         }
+                        SteamUtils.syncLanCoopBroadcasts(context, appId)
                     }
                 }
             }
@@ -534,6 +537,8 @@ class MainViewModel @Inject constructor(
             delay(100)
 
             apiJob.await()
+
+            warnIfAntiCheat(context, appId)
 
             _uiEvent.send(MainUiEvent.LaunchApp)
         }
@@ -741,4 +746,24 @@ class MainViewModel @Inject constructor(
         }
     }
 
+
+    /** Online modes of BattlEye/EAC games (e.g. GTA Online) can't work under Wine; say so up front. */
+    private suspend fun warnIfAntiCheat(context: Context, appId: String) {
+        val found = withContext(Dispatchers.IO) {
+            val gameId = ContainerUtils.extractGameIdFromContainerId(appId)
+            val dir = runCatching {
+                when (ContainerUtils.extractGameSourceFromContainerId(appId)) {
+                    GameSource.STEAM -> SteamService.getAppDirPath(gameId)
+                    GameSource.EPIC -> EpicService.getInstallPath(gameId)
+                    else -> null
+                }
+            }.getOrNull()
+            AntiCheatDetector.detect(dir)
+        }
+        if (found.isEmpty()) return
+        val names = found.joinToString(" / ") { it.displayName }
+        withContext(Dispatchers.Main) {
+            app.gamenative.ui.util.SnackbarManager.show(context.getString(R.string.anticheat_online_warning, names))
+        }
+    }
 }

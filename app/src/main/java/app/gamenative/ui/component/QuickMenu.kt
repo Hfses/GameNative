@@ -65,6 +65,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -830,6 +831,55 @@ private fun PerformanceHudQuickMenuTab(
         }
 
         Spacer(modifier = Modifier.height(8.dp))
+
+        // ── Gyro aiming ──────────────────────────────────────────────────
+        val gyroContext = androidx.compose.ui.platform.LocalContext.current
+        if (remember { app.gamenative.input.GyroAim.isSupported(gyroContext) }) {
+            val gyroOn by app.gamenative.input.GyroAim.enabled.collectAsState()
+            val gyroSens by app.gamenative.input.GyroAim.sensitivity.collectAsState()
+            QuickMenuToggleRow(
+                title = stringResource(R.string.gyro_aim),
+                subtitle = stringResource(R.string.gyro_aim_description),
+                enabled = gyroOn,
+                onToggle = { app.gamenative.input.GyroAim.setEnabled(gyroContext, !gyroOn) },
+                accentColor = accentColor,
+            )
+            if (gyroOn) {
+                QuickMenuAdjustmentRow(
+                    title = stringResource(R.string.gyro_aim_sensitivity),
+                    valueText = String.format(java.util.Locale.US, "%.1fx", gyroSens),
+                    progress = ((gyroSens - 0.2f) / 3.8f).coerceIn(0f, 1f),
+                    onDecrease = { app.gamenative.input.GyroAim.setSensitivity(gyroSens - 0.2f) },
+                    onIncrease = { app.gamenative.input.GyroAim.setSensitivity(gyroSens + 0.2f) },
+                    accentColor = accentColor,
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+
+        // ── Picture-in-picture on Home ───────────────────────────────────
+        val pipOn by app.gamenative.utils.GamePip.enabled.collectAsState()
+        QuickMenuToggleRow(
+            title = stringResource(R.string.game_pip),
+            subtitle = stringResource(R.string.game_pip_description),
+            enabled = pipOn,
+            onToggle = { app.gamenative.utils.GamePip.setEnabled(!pipOn) },
+            accentColor = accentColor,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // ── GPU clock pin (Adreno, no root) ──────────────────────────────
+        if (remember { app.gamenative.utils.GpuClockPin.available }) {
+            val gpuPinned by app.gamenative.utils.GpuClockPin.enabled.collectAsState()
+            QuickMenuToggleRow(
+                title = stringResource(R.string.gpu_clock_pin),
+                subtitle = stringResource(R.string.gpu_clock_pin_description),
+                enabled = gpuPinned,
+                onToggle = { app.gamenative.utils.GpuClockPin.setEnabled(gyroContext, !gpuPinned) },
+                accentColor = accentColor,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+        }
 
         // ── Performance HUD ──────────────────────────────────────────────
         QuickMenuToggleRow(

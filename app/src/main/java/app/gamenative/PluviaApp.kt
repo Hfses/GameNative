@@ -51,6 +51,8 @@ class PluviaApp : SplitCompatApplication() {
 
     override fun onCreate() {
         super.onCreate()
+        // Undo a GPU clock pin left behind by a killed game session (device-wide KGSL property).
+        Thread { runCatching { app.gamenative.utils.GpuClockPin.clearLeftover(this) } }.start()
 
         preloadSystemLibraries()
 

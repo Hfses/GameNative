@@ -17,6 +17,15 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
         maven { url = uri("https://central.sonatype.com/repository/maven-snapshots/") } // JavaSteam
+        // LibretroDroid (in-app console emulation) is published through JitPack
+        maven {
+            url = uri("https://jitpack.io")
+            content {
+                includeGroupByRegex("(?i)com\\.github\\.swordfish90")
+                includeGroup("com.github.termux.termux-app")
+                includeGroupByRegex("com\\.github\\.flyfishxu.*") // Kadb's spake2
+            }
+        }
     }
 }
 

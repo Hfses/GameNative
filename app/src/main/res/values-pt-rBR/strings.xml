@@ -1542,7 +1542,7 @@
     <string name="lan_players">Jogadores: %1$s</string>
     <string name="lan_chat_message">Mensagem</string>
     <string name="lan_open_game">Abrir o jogo</string>
-    <string name="lan_in_room_hint">Quando todos entrarem, cada um toca em Abrir o jogo e conecta pelo menu de LAN do próprio jogo. A sala e o chat continuam ativos enquanto o jogo roda.</string>
+    <string name="lan_in_room_hint">Quando todos entrarem, cada jogador toca em Abrir o jogo e conecta pelo menu LAN do próprio jogo. Em jogos da Steam, o GameNative aponta automaticamente o jogo de cada um para os outros jogadores da sala, então as partidas LAN aparecem até em hotspot do celular e VPN. A sala e o chat continuam ativos durante o jogo.</string>
     <string name="lan_leave_room">Sair da sala</string>
     <!-- Game Hub / Loja -->
     <string name="destination_game_hub">Loja</string>
@@ -1611,4 +1611,37 @@
     <string name="wine_proton_url_hint">https://…/wine-…​.wcp</string>
     <string name="wine_proton_url_button">Baixar e instalar da URL</string>
     <string name="wine_proton_url_empty">Insira uma URL válida.</string>
+    <string name="anticheat_online_warning">Este jogo usa %1$s. O modo single-player deve funcionar, mas os modos online protegidos por esse anti-cheat (ex.: GTA Online) são bloqueados pela desenvolvedora no Wine/Proton e não podem ser jogados.</string>
+    <string name="system_menu_consoles">Consoles (PS1, PS2, PSP, Nintendo…)</string>
+    <string name="gyro_aim">Mira por giroscópio</string>
+    <string name="gyro_aim_description">Mova o aparelho para mirar (soma ao analógico direito)</string>
+    <string name="gyro_aim_sensitivity">Sensibilidade do giroscópio</string>
+    <string name="phantom_title">O Android pode fechar seus jogos</string>
+    <string name="phantom_message_toggle">O limite de processos filhos do Android está ativo. Ele pode encerrar o Wine/Box64 no meio do jogo sem mostrar erro. Ative \"Desativar restrições de processos filhos\" nas Opções do desenvolvedor.</string>
+    <string name="phantom_message_adb">O limite de processos filhos do Android está ativo. Ele pode encerrar o Wine/Box64 no meio do jogo sem mostrar erro. Esta versão do Android não tem opção para isso: execute o comando ADB (toque em Copiar) num PC ou num app de depuração sem fio.</string>
+    <string name="phantom_open_dev_options">Opções do desenvolvedor</string>
+    <string name="phantom_copy_adb">Copiar comando ADB</string>
+    <string name="phantom_adb_copied">Comando ADB copiado</string>
+    <string name="texture_anisotropy">Filtro de textura (anisotrópico)</string>
+    <string name="texture_lod_bias">Nitidez de textura (LOD bias)</string>
+    <string name="texture_filter_game_default">Padrão do jogo</string>
+    <string name="turnip_github_title">Turnip mais recente do GitHub</string>
+    <string name="turnip_github_check">Buscar drivers novos</string>
+    <string name="turnip_github_checking">Buscando…</string>
+    <string name="turnip_github_none">Nenhum driver encontrado (%1$s)</string>
+    <string name="gpu_clock_pin">GPU no clock máximo</string>
+    <string name="gpu_clock_pin_description">Mantém a GPU Adreno no clock máximo: menos travadas, mais calor e consumo de bateria</string>
+    <string name="game_pip">Janela flutuante ao sair</string>
+    <string name="game_pip_description">Ao apertar Início, o jogo continua rodando numa janela pequena em vez de pausar</string>
+    <string name="adbfix_button">Corrigir automaticamente</string>
+    <string name="adbfix_title">Corrigir sem PC</string>
+    <string name="adbfix_steps">1. Opções do desenvolvedor → ative a Depuração por Wi-Fi (precisa de Wi-Fi).\n2. Toque em \"Parear dispositivo com código de pareamento\" (use tela dividida ou mantenha esta janela aberta).\n3. Digite abaixo a porta (o número depois dos dois-pontos) e o código de 6 dígitos.</string>
+    <string name="adbfix_port">Porta de pareamento</string>
+    <string name="adbfix_code">Código de pareamento</string>
+    <string name="adbfix_pair_fix">Parear e corrigir</string>
+    <string name="adbfix_use_saved">Usar pareamento salvo</string>
+    <string name="adbfix_working">Trabalhando…</string>
+    <string name="adbfix_done">Pronto! O limite de processos filhos foi desativado. Você já pode desligar a Depuração por Wi-Fi.</string>
+    <string name="adbfix_failed">Falhou: %1$s</string>
+    <string name="system_menu_linux">Linux (Ubuntu + Terminal)</string>
 </resources>

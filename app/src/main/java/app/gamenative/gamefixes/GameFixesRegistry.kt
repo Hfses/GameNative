@@ -41,6 +41,8 @@ object GameFixesRegistry {
         STEAM_Fix_752580,
         STEAM_Fix_1637320,
         STEAM_Fix_1888930,
+        STEAM_Fix_2531310,
+        STEAM_Fix_1659420,
         STEAM_Fix_1962700,
         STEAM_Fix_2868840,
         STEAM_Fix_3373660,
@@ -58,7 +60,7 @@ object GameFixesRegistry {
     // executable's file name (lowercase) since there is no store id.
     private val exeNameFixes: Map<String, GameFix> = mapOf(
         "tlou-i.exe" to TLOU_PART1_EXE_FIX,
-        "tlou-i-l.exe" to TLOU_PART1_EXE_FIX,
+        "tlou-i-l.exe" to TLOU_PART1_NO_AVX_EXE_FIX,
     )
 
     fun applyFor(context: Context, appId: String, container: Container) {
