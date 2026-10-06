@@ -470,6 +470,36 @@ private fun DxWrapperSection(state: ContainerConfigState) {
                     config.copy(dxwrapperConfig = currentConfig.toString(), envVars = envVarsSet.toString())
             },
         )
+
+        // Texture filtering (DXVK, DX9-11): forced anisotropy + negative mip LOD bias.
+        // Idea from DroidDeck's TextureFiltering (GPL-3.0). Nearly free on Adreno, much sharper
+        // floors/roads at oblique angles; the bias sharpens upscaled (sub-native) output.
+        val anisoValues = listOf("0", "2", "4", "8", "16")
+        val anisoLabels = listOf(stringResource(R.string.texture_filter_game_default), "2x", "4x", "8x", "16x")
+        SettingsListDropdown(
+            colors = settingsTileColors(),
+            title = { Text(text = stringResource(R.string.texture_anisotropy)) },
+            value = anisoValues.indexOf(KeyValueSet(config.dxwrapperConfig).get("anisotropy", "0")).coerceAtLeast(0),
+            items = anisoLabels,
+            onItemSelected = { idx ->
+                val currentConfig = KeyValueSet(config.dxwrapperConfig)
+                currentConfig.put("anisotropy", anisoValues[idx])
+                state.config.value = config.copy(dxwrapperConfig = currentConfig.toString())
+            },
+        )
+        val lodValues = listOf("0", "-0.25", "-0.5", "-0.75", "-1.0")
+        val lodLabels = listOf(stringResource(R.string.texture_filter_game_default), "-0.25", "-0.5", "-0.75", "-1.0")
+        SettingsListDropdown(
+            colors = settingsTileColors(),
+            title = { Text(text = stringResource(R.string.texture_lod_bias)) },
+            value = lodValues.indexOf(KeyValueSet(config.dxwrapperConfig).get("lodBias", "0")).coerceAtLeast(0),
+            items = lodLabels,
+            onItemSelected = { idx ->
+                val currentConfig = KeyValueSet(config.dxwrapperConfig)
+                currentConfig.put("lodBias", lodValues[idx])
+                state.config.value = config.copy(dxwrapperConfig = currentConfig.toString())
+            },
+        )
     }
     // VKD3D Version UI (visible only when VKD3D selected)
     run {

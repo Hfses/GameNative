@@ -1622,4 +1622,7 @@
     <string name="phantom_open_dev_options">Opções do desenvolvedor</string>
     <string name="phantom_copy_adb">Copiar comando ADB</string>
     <string name="phantom_adb_copied">Comando ADB copiado</string>
+    <string name="texture_anisotropy">Filtro de textura (anisotrópico)</string>
+    <string name="texture_lod_bias">Nitidez de textura (LOD bias)</string>
+    <string name="texture_filter_game_default">Padrão do jogo</string>
 </resources>

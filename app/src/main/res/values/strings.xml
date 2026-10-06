@@ -1746,4 +1746,7 @@
     <string name="phantom_open_dev_options">Developer options</string>
     <string name="phantom_copy_adb">Copy ADB command</string>
     <string name="phantom_adb_copied">ADB command copied</string>
+    <string name="texture_anisotropy">Texture filtering (anisotropic)</string>
+    <string name="texture_lod_bias">Texture sharpness (LOD bias)</string>
+    <string name="texture_filter_game_default">Game default</string>
 </resources>

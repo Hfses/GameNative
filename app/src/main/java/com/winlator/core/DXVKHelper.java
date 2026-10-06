@@ -83,6 +83,22 @@ public class DXVKHelper {
             String[] parts = customDevice.split(":");
             content = (((((content + "dxgi.customDeviceId = " + parts[0] + "\n") + "dxgi.customVendorId = " + parts[1] + "\n") + "d3d9.customDeviceId = " + parts[0] + "\n") + "d3d9.customVendorId = " + parts[1] + "\n") + "dxgi.customDeviceDesc = \"" + parts[2] + "\"\n") + "d3d9.customDeviceDesc = \"" + parts[2] + "\"\n";
         }
+        // Texture filtering (adapted from DroidDeck's TextureFiltering, GPL-3.0).
+        String anisotropy = config.get("anisotropy");
+        if (anisotropy.equals("2") || anisotropy.equals("4") || anisotropy.equals("8") || anisotropy.equals("16")) {
+            content += "d3d9.samplerAnisotropy = " + anisotropy + "\n";
+            content += "d3d11.samplerAnisotropy = " + anisotropy + "\n";
+        }
+        try {
+            float bias = Float.parseFloat(config.get("lodBias", "0"));
+            if (bias < 0f) {
+                // Locale.US: DXVK parses "-0.50", never "-0,50".
+                String b = String.format(java.util.Locale.US, "%.2f", Math.max(bias, -2f));
+                content += "d3d9.samplerLodBias = " + b + "\n";
+                content += "d3d11.samplerLodBias = " + b + "\n";
+            }
+        } catch (NumberFormatException ignored) {
+        }
         if (config.getBoolean("constantBufferRangeCheck")) {
             content = content + "d3d11.constantBufferRangeCheck = \"True\"\n";
         }
