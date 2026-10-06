@@ -342,3 +342,16 @@ for more details.
 
 Full license text: https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html
 
+
+--------------------------------------------------------------------------------
+DroidDeck (https://github.com/Droid-Deck/DroidDeck) — GPL-3.0
+Portions used: in-app Wayland compositor (libdroiddeckwayland.so, built by
+tools/waylandcomp/build.sh at commit b44235c495fa6458aa438c9ba3be06562e5d1a3c), com.droiddeck.launcher.wayland
+JNI classes, PRoot patches and build script (tools/linux-proot), and ideas/code
+adapted in PhantomProcessLimit, WirelessAdbFix, GpuClockPin, GameSessionPerf,
+TurnipReleases and texture filtering.
+
+Termux terminal-emulator / terminal-view (https://github.com/termux/termux-app) — Apache-2.0
+Termux PRoot (https://github.com/termux/proot) — GPL-2.0
+LibretroDroid (https://github.com/Swordfish90/LibretroDroid) — GPL-3.0
+Kadb (https://github.com/flyfishxu/Kadb) — Apache-2.0
